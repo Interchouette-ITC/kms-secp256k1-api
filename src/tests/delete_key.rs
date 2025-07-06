@@ -1,0 +1,101 @@
+#[cfg(test)]
+mod tests {
+    use crate::create_app;
+    use crate::routes::CreateKeyResponse;
+    use crate::{config::Config, constants::CASPER_PUBLIC_KEY_PREFIXED};
+    use axum::{
+        body::Body,
+        http::{Request, StatusCode},
+    };
+    use http_body_util::BodyExt;
+    use tower::ServiceExt;
+
+    #[tokio::test]
+    async fn test_delete_key_returns_200_when_key_exists() {
+        let config = Config {
+            delete_mode: true,
+            ..Default::default()
+        };
+        let app = create_app(config).await;
+
+        let response = app
+            .clone()
+            .oneshot(Request::post("/createKey").body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::CREATED);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+        let parsed: CreateKeyResponse = serde_json::from_str(&body_str).unwrap();
+
+        let public_key = parsed.public_key;
+
+        // Delete the key
+        let uri = format!("/deleteKey?public_key={public_key}");
+        let delete_response = app
+            .oneshot(Request::delete(&uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(delete_response.status(), StatusCode::OK);
+
+        let body = delete_response
+            .into_body()
+            .collect()
+            .await
+            .unwrap()
+            .to_bytes();
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+
+        assert!(
+            body_str.contains("\"deleted\":true"),
+            "Expected deletion to succeed, got: {body_str}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_delete_key_returns_200_when_key_does_not_exist() {
+        let config = Config {
+            delete_mode: true,
+            ..Default::default()
+        };
+        let app = create_app(config).await;
+
+        let fake_key = CASPER_PUBLIC_KEY_PREFIXED;
+
+        let uri = format!("/deleteKey?public_key={fake_key}");
+        let response = app
+            .oneshot(Request::delete(&uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body_str = String::from_utf8(body.to_vec()).unwrap();
+
+        assert!(
+            body_str.contains("\"deleted\":false"),
+            "Expected deleted:false for non-existent key, got: {body_str}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_delete_key_returns_404_when_disabled() {
+        let config = Config {
+            delete_mode: false,
+            ..Default::default()
+        };
+        let app = create_app(config).await;
+
+        let uri = "/deleteKey?public_key=somekey";
+        let response = app
+            .oneshot(Request::delete(uri).body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
+    }
+}
