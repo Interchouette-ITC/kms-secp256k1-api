@@ -48,7 +48,7 @@ impl KeysServiceTrait for MockCasperKeysService {
         public_key: &str,
     ) -> Result<String, String> {
         let transaction_params = TransactionStrParams::default();
-        transaction_params.set_chain_name("mock");
+        transaction_params.set_chain_name("casper-net-1");
         transaction_params.set_initiator_addr(public_key);
         transaction_params.set_payment_amount("100000000");
         let sdk = SDK::new(None, None, None);
