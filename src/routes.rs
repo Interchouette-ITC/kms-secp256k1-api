@@ -159,7 +159,7 @@ pub async fn sign_transaction_hash(
 
                 approvals.push(Approval {
                     signer: key,
-                    v: format!("{:02x}", v),
+                    v: format!("{v:02x}"),
                     r: hex::encode(r),
                     s: hex::encode(s),
                     hash: transaction_hash.clone(),

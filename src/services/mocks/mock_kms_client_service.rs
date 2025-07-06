@@ -59,7 +59,6 @@ impl KmsClientService for MockKmsClientService {
         signature_base64: &str,
         public_key: &str,
     ) -> Result<bool, String> {
-        dbg!(signature_base64);
         if (transaction_hash_hex.contains(TRANSACTION_HASH)
             && signature_base64.eq(SIGNATURE_BASE64)
             && public_key.contains(CASPER_PUBLIC_KEY_PREFIXED))
