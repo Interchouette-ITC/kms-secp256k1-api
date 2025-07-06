@@ -181,5 +181,12 @@ mod tests {
             unconvert_ty.params().len() > 0,
             "unconvert should have at least one parameter"
         );
+
+        // Check recover function is present
+        let unconvert_ty = wasm_instance.recover_v.ty(&wasm_instance.store);
+        assert!(
+            unconvert_ty.params().len() > 0,
+            "recover_v should have at least one parameter"
+        );
     }
 }

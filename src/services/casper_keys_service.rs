@@ -241,6 +241,7 @@ mod tests {
         SDK, types::transaction_params::transaction_str_params::TransactionStrParams,
     };
     use regex::Regex;
+    use serde_json::json;
 
     use super::*;
     use crate::{
@@ -549,5 +550,144 @@ mod tests {
                 signature.len()
             );
         }
+    }
+
+    #[tokio::test]
+    async fn test_sign_transaction_malformed_json() {
+        let config = Config {
+            casper_mode: true,
+            aws_mode: false,
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to create CryptoService");
+
+        let mut service = CasperKeysService::new(config.clone(), crypto_service)
+            .await
+            .expect("Failed to create service");
+
+        let bad_json = "{ this is not valid JSON }";
+
+        let result = service
+            .sign_transaction(&config, bad_json, CASPER_PUBLIC_KEY_PREFIXED)
+            .await;
+
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(
+            err.contains("Failed to parse json-args")
+                || err.contains("Failed to parse transaction"),
+            "Expected parsing error, got: {err}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_sign_transaction_missing_transaction_field() {
+        let config = Config {
+            casper_mode: true,
+            aws_mode: false,
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to create CryptoService");
+
+        let mut service = CasperKeysService::new(config.clone(), crypto_service)
+            .await
+            .expect("Failed to create service");
+
+        let minimal_transaction = json!({
+            "some": "value"
+        })
+        .to_string();
+
+        let result = service
+            .sign_transaction(&config, &minimal_transaction, CASPER_PUBLIC_KEY_PREFIXED)
+            .await;
+
+        assert!(
+            result.is_err(),
+            "Expected failure due to missing transaction fields"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_sign_transaction_hash_with_invalid_input() {
+        let config = Config {
+            casper_mode: true,
+            aws_mode: false,
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let mut service = CasperKeysService::new(config.clone(), crypto_service)
+            .await
+            .expect("Failed to create CasperKeysService");
+
+        // Invalid public key and transaction hash
+        let result = service
+            .sign_transaction_hash(&config, "invalid_hash", "invalid_key")
+            .await;
+
+        assert!(
+            result.is_err(),
+            "Expected signing to fail due to invalid input"
+        );
+        let error = result.unwrap_err();
+        assert!(
+            error.contains("Error reading transaction parameters"),
+            "Unexpected error: {error}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_sign_transaction_malformed_approvals() {
+        let config = Config {
+            casper_mode: true,
+            aws_mode: false,
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to create CryptoService");
+
+        let mut service = CasperKeysService::new(config.clone(), crypto_service)
+            .await
+            .expect("Failed to create service");
+
+        // approvals should be an array, here it's a string (malformed)
+        let transaction = json!({
+            "hash": TRANSACTION_HASH,
+            "approvals": "not an array"
+        })
+        .to_string();
+
+        let result = service
+            .sign_transaction(&config, &transaction, CASPER_PUBLIC_KEY_PREFIXED)
+            .await;
+
+        assert!(
+            result.is_err(),
+            "Expected failure due to malformed approvals field"
+        );
     }
 }

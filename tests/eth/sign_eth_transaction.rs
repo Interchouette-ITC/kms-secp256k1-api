@@ -1,16 +1,14 @@
-use casper_rust_wasm_sdk::{
-    SDK,
-    types::{
-        transaction::Transaction, transaction_params::transaction_str_params::TransactionStrParams,
-    },
+use kms_secp256k1_api::{
+    config::Config, constants::ETH_TRANSACTION, routes::CreateKeyResponse, run_server,
 };
-use kms_secp256k1_api::{config::Config, routes::CreateKeyResponse, run_server};
+use serde_json::Value;
 use serial_test::serial;
-use std::{collections::HashSet, time::Duration};
+use std::time::Duration;
 use tokio::task;
 
 async fn start_server() -> task::JoinHandle<()> {
     let config = Config {
+        ethereum_mode: true,
         ..Default::default()
     };
 
@@ -42,19 +40,6 @@ async fn test_sign_transaction_returns_200_integration() {
         public_keys.push(parsed.public_key);
     }
 
-    // Step 2: Prepare Casper transaction using SDK
-    let tx_params = TransactionStrParams::default();
-    tx_params.set_chain_name("mock");
-    tx_params.set_initiator_addr(&public_keys[0]);
-    tx_params.set_payment_amount("100000000");
-
-    let sdk = SDK::new(None, None, None);
-    let transaction = sdk
-        .make_transfer_transaction(None, &public_keys[1], "2500000000", tx_params, None)
-        .expect("Failed to create transfer transaction");
-
-    let transaction_json = transaction.to_json_string().unwrap();
-
     let query_string = public_keys
         .iter()
         .map(|k| format!("public_keys={k}"))
@@ -66,7 +51,7 @@ async fn test_sign_transaction_returns_200_integration() {
     let sign_resp = client
         .post(&sign_url)
         .header("Content-Type", "application/json")
-        .body(transaction_json)
+        .body(ETH_TRANSACTION)
         .send()
         .await
         .expect("Failed to call /signTransaction");
@@ -74,6 +59,7 @@ async fn test_sign_transaction_returns_200_integration() {
     assert!(sign_resp.status().is_success());
 
     let resp_body = sign_resp.text().await.expect("Failed to read response");
+
     for key in &public_keys {
         assert!(
             resp_body.contains(key),
@@ -81,29 +67,41 @@ async fn test_sign_transaction_returns_200_integration() {
         );
     }
 
-    let signed_transaction: Transaction =
+    let signed_transaction: Value =
         serde_json::from_str(&resp_body).expect("Failed to parse signed transaction");
 
-    let approvals = signed_transaction.approvals();
-    let approval_signers: HashSet<_> = approvals
-        .iter()
-        .map(|a| a.signer().to_hex_string())
-        .collect();
+    let signatures = signed_transaction
+        .get("signatures")
+        .and_then(|v| v.as_array())
+        .expect("Missing or invalid 'signatures' array");
+
+    let mut approval_signers = std::collections::HashSet::new();
+
+    for sig in signatures {
+        let signer = sig
+            .get("signer")
+            .and_then(|v| v.as_str())
+            .expect("Missing 'signer' in signature");
+
+        let signature = sig
+            .get("signature")
+            .and_then(|v| v.as_str())
+            .expect("Missing 'signature' in signature");
+
+        approval_signers.insert(signer.to_string());
+
+        assert_eq!(
+            signature.strip_prefix("0x").unwrap_or(signature).len(),
+            130,
+            "Signature length incorrect for signer {signer}: {}",
+            signature.len()
+        );
+    }
 
     for key in &public_keys {
         assert!(
             approval_signers.contains(key),
-            "Approval missing for key: {key}"
-        );
-    }
-
-    for approval in approvals {
-        let sig = approval.signature().to_hex_string();
-        assert_eq!(
-            sig.len(),
-            130,
-            "Signature length incorrect: expected 130, got {}",
-            sig.len()
+            "Signature missing for key: {key}"
         );
     }
 

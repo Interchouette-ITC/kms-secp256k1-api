@@ -1,7 +1,7 @@
 #[cfg(test)]
 use crate::constants::{
-    CASPER_PUBLIC_KEY_PREFIXED, ETH_PUBLIC_KEY, ETH_SIGNATURE_BASE64, ETH_SIGNATURE_BASE64_WITH_V,
-    ETH_TRANSACTION_HASH, SIGNATURE_BASE64, TRANSACTION_HASH,
+    CASPER_PUBLIC_KEY_PREFIXED, ETH_PUBLIC_KEY, ETH_SIGNATURE_BASE64, ETH_TRANSACTION_HASH,
+    SIGNATURE_BASE64, TRANSACTION_HASH,
 };
 #[cfg(test)]
 use crate::services::kms_client_service::KmsClientService;
@@ -63,7 +63,7 @@ impl KmsClientService for MockKmsClientService {
             && signature_base64.eq(SIGNATURE_BASE64)
             && public_key.contains(CASPER_PUBLIC_KEY_PREFIXED))
             || (transaction_hash_hex.contains(ETH_TRANSACTION_HASH)
-                && signature_base64.eq(ETH_SIGNATURE_BASE64_WITH_V)
+                && signature_base64.eq(ETH_SIGNATURE_BASE64)
                 && public_key.contains(ETH_PUBLIC_KEY))
         {
             Ok(true)
