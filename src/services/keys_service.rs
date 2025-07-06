@@ -399,7 +399,7 @@ mod tests {
         config::Config,
         constants::{
             CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, ETH_PUBLIC_KEY, ETH_SIGNATURE,
-            ETH_SIGNATURE_V, ETH_TRANSACTION_HASH, SIGNATURE_RSV_LEN, TRANSACTION_HASH, WASM_PATH,
+            ETH_TRANSACTION_HASH, SIGNATURE_RSV_LEN, TRANSACTION_HASH, WASM_PATH,
         },
         services::crypto_service::CryptoService,
         wasm_loader::WasmLoader,
@@ -478,15 +478,227 @@ mod tests {
         assert!(result.is_ok(), "sign failed: {result:?}");
         let signature = result.unwrap();
 
-        assert_eq!(
-            signature.to_string(),
-            format!("{ETH_SIGNATURE}{ETH_SIGNATURE_V}"),
-            "Signature invalid"
-        );
+        assert_eq!(signature.to_string(), ETH_SIGNATURE, "Signature invalid");
         assert_eq!(
             signature.len(),
             SIGNATURE_RSV_LEN,
             "Signature length invalid"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_verify_successful() {
+        let config = Config {
+            aws_mode: false,
+            casper_mode: true,
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let mut service = KeysService::new(config.clone(), crypto_service)
+            .await
+            .expect("Failed to create KeysService");
+
+        let public_key = CASPER_PUBLIC_KEY_PREFIXED;
+
+        // First, sign the transaction
+        let signature = service
+            .sign(TRANSACTION_HASH, public_key, None)
+            .await
+            .expect("Signing failed");
+
+        // Then, verify the signature
+        let result = service.verify(TRANSACTION_HASH, &signature, public_key);
+
+        assert!(result.is_ok(), "verify failed: {result:?}");
+        assert!(result.unwrap(), "signature verification returned false");
+    }
+
+    #[tokio::test]
+    async fn test_verify_eip155_successful() {
+        let config = Config {
+            aws_mode: false,
+            ethereum_mode: true,
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let mut service = KeysService::new(config.clone(), crypto_service)
+            .await
+            .expect("Failed to create KeysService");
+
+        let transaction_hash = ETH_TRANSACTION_HASH;
+        let public_key = ETH_PUBLIC_KEY;
+        let signature = ETH_SIGNATURE;
+
+        // Verify the known-good Ethereum signature
+        let result = service.verify_eip155(transaction_hash, signature, public_key);
+
+        assert!(result.is_ok(), "verify_eip155 failed: {result:?}");
+        assert!(
+            result.unwrap(),
+            "EIP-155 signature verification returned false"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_verify_via_kms_successful() {
+        let config = Config {
+            casper_mode: true,
+            aws_mode: false, // use mocked kms
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let mut service = KeysService::new(config, crypto_service)
+            .await
+            .expect("Failed to create KeysService");
+
+        // Sign using Casper keys
+        let signature = service
+            .sign(TRANSACTION_HASH, CASPER_PUBLIC_KEY_PREFIXED, None)
+            .await
+            .expect("Signing failed");
+
+        // Verify via KMS
+        let result = service
+            .verify_via_kms(TRANSACTION_HASH, &signature, CASPER_PUBLIC_KEY_PREFIXED)
+            .await;
+
+        assert!(result.is_ok(), "verify_via_kms failed: {result:?}");
+        assert!(result.unwrap(), "KMS verification returned false");
+    }
+
+    #[tokio::test]
+    async fn test_verify_via_kms_eip155_successful() {
+        let config = Config {
+            ethereum_mode: true,
+            aws_mode: false, // use mocked kms
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let mut service = KeysService::new(config, crypto_service)
+            .await
+            .expect("Failed to create KeysService");
+
+        // ETH_SIGNATURE is assumed valid, from constants
+        let result = service
+            .verify_via_kms_eip155(ETH_TRANSACTION_HASH, ETH_SIGNATURE, ETH_PUBLIC_KEY)
+            .await;
+
+        assert!(result.is_ok(), "verify_via_kms_eip155 failed: {result:?}");
+        assert!(result.unwrap(), "EIP-155 + KMS verification returned false");
+    }
+
+    #[tokio::test]
+    async fn test_delete_key_successful() {
+        let config = Config {
+            aws_mode: false, // use mocked kms
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let mut service = KeysService::new(config, crypto_service)
+            .await
+            .expect("Failed to create KeysService");
+
+        // Key that matches mocked successful condition
+        let result = service.delete_key("known_public_key_xyz").await;
+
+        assert!(result.is_ok(), "delete_key failed unexpectedly: {result:?}");
+        assert!(result.unwrap(), "Expected key deletion to succeed");
+    }
+
+    #[tokio::test]
+    async fn test_delete_key_not_found() {
+        let config = Config {
+            aws_mode: false, // use mocked kms
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let mut service = KeysService::new(config, crypto_service)
+            .await
+            .expect("Failed to create KeysService");
+
+        // Key that doesn't match mock condition
+        let result = service.delete_key("some_other_key").await;
+
+        assert!(result.is_ok(), "delete_key failed unexpectedly: {result:?}");
+        assert!(
+            !result.unwrap(),
+            "Expected deletion to return false for unknown key"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_list_keys_successful() {
+        let config = Config {
+            aws_mode: false, // use mocked kms
+            ..Default::default()
+        };
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let mut service = KeysService::new(config, crypto_service)
+            .await
+            .expect("Failed to create KeysService");
+
+        let result = service.list_keys().await;
+
+        assert!(result.is_ok(), "list_keys failed: {result:?}");
+
+        let keys = result.unwrap();
+        assert_eq!(keys.len(), 2, "Expected two keys from mocked KMS");
+        assert_eq!(
+            keys[0],
+            ("key_id_1".to_string(), "public_key_1".to_string())
+        );
+        assert_eq!(
+            keys[1],
+            ("key_id_2".to_string(), "public_key_2".to_string())
         );
     }
 }

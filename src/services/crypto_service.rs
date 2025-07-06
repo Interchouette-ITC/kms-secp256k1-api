@@ -323,8 +323,8 @@ mod tests {
     use crate::{
         constants::{
             CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, ETH_PUBLIC_KEY, ETH_SIGNATURE,
-            ETH_SIGNATURE_V, ETH_TRANSACTION_HASH, SIGNATURE, SIGNATURE_PREFIXED, TRANSACTION_HASH,
-            WASM_PATH,
+            ETH_SIGNATURE_V, ETH_TRANSACTION_HASH, SIGNATURE, SIGNATURE_PREFIXED, SIGNATURE_RS_LEN,
+            TRANSACTION_HASH, WASM_PATH,
         },
         services::crypto_service::CryptoService,
         wasm_loader::WasmLoader,
@@ -346,7 +346,7 @@ mod tests {
         match result {
             Ok(hex) => {
                 assert!(!hex.is_empty(), "Expected non-empty hex output");
-                println!("Converted public key hex: {hex}");
+                // println!("Converted public key hex: {hex}");
             }
             Err(e) => panic!("Failed to convert public key: {e}"),
         }
@@ -400,11 +400,11 @@ mod tests {
 
         // Full key with prefix
         let message = ETH_TRANSACTION_HASH;
-        let signature = format!("{ETH_SIGNATURE}{ETH_SIGNATURE_V}");
+        let signature = ETH_SIGNATURE;
         let public_key = ETH_PUBLIC_KEY;
 
         let is_valid = crypto_service
-            .verify_eip155(message, &signature, public_key)
+            .verify_eip155(message, signature, public_key)
             .expect("Verification failed");
 
         assert!(is_valid, "Expected valid signature for public key");
@@ -492,6 +492,48 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_crypto_service_case_insensitive_signature_roundtrip() {
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let mut crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let signature = SIGNATURE.to_uppercase();
+
+        let unconverted = crypto_service.unconvert(&signature).unwrap();
+        let result = crypto_service.convert(&unconverted).unwrap();
+
+        assert_eq!(result.to_lowercase(), SIGNATURE.to_lowercase());
+    }
+
+    #[tokio::test]
+    async fn test_crypto_service_convert_roundtrip_eip155() {
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let mut crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let signature_without_prefix = ETH_SIGNATURE;
+
+        let signature = crypto_service
+            .unconvert(signature_without_prefix)
+            .expect("Failed to unconvert signature");
+
+        let signature = crypto_service
+            .convert(&signature)
+            .expect("Failed to convert back to signature");
+
+        assert_eq!(
+            signature.to_lowercase(),
+            signature_without_prefix.to_lowercase()
+        );
+    }
+
+    #[tokio::test]
     async fn test_crypto_service_convert_with_prefix_roundtrip() {
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -513,6 +555,116 @@ mod tests {
         assert_eq!(
             format!("{CASPER_SECP_PREFIX}{}", signature.to_lowercase()),
             signature_with_prefix.to_lowercase()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_crypto_service_recover_v() {
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let mut crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let message = TRANSACTION_HASH;
+        let signature = &SIGNATURE;
+        let public_key = CASPER_PUBLIC_KEY_PREFIXED;
+
+        let result = crypto_service
+            .recover_v(message, signature, public_key, None)
+            .expect("Failed to recover v");
+
+        assert!(!result.is_empty(), "Expected non-empty v from recover_v");
+
+        assert_eq!(result, "0", "Expected non-empty 0 v");
+    }
+
+    #[tokio::test]
+    async fn test_crypto_service_recover_v_eip155() {
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let mut crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let message = ETH_TRANSACTION_HASH;
+        let signature = &ETH_SIGNATURE[..SIGNATURE_RS_LEN]; // remove recovery byte (r + s)
+        let public_key = ETH_PUBLIC_KEY;
+
+        let result = crypto_service
+            .recover_v(message, signature, public_key, None)
+            .expect("Failed to recover v");
+
+        assert_eq!(result, ETH_SIGNATURE_V, "Expected non-empty v");
+    }
+
+    #[tokio::test]
+    async fn test_crypto_service_recover_v_with_chain_id() {
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let mut crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let message = ETH_TRANSACTION_HASH;
+        let signature = &ETH_SIGNATURE[..SIGNATURE_RS_LEN];
+        let public_key = ETH_PUBLIC_KEY;
+
+        let chain_id = Some(1); // Ethereum mainnet
+
+        let result = crypto_service
+            .recover_v(message, signature, public_key, chain_id)
+            .expect("Failed to recover v");
+
+        assert_eq!(result, ETH_SIGNATURE_V, "Expected non-empty v");
+
+        let result = crypto_service
+            .recover_v(message, signature, public_key, None)
+            .expect("Failed to recover v");
+
+        assert_eq!(result, ETH_SIGNATURE_V, "Expected non-empty v");
+    }
+
+    #[tokio::test]
+    async fn test_crypto_service_invalid_public_key() {
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let mut crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let invalid_key = "invalid_key";
+
+        let result = crypto_service.public_key(invalid_key);
+
+        assert!(
+            result.is_err(),
+            "Expected an error when passing invalid public key input"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_crypto_service_empty_signature() {
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let mut crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let message = ETH_TRANSACTION_HASH;
+        let signature = "";
+        let public_key = ETH_PUBLIC_KEY;
+
+        let result = crypto_service.verify_eip155(message, signature, public_key);
+
+        assert!(
+            result.is_err() || !result.unwrap(),
+            "Expected false or error for empty signature"
         );
     }
 }

@@ -1,5 +1,6 @@
 use kms_secp256k1_api::{
     config::Config,
+    constants::TRANSACTION_HASH,
     routes::{Approval, CreateKeyResponse},
     run_server,
 };
@@ -16,9 +17,6 @@ async fn start_server() -> task::JoinHandle<()> {
         let _ = run_server(config).await;
     })
 }
-
-pub static TRANSACTION_HASH: &str =
-    "bf2902fc693c1f64978e30557e04844ae74a64f9e07b72bd40a10d46508ed9fb";
 
 #[tokio::test]
 #[serial]

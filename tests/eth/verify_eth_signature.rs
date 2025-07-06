@@ -1,5 +1,6 @@
 use kms_secp256k1_api::{
     config::Config,
+    constants::ETH_TRANSACTION_HASH,
     routes::{Approval, CreateKeyResponse},
     run_server,
 };
@@ -9,6 +10,7 @@ use tokio::task;
 
 async fn start_server() -> task::JoinHandle<()> {
     let config = Config {
+        ethereum_mode: true,
         ..Default::default()
     };
 
@@ -16,9 +18,6 @@ async fn start_server() -> task::JoinHandle<()> {
         let _ = run_server(config).await;
     })
 }
-
-pub static TRANSACTION_HASH: &str =
-    "bf2902fc693c1f64978e30557e04844ae74a64f9e07b72bd40a10d46508ed9fb";
 
 async fn run_verify_signature_test(via_kms: bool) {
     let server_handle = start_server().await;
@@ -41,7 +40,7 @@ async fn run_verify_signature_test(via_kms: bool) {
         .expect("Failed to parse createKey response");
 
     let public_key = created.public_key;
-    let transaction_hash = TRANSACTION_HASH;
+    let transaction_hash = ETH_TRANSACTION_HASH;
 
     let sign_url = format!("{base_url}/signTransactionHash?public_keys={public_key}");
 
