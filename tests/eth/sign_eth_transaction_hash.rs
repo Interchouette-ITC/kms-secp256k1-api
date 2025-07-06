@@ -21,7 +21,7 @@ async fn start_server() -> task::JoinHandle<()> {
 
 #[tokio::test]
 #[serial]
-async fn test_sign_transaction_hash_returns_200_integration() {
+async fn test_sign_eth_transaction_hash_returns_200_integration() {
     let server_handle = start_server().await;
     tokio::time::sleep(Duration::from_secs(1)).await;
 

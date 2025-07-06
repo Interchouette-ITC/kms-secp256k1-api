@@ -18,7 +18,7 @@ async fn start_server() -> task::JoinHandle<()> {
     })
 }
 
-async fn run_verify_signature_test(via_kms: bool) {
+async fn run_verify_casper_signature_test(via_kms: bool) {
     let server_handle = start_server().await;
     tokio::time::sleep(Duration::from_secs(1)).await;
 
@@ -89,12 +89,12 @@ async fn run_verify_signature_test(via_kms: bool) {
 
 #[tokio::test]
 #[serial]
-async fn test_verify_signature_returns_200_integration() {
-    run_verify_signature_test(false).await;
+async fn test_verify_casper_signature_returns_200_integration() {
+    run_verify_casper_signature_test(false).await;
 }
 
 #[tokio::test]
 #[serial]
-async fn test_verify_via_kms_signature_returns_200_integration() {
-    run_verify_signature_test(true).await;
+async fn test_verify_casper_via_kms_signature_returns_200_integration() {
+    run_verify_casper_signature_test(true).await;
 }

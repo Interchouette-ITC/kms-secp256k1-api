@@ -21,7 +21,7 @@ async fn start_server() -> task::JoinHandle<()> {
 
 #[tokio::test]
 #[serial]
-async fn test_sign_transaction_returns_200_integration() {
+async fn test_sign_casper_transaction_returns_200_integration() {
     let server_handle = start_server().await;
     tokio::time::sleep(Duration::from_secs(1)).await;
 
@@ -43,7 +43,7 @@ async fn test_sign_transaction_returns_200_integration() {
     }
 
     let tx_params = TransactionStrParams::default();
-    tx_params.set_chain_name("mock");
+    tx_params.set_chain_name("casper-net-1");
     tx_params.set_initiator_addr(&public_keys[0]);
     tx_params.set_payment_amount("100000000");
 

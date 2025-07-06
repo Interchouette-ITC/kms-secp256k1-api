@@ -504,7 +504,7 @@ mod tests {
 
         // Build transaction params as you provided
         let transaction_params = TransactionStrParams::default();
-        transaction_params.set_chain_name("mock");
+        transaction_params.set_chain_name("casper-net-1");
         transaction_params.set_initiator_addr(public_key);
         transaction_params.set_payment_amount("100000000");
 
