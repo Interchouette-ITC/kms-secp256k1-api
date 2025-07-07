@@ -4,15 +4,13 @@ use casper_rust_wasm_sdk::{
         transaction::Transaction, transaction_params::transaction_str_params::TransactionStrParams,
     },
 };
-use kms_secp256k1_api::{config::Config, routes::CreateKeyResponse, run_server};
+use kms_secp256k1_api::{config::ConfigBuilder, routes::CreateKeyResponse, run_server};
 use serial_test::serial;
 use std::{collections::HashSet, time::Duration};
 use tokio::task;
 
 async fn start_server() -> task::JoinHandle<()> {
-    let config = Config {
-        ..Default::default()
-    };
+    let config = ConfigBuilder::new().build();
 
     task::spawn(async move {
         let _ = run_server(config).await;

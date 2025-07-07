@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::config::Config;
+    use crate::config::ConfigBuilder;
     use crate::create_app;
     use axum::{
         body::Body,
@@ -11,7 +11,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_hello_returns_200() {
-        let config = Config::default(); // testing_mode = true
+        let config = ConfigBuilder::new().with_testing_mode(true).build();
+
         let app = create_app(config).await;
 
         let response = app
@@ -30,10 +31,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_hello_with_custom_message() {
-        let config = Config {
-            testing_mode: false,
-            ..Config::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_testing_mode(false)
+            .with_aws_mode(true) // Do not mock the KMS
+            .build();
 
         let app = create_app(config).await;
 
@@ -57,10 +58,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_hello_without_message_param() {
-        let config = Config {
-            testing_mode: false,
-            ..Config::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_testing_mode(false)
+            .with_aws_mode(true) // Do not mock the KMS
+            .build();
+
         let app = create_app(config).await;
 
         let response = app

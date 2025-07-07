@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use crate::config::ConfigBuilder;
+    use crate::constants::ETH_TRANSACTION_HASH;
     use crate::create_app;
     use crate::routes::CreateKeyResponse;
-    use crate::{config::Config, constants::ETH_TRANSACTION_HASH};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -12,10 +13,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_eth_transaction_hash_returns_200() {
-        let config = Config {
-            ethereum_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_ethereum_mode().build();
+
         let app = create_app(config).await;
 
         let transaction_hash = ETH_TRANSACTION_HASH;

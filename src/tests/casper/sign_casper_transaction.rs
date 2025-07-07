@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::config::Config;
+    use crate::config::ConfigBuilder;
     use crate::create_app;
     use crate::routes::CreateKeyResponse;
     use axum::{
@@ -19,10 +19,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_casper_transaction_hash_returns_200() {
-        let config = Config {
-            casper_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_casper_mode().build();
         let app = create_app(config).await;
 
         let mut public_keys = Vec::new();

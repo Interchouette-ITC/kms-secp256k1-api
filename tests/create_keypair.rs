@@ -1,14 +1,13 @@
-use kms_secp256k1_api::{config::Config, routes::CreateKeyResponse, run_server};
+use kms_secp256k1_api::{config::ConfigBuilder, routes::CreateKeyResponse, run_server};
 use serial_test::serial;
 use std::time::Duration;
 use tokio::task;
 
-async fn start_server(ethereum_mode: bool, casper_mode: bool) -> task::JoinHandle<()> {
-    let config = Config {
-        testing_mode: true,
-        ethereum_mode,
-        casper_mode,
-        ..Default::default()
+async fn start_server(ethereum_mode: bool) -> task::JoinHandle<()> {
+    let config = if ethereum_mode {
+        ConfigBuilder::new().with_ethereum_mode().build()
+    } else {
+        ConfigBuilder::new().with_casper_mode().build()
     };
 
     task::spawn(async move {
@@ -20,7 +19,7 @@ async fn start_server(ethereum_mode: bool, casper_mode: bool) -> task::JoinHandl
 #[serial]
 async fn test_create_ethereum_keypair_returns_201_mocked() {
     let ethereum_mode = true;
-    let server_handle = start_server(ethereum_mode, false).await;
+    let server_handle = start_server(ethereum_mode).await;
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     let client = reqwest::Client::new();
@@ -53,8 +52,7 @@ async fn test_create_ethereum_keypair_returns_201_mocked() {
 #[tokio::test]
 #[serial]
 async fn test_create_casper_keypair_returns_201_mocked() {
-    let casper_mode = true;
-    let server_handle = start_server(false, casper_mode).await;
+    let server_handle = start_server(false).await;
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     let client = reqwest::Client::new();

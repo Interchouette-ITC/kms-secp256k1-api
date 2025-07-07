@@ -32,7 +32,7 @@ impl KeysServiceTrait for CasperKeysService {
     /// Returns an error if key creation, public key conversion, or alias creation fails.
     async fn create_key(&mut self, config: &Config) -> Result<String, String> {
         // Determine prefix keys_serviced on config
-        let prefix = if config.casper_mode {
+        let prefix = if config.is_casper_mode() {
             CASPER_SECP_PREFIX
         } else {
             ""
@@ -104,7 +104,7 @@ impl KeysServiceTrait for CasperKeysService {
         transaction_hash: &str,
         public_key: &str,
     ) -> Result<String, String> {
-        if !config.casper_mode {
+        if !config.is_casper_mode() {
             return Err("Only Casper mode is supported".to_string());
         }
         info!("transaction_hash to sign: {}", transaction_hash);
@@ -167,7 +167,7 @@ impl KeysServiceTrait for CasperKeysService {
         transaction_str: &str,
         public_key: &str,
     ) -> Result<String, String> {
-        if !config.casper_mode {
+        if !config.is_casper_mode() {
             return Err("Only Casper mode is supported".to_string());
         }
 
@@ -245,7 +245,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        config::Config,
+        config::ConfigBuilder,
         constants::{
             CASPER_PUBLIC_KEY_PREFIXED, SIGNATURE, SIGNATURE_PREFIXED, TRANSACTION_HASH, WASM_PATH,
         },
@@ -255,11 +255,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_key() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -285,11 +284,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_signature() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -328,11 +326,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_via_kms_signature() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -374,11 +371,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_key() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -406,11 +402,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_keys() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -441,11 +436,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction_hash() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -482,11 +476,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -554,11 +547,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction_malformed_json() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -588,11 +580,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction_missing_transaction_field() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -622,11 +613,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction_hash_with_invalid_input() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -657,11 +647,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction_malformed_approvals() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_casper_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await

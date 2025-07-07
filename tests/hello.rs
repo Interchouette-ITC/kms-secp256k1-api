@@ -1,13 +1,14 @@
-use kms_secp256k1_api::{config::Config, run_server};
+use kms_secp256k1_api::{config::ConfigBuilder, run_server};
 use serial_test::serial;
 use std::time::Duration;
 use tokio::task;
 
 async fn start_server(testing_mode: bool) -> task::JoinHandle<()> {
-    let config = Config {
-        testing_mode,
-        ..Default::default()
-    };
+    let config = ConfigBuilder::new()
+        .with_testing_mode(testing_mode)
+        .with_aws_mode(true) // Do not mock the KMS
+        .build();
+
     task::spawn(async move {
         let _ = run_server(config).await;
     })

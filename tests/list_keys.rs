@@ -1,14 +1,11 @@
-use kms_secp256k1_api::{config::Config, routes::CreateKeyResponse, run_server};
+use kms_secp256k1_api::{config::ConfigBuilder, routes::CreateKeyResponse, run_server};
 use serde_json::Value;
 use serial_test::serial;
 use std::time::Duration;
 use tokio::task;
 
 async fn start_server(list_mode: bool) -> task::JoinHandle<()> {
-    let config = Config {
-        list_mode,
-        ..Default::default()
-    };
+    let config = ConfigBuilder::new().with_list_mode(list_mode).build();
 
     task::spawn(async move {
         let _ = run_server(config).await;

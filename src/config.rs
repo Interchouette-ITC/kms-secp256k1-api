@@ -26,29 +26,35 @@ pub enum HashType {
     Keccak256,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[non_exhaustive]
+pub enum BlockchainMode {
+    #[default]
+    Casper,
+    Ethereum,
+}
+
 #[allow(clippy::struct_excessive_bools)]
 #[derive(Debug, Clone)]
 pub struct Config {
-    pub port: u16,
-    pub aws: AwsConfig,
-    pub testing_mode: bool,
-    pub aws_mode: bool,
-    pub casper_mode: bool,
-    pub ethereum_mode: bool,
-    pub delete_mode: bool,
-    pub list_mode: bool,
-    pub eth_chain_id: u8,
+    blockchain_mode: BlockchainMode,
+    port: u16,
+    aws: AwsConfig,
+    testing_mode: bool,
+    aws_mode: bool,
+    delete_mode: bool,
+    list_mode: bool,
+    eth_chain_id: u8,
 }
 
 impl Default for Config {
     fn default() -> Self {
         Self {
+            blockchain_mode: BlockchainMode::default(), // CASPER MODE by default
             port: DEFAULT_PORT,
             aws: AwsConfig::default(),
             testing_mode: true, // TESTING_MODE true by default
-            aws_mode: true,     // AWS_MODE true by default
-            casper_mode: true,  // CASPER_MODE true by default
-            ethereum_mode: false,
+            aws_mode: false,
             delete_mode: false,
             list_mode: false,
             eth_chain_id: DEFAULT_ETH_CHAIN_ID,
@@ -74,33 +80,34 @@ impl Config {
         let create = get_creds("KMS_CREATE_ID", "KMS_CREATE_KEY");
         let delete = delete_mode.then(|| get_creds("KMS_DELETE_ID", "KMS_DELETE_KEY"));
         let list = list_mode.then(|| get_creds("KMS_LIST_ID", "KMS_LIST_KEY"));
-        let aws_mode = env::var("AWS_MODE").map(|v| v == "true").unwrap_or(false);
-        let casper_mode = env::var("CASPER_MODE")
-            .map(|v| v == "true")
-            .unwrap_or(false);
-        let ethereum_mode = !casper_mode
-            && env::var("ETHEREUM_MODE")
-                .map(|v| v == "true")
-                .unwrap_or(false);
+        let aws_mode = env::var("AWS_MODE").map(|v| v == "true").unwrap_or(true);
+
+        let blockchain_mode = match env::var("BLOCKCHAIN_MODE")
+            .unwrap_or_else(|_| format!("{:?}", BlockchainMode::default()))
+            .to_lowercase()
+            .as_str()
+        {
+            "casper" => BlockchainMode::Casper,
+            "ethereum" => BlockchainMode::Ethereum,
+            _ => BlockchainMode::default(),
+        };
+
+        let hash_type = match blockchain_mode {
+            BlockchainMode::Casper => HashType::Sha256,
+            BlockchainMode::Ethereum => HashType::Keccak256,
+        };
 
         log_modes(&Modes {
             delete_mode,
             list_mode,
             aws_mode,
             testing_mode,
-            casper_mode,
-            ethereum_mode,
+            blockchain_mode: blockchain_mode.clone(),
+            hash_type,
         });
 
-        let hash_type = if casper_mode {
-            HashType::Sha256
-        } else if ethereum_mode {
-            HashType::Keccak256
-        } else {
-            HashType::default()
-        };
-
         Self {
+            blockchain_mode,
             port: env::var("PORT")
                 .ok()
                 .and_then(|v| v.parse().ok())
@@ -114,8 +121,6 @@ impl Config {
                 hash_type,
             },
             aws_mode,
-            casper_mode,
-            ethereum_mode,
             testing_mode,
             delete_mode,
             list_mode,
@@ -124,6 +129,42 @@ impl Config {
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(DEFAULT_ETH_CHAIN_ID),
         }
+    }
+
+    pub fn is_testing_mode(&self) -> bool {
+        self.testing_mode
+    }
+
+    pub fn is_ethereum_mode(&self) -> bool {
+        self.blockchain_mode == BlockchainMode::Ethereum
+    }
+
+    pub fn is_casper_mode(&self) -> bool {
+        self.blockchain_mode == BlockchainMode::Casper
+    }
+
+    pub fn is_delete_mode(&self) -> bool {
+        self.delete_mode
+    }
+
+    pub fn is_list_mode(&self) -> bool {
+        self.list_mode
+    }
+
+    pub fn is_aws_mode(&self) -> bool {
+        self.aws_mode
+    }
+
+    pub fn get_aws_config(&self) -> AwsConfig {
+        self.aws.clone()
+    }
+
+    pub fn get_port(&self) -> u16 {
+        self.port
+    }
+
+    pub fn get_eth_chain_id(&self) -> u8 {
+        self.eth_chain_id
     }
 }
 
@@ -150,8 +191,8 @@ struct Modes {
     list_mode: bool,
     aws_mode: bool,
     testing_mode: bool,
-    casper_mode: bool,
-    ethereum_mode: bool,
+    blockchain_mode: BlockchainMode,
+    hash_type: HashType,
 }
 
 #[allow(clippy::cognitive_complexity)]
@@ -160,6 +201,71 @@ fn log_modes(modes: &Modes) {
     info!("aws_mode: {}", modes.aws_mode);
     info!("delete_mode: {}", modes.delete_mode);
     info!("list_mode: {}", modes.list_mode);
-    info!("casper_mode: {}", modes.casper_mode);
-    info!("ethereum_mode: {}", modes.ethereum_mode);
+    info!("blockchain_mode: {:?}", modes.blockchain_mode);
+    info!("hash_type: {:?}", modes.hash_type);
+}
+
+#[derive(Debug, Default)]
+pub struct ConfigBuilder {
+    config: Config,
+}
+
+impl ConfigBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn with_blockchain_mode(mut self, mode: BlockchainMode) -> Self {
+        self.config.blockchain_mode = mode;
+        self
+    }
+
+    pub fn with_casper_mode(mut self) -> Self {
+        self.config.blockchain_mode = BlockchainMode::Casper;
+        self
+    }
+
+    pub fn with_ethereum_mode(mut self) -> Self {
+        self.config.blockchain_mode = BlockchainMode::Ethereum;
+        self
+    }
+
+    pub fn with_testing_mode(mut self, enabled: bool) -> Self {
+        self.config.testing_mode = enabled;
+        self
+    }
+
+    pub fn with_delete_mode(mut self, enabled: bool) -> Self {
+        self.config.delete_mode = enabled;
+        self
+    }
+
+    pub fn with_list_mode(mut self, enabled: bool) -> Self {
+        self.config.list_mode = enabled;
+        self
+    }
+
+    pub fn with_aws_mode(mut self, enabled: bool) -> Self {
+        self.config.aws_mode = enabled;
+        self
+    }
+
+    pub fn with_port(mut self, port: u16) -> Self {
+        self.config.port = port;
+        self
+    }
+
+    pub fn with_eth_chain_id(mut self, id: u8) -> Self {
+        self.config.eth_chain_id = id;
+        self
+    }
+
+    pub fn with_aws_config(mut self, aws: AwsConfig) -> Self {
+        self.config.aws = aws;
+        self
+    }
+
+    pub fn build(self) -> Config {
+        self.config
+    }
 }

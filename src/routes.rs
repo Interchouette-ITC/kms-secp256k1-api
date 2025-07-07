@@ -43,7 +43,7 @@ pub async fn hello(
     Query(params): Query<HelloParams>,
     Extension(config): Extension<Config>,
 ) -> impl IntoResponse {
-    let message = if config.testing_mode {
+    let message = if config.is_testing_mode() {
         params.message.map_or_else(
             || "KMS TESTING_MODE".to_string(),
             |message| format!("KMS TESTING_MODE {message}"),
@@ -145,7 +145,7 @@ pub async fn sign_transaction_hash(
                 };
 
                 // Strip 1 byte Casper prefix for r and s, should not have v
-                if state.config.casper_mode {
+                if state.config.is_casper_mode() {
                     sig_bytes = sig_bytes[1..].to_vec();
                 }
 
@@ -397,7 +397,7 @@ mod tests_routes {
     use super::*;
     use crate::{
         AppState,
-        config::Config,
+        config::{Config, ConfigBuilder},
         constants::{CASPER_PUBLIC_KEY_PREFIXED, SIGNATURE_PREFIXED, TRANSACTION_HASH},
         services::keys_service::KeysServiceTrait,
     };
@@ -502,10 +502,7 @@ mod tests_routes {
             message: Some("World".to_string()),
         };
 
-        let config = Config {
-            testing_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_testing_mode(false).build();
 
         let response = hello(Query(params), Extension(config))
             .await
@@ -524,10 +521,7 @@ mod tests_routes {
     async fn test_hello_with_mock_mode() {
         let params = HelloParams { message: None };
 
-        let config = Config {
-            testing_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_testing_mode(true).build();
 
         let response = hello(Query(params), Extension(config))
             .await

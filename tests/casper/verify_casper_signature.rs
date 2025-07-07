@@ -1,5 +1,5 @@
 use kms_secp256k1_api::{
-    config::Config,
+    config::ConfigBuilder,
     constants::TRANSACTION_HASH,
     routes::{Approval, CreateKeyResponse},
     run_server,
@@ -9,9 +9,7 @@ use std::time::Duration;
 use tokio::task;
 
 async fn start_server() -> task::JoinHandle<()> {
-    let config = Config {
-        ..Default::default()
-    };
+    let config = ConfigBuilder::new().build();
 
     task::spawn(async move {
         let _ = run_server(config).await;
