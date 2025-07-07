@@ -1,11 +1,8 @@
-use kms_secp256k1_api::{config::Config, run_server};
+use kms_secp256k1_api::{config::ConfigBuilder, run_server};
 use tokio::task;
 
 async fn start_server(delete_mode: bool) -> task::JoinHandle<()> {
-    let config = Config {
-        delete_mode,
-        ..Default::default()
-    };
+    let config = ConfigBuilder::new().with_delete_mode(delete_mode).build();
 
     task::spawn(async move {
         let _ = run_server(config).await;

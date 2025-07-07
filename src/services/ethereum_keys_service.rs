@@ -94,7 +94,7 @@ impl KeysServiceTrait for EthereumKeysService {
         transaction_hash: &str,
         public_key: &str,
     ) -> Result<String, String> {
-        if !config.ethereum_mode {
+        if !config.is_ethereum_mode() {
             return Err("Only Ethereum mode is supported".to_string());
         }
 
@@ -187,7 +187,7 @@ impl KeysServiceTrait for EthereumKeysService {
         transaction_str: &str,
         public_key: &str,
     ) -> Result<String, String> {
-        if !config.ethereum_mode {
+        if !config.is_ethereum_mode() {
             return Err("Only Ethereum mode is supported".to_string());
         }
 
@@ -320,7 +320,7 @@ mod tests {
 
     use super::*;
     use crate::{
-        config::Config,
+        config::ConfigBuilder,
         constants::{
             ETH_PUBLIC_KEY, ETH_SIGNATURE, ETH_TRANSACTION, ETH_TRANSACTION_HASH, WASM_PATH,
         },
@@ -330,11 +330,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_key() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -363,11 +362,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_signature() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -396,11 +394,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_via_kms_signature() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -432,11 +429,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_key() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -465,11 +461,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_keys() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -501,11 +496,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction_hash() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -535,11 +529,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -583,11 +576,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction_malformed_json() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -616,11 +608,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction_missing_transaction_field() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -650,11 +641,10 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_transaction_malformed_signatures() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await

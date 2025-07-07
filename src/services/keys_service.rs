@@ -114,12 +114,12 @@ impl KeysService {
     /// Returns an error if the AWS KMS client fails to initialize.
     ///
     pub async fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
-        let kms_client_service: Arc<dyn KmsClientService> = if config.aws_mode {
-            let client = AWSKmsClientService::new(config.aws.clone())
+        let kms_client_service: Arc<dyn KmsClientService> = if config.is_aws_mode() {
+            let client = AWSKmsClientService::new(config.get_aws_config().clone())
                 .await
                 .map_err(|e| format!("Failed to initialize AWSKmsClientService: {e}"))?;
             Arc::new(client)
-        } else if config.testing_mode {
+        } else if config.is_testing_mode() {
             // TODO Implement other kms
             Self::get_mock_kms_client_service()
         } else {
@@ -129,8 +129,8 @@ impl KeysService {
         Ok(Self {
             kms_client_service,
             crypto_service,
-            ethereum_mode: config.ethereum_mode,
-            eth_chain_id: config.eth_chain_id,
+            ethereum_mode: config.is_ethereum_mode(),
+            eth_chain_id: config.get_eth_chain_id(),
         })
     }
 
@@ -396,7 +396,7 @@ impl KeysService {
 mod tests {
     use super::*;
     use crate::{
-        config::Config,
+        config::ConfigBuilder,
         constants::{
             CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, ETH_PUBLIC_KEY, ETH_SIGNATURE,
             ETH_TRANSACTION_HASH, SIGNATURE_RSV_LEN, TRANSACTION_HASH, WASM_PATH,
@@ -407,11 +407,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_successful() {
-        let config = Config {
-            aws_mode: false,
-            casper_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_casper_mode().build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -453,11 +449,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_sign_eip155_successful() {
-        let config = Config {
-            aws_mode: false,
-            ethereum_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_ethereum_mode().build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -488,11 +480,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_successful() {
-        let config = Config {
-            aws_mode: false,
-            casper_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_casper_mode().build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -522,11 +510,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_eip155_successful() {
-        let config = Config {
-            aws_mode: false,
-            ethereum_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_ethereum_mode().build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -555,11 +539,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_via_kms_successful() {
-        let config = Config {
-            casper_mode: true,
-            aws_mode: false, // use mocked kms
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_casper_mode().build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -589,11 +569,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_verify_via_kms_eip155_successful() {
-        let config = Config {
-            ethereum_mode: true,
-            aws_mode: false, // use mocked kms
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_ethereum_mode().build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -617,10 +593,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_key_successful() {
-        let config = Config {
-            aws_mode: false, // use mocked kms
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -642,10 +615,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_key_not_found() {
-        let config = Config {
-            aws_mode: false, // use mocked kms
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().build();
 
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
@@ -670,11 +640,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_keys_successful() {
-        let config = Config {
-            aws_mode: false, // use mocked kms
-            ..Default::default()
-        };
-
+        let config = ConfigBuilder::new().build();
         let wasm_loader = WasmLoader::new(WASM_PATH)
             .await
             .expect("Failed to load WASM module");

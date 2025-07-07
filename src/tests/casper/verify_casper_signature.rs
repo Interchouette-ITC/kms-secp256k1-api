@@ -1,9 +1,10 @@
 #[cfg(test)]
 mod tests {
+    use crate::config::ConfigBuilder;
     use crate::constants::TRANSACTION_HASH;
     use crate::create_app;
+    use crate::routes::Approval;
     use crate::routes::CreateKeyResponse;
-    use crate::{config::Config, routes::Approval};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -12,10 +13,7 @@ mod tests {
     use tower::ServiceExt;
 
     async fn test_verify_signature_returns(via_kms: bool) {
-        let config = Config {
-            casper_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_casper_mode().build();
         let app = create_app(config).await;
 
         let response = app

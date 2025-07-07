@@ -1,5 +1,5 @@
 use kms_secp256k1_api::{
-    config::Config, constants::ETH_TRANSACTION, routes::CreateKeyResponse, run_server,
+    config::ConfigBuilder, constants::ETH_TRANSACTION, routes::CreateKeyResponse, run_server,
 };
 use serde_json::Value;
 use serial_test::serial;
@@ -7,10 +7,7 @@ use std::time::Duration;
 use tokio::task;
 
 async fn start_server() -> task::JoinHandle<()> {
-    let config = Config {
-        ethereum_mode: true,
-        ..Default::default()
-    };
+    let config = ConfigBuilder::new().with_ethereum_mode().build();
 
     task::spawn(async move {
         let _ = run_server(config).await;

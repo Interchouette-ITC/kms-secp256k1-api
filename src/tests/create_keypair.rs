@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::config::Config;
+    use crate::config::ConfigBuilder;
     use crate::create_app;
     use crate::routes::CreateKeyResponse;
     use axum::{
@@ -12,10 +12,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_ethereum_create_keypair_returns_201() {
-        let config = Config {
-            ethereum_mode: true,  // ethereum_mode = true
-            ..Default::default()  // testing_mode = true
-        };
+        let config = ConfigBuilder::new().with_ethereum_mode().build();
         let app = create_app(config).await;
 
         let response = app
@@ -47,10 +44,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_create_casper_create_keypair_returns_201() {
-        let config = Config {
-            casper_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_casper_mode().build();
+
         let app = create_app(config).await;
 
         let response = app

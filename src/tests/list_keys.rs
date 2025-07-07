@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use crate::config::Config;
+    use crate::config::ConfigBuilder;
     use crate::create_app;
     use crate::routes::CreateKeyResponse;
     use axum::{
@@ -13,10 +13,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_keys_returns_200_and_keys_present() {
-        let config = Config {
-            list_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_list_mode(true).build();
         let app = create_app(config).await;
 
         // Create two keys
@@ -76,10 +73,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_keys_returns_500_on_error() {
-        let config = Config {
-            list_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_list_mode(true).build();
         let app = create_app(config).await;
 
         let response = app
@@ -100,10 +94,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_list_keys_returns_404_when_disabled() {
-        let config = Config {
-            list_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_list_mode(false).build();
         let app = create_app(config).await;
 
         let response = app

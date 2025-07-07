@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use crate::config::ConfigBuilder;
+    use crate::constants::CASPER_PUBLIC_KEY_PREFIXED;
     use crate::create_app;
     use crate::routes::CreateKeyResponse;
-    use crate::{config::Config, constants::CASPER_PUBLIC_KEY_PREFIXED};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -12,10 +13,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_key_returns_200_when_key_exists() {
-        let config = Config {
-            delete_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_delete_mode(true).build();
         let app = create_app(config).await;
 
         let response = app
@@ -57,10 +55,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_key_returns_200_when_key_does_not_exist() {
-        let config = Config {
-            delete_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_delete_mode(true).build();
         let app = create_app(config).await;
 
         let fake_key = CASPER_PUBLIC_KEY_PREFIXED;
@@ -84,10 +79,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_delete_key_returns_404_when_disabled() {
-        let config = Config {
-            delete_mode: false,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_delete_mode(false).build();
         let app = create_app(config).await;
 
         let uri = "/deleteKey?public_key=somekey";

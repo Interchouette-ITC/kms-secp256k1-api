@@ -74,8 +74,8 @@ pub async fn create_app(config: Config) -> Router {
     let crypto_service =
         CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
 
-    let keys_service: Box<dyn KeysServiceTrait> = if config.testing_mode {
-        if config.ethereum_mode {
+    let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
+        if config.is_ethereum_mode() {
             Box::new(
                 MockEthereumKeysService::new(config.clone(), crypto_service)
                     .await
@@ -88,7 +88,7 @@ pub async fn create_app(config: Config) -> Router {
                     .expect("Failed to initialize MockCasperKeysService"),
             )
         }
-    } else if config.ethereum_mode {
+    } else if config.is_ethereum_mode() {
         Box::new(
             EthereumKeysService::new(config.clone(), crypto_service)
                 .await
@@ -114,11 +114,11 @@ pub async fn create_app(config: Config) -> Router {
         .route("/signTransaction", post(sign_transaction))
         .route("/verifySignature", get(verify_signature));
 
-    if config.delete_mode {
+    if config.is_delete_mode() {
         app = app.route("/deleteKey", delete(delete_key));
     }
 
-    if config.list_mode {
+    if config.is_list_mode() {
         app = app.route("/listKeys", get(list_keys));
     }
 
@@ -138,10 +138,10 @@ pub async fn create_app(config: Config) -> Router {
 pub async fn run_server(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let app = create_app(config.clone()).await;
 
-    let addr = format!("0.0.0.0:{}", config.port);
+    let addr = format!("0.0.0.0:{}", config.get_port());
     info!("🚀 Listening on http://{addr}");
 
-    if config.testing_mode {
+    if config.is_testing_mode() {
         warn!("TESTING_MODE ACTIVE");
     }
 
@@ -153,16 +153,17 @@ pub async fn run_server(config: Config) -> Result<(), Box<dyn std::error::Error 
 
 #[cfg(test)]
 mod tests_lib {
+    use crate::config::ConfigBuilder;
+
     use super::*;
     use tokio::task;
 
     #[tokio::test]
     async fn test_run_server_creates_app() {
-        let config = Config {
-            port: 0,
-            testing_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new()
+            .with_testing_mode(true)
+            .with_port(0)
+            .build();
 
         // Spawn the server in a background task but abort immediately,
         // just test that it starts without panics or errors.
@@ -180,19 +181,17 @@ mod tests_lib {
     #[cfg(test)]
     mod tests_create_app {
         use super::*;
-        use crate::config::Config;
+        use crate::config::ConfigBuilder;
         use axum::http;
         use tower::ServiceExt;
 
         #[tokio::test]
         async fn test_create_app_routes() {
-            let config = Config {
-                testing_mode: true,
-                ethereum_mode: false,
-                delete_mode: true,
-                list_mode: true,
-                ..Default::default()
-            };
+            let config = ConfigBuilder::new()
+                .with_testing_mode(true)
+                .with_delete_mode(true)
+                .with_list_mode(true)
+                .build();
 
             let app = create_app(config.clone()).await;
 

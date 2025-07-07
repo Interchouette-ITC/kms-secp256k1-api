@@ -1,8 +1,9 @@
 #[cfg(test)]
 mod tests {
+    use crate::config::ConfigBuilder;
+    use crate::constants::TRANSACTION_HASH;
     use crate::create_app;
     use crate::routes::CreateKeyResponse;
-    use crate::{config::Config, constants::TRANSACTION_HASH};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -12,10 +13,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_casper_transaction_hash_returns_200() {
-        let config = Config {
-            casper_mode: true,
-            ..Default::default()
-        };
+        let config = ConfigBuilder::new().with_casper_mode().build();
         let app = create_app(config).await;
 
         let transaction_hash = TRANSACTION_HASH;
