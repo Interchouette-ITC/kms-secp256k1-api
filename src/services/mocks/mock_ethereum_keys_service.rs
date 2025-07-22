@@ -19,7 +19,6 @@ use k256::{
     elliptic_curve::{PublicKey, rand_core::OsRng, sec1::FromEncodedPoint},
 };
 use serde_json::json;
-use sha3::{Digest, Keccak256};
 use std::str::FromStr;
 use tracing::error;
 use tracing::info;
@@ -48,8 +47,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
         let secret_key_bytes = signing_key.to_bytes();
         let secret_key_hex = hex::encode(secret_key_bytes);
 
-        let hash = Keccak256::digest(&verifying_key.to_encoded_point(false).as_bytes()[1..]);
-        let address = format!("0x{}", hex::encode(&hash[12..]));
+        let address = self.resolve_alias(&public_key_hex)?;
 
         {
             let key_pair = KeyPair {

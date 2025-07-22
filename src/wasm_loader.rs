@@ -19,6 +19,7 @@ pub struct WasmInstance {
     pub verify_eip155: Func,
     pub recover_v: Func,
     pub address_eth: Func,
+    pub address_cosmos: Func,
     pub store: Store<()>,
     pub instance: Instance,
 }
@@ -97,6 +98,10 @@ impl WasmLoader {
             .get_func(&mut store, "address_eth")
             .ok_or("failed to find address_eth export")?;
 
+        let address_cosmos = instance
+            .get_func(&mut store, "address_cosmos")
+            .ok_or("failed to find address_cosmos export")?;
+
         Ok(WasmInstance {
             memory,
             alloc,
@@ -108,6 +113,7 @@ impl WasmLoader {
             verify_eip155,
             recover_v,
             address_eth,
+            address_cosmos,
             store,
             instance,
         })
@@ -199,6 +205,12 @@ mod tests {
         assert!(
             address_eth_ty.params().len() > 0,
             "address_eth should have at least one parameter"
+        );
+
+        let address_cosmos_ty = wasm_instance.address_cosmos.ty(&wasm_instance.store);
+        assert!(
+            address_cosmos_ty.params().len() > 0,
+            "address_cosmos should have at least one parameter"
         );
     }
 }

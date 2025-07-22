@@ -12,8 +12,8 @@ use aws_sdk_kms::{
 use aws_types::region::Region;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use k256::sha2::Sha256;
-use sha3::{Digest as Sha3Digest, Sha3_256};
+use k256::sha2::{Digest, Sha256};
+// use sha3::{Digest as Sha3Digest, Sha3_256};
 use std::vec;
 use tracing::{error, info};
 
@@ -105,11 +105,12 @@ impl AWSKmsClientService {
                 hasher.finalize().to_vec() // Casper Sha256 of Sha256 transaction_hash
             }
             HashType::Keccak256 => data.to_vec(), // EIP-155 transaction hash is Keccak256 hash already
-            HashType::Sha3_256 => {
-                let mut hasher = Sha3_256::new();
-                hasher.update(data);
-                hasher.finalize().to_vec()
-            }
+
+                                                  // HashType::Sha3_256 => {
+                                                  //     let mut hasher = Sha3_256::new();
+                                                  //     hasher.update(data);
+                                                  //     hasher.finalize().to_vec()
+                                                  // }
         }
     }
 }

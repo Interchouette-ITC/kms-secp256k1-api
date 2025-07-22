@@ -32,9 +32,6 @@ async-trait = "0.1.88"
 casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", branch = "dev" }
 ethers = "2.0.14"
 rand = "*"
-sha3 = "*"
-bech32 = "*"
-ripemd = "*"
 
 [patch.crates-io]
 casper-client = { version = "4", git = "https://github.com/casper-ecosystem/casper-client-rs", branch = "dev" }

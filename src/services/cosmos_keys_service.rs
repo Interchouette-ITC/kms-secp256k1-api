@@ -1,23 +1,14 @@
 use crate::config::Config;
-use crate::constants::DEFAULT_COSMOS_UDENOM;
+use crate::constants::{COSMOS_SECP_LEN, DEFAULT_COSMOS_UDENOM};
 use crate::services::crypto_service::CryptoService;
 use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use bech32::{Bech32m, Hrp};
-use k256::sha2::{Digest, Sha256};
-use ripemd::Ripemd160;
 use tracing::{error, info};
 
 pub struct CosmosKeysService {
     keys_service: KeysService,
-}
-
-impl CosmosKeysService {
-    pub async fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
-        let keys_service = KeysService::new(config, crypto_service).await?;
-        Ok(Self { keys_service })
-    }
+    udenom: String,
 }
 
 #[async_trait::async_trait]
@@ -32,7 +23,7 @@ impl KeysServiceTrait for CosmosKeysService {
     /// # Errors
     ///
     /// Returns an error if key creation, public key conversion, or alias creation fails.
-    async fn create_key(&mut self, config: &Config) -> Result<KeyEntry, String> {
+    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
         let (key_id, public_key) = self
             .keys_service
             .kms_client_service
@@ -62,22 +53,7 @@ impl KeysServiceTrait for CosmosKeysService {
 
         info!("Public key retrieved: {}", public_key);
 
-        // Cosmos address = RIPEMD160(SHA256(pubkey))
-        let public_key_bytes = hex::decode(&public_key)
-            .map_err(|e| format!("Failed to decode public key hex: {e}"))?;
-        let sha256_hash = Sha256::digest(&public_key_bytes);
-        let ripemd_hash = Ripemd160::digest(sha256_hash);
-
-        let cosmos_udenom = config.get_cosmos_udenom();
-        let udenom = match cosmos_udenom.as_str() {
-            "" => DEFAULT_COSMOS_UDENOM,
-            udenom => udenom,
-        };
-
-        // Encode to Bech32 (e.g. "cosmos1...")
-        let hrp = Hrp::parse(udenom).map_err(|e| format!("Bech32 Hrp failed: {e}"))?;
-        let address = bech32::encode::<Bech32m>(hrp, &ripemd_hash)
-            .map_err(|e| format!("Bech32 encoding failed: {e}"))?;
+        let address = self.resolve_alias(&public_key)?;
 
         // Create alias for the key
         self.keys_service
@@ -241,11 +217,43 @@ impl KeysServiceTrait for CosmosKeysService {
     }
 
     async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        self.keys_service.delete_key(alias).await
+        let final_alias = self.resolve_alias(alias)?;
+        self.keys_service.delete_key(&final_alias).await
     }
 
     async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
         self.keys_service.list_keys().await
+    }
+}
+
+impl CosmosKeysService {
+    pub async fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
+        let keys_service = KeysService::new(config.clone(), crypto_service).await?;
+        let cosmos_udenom = config.get_cosmos_udenom();
+        let udenom = match cosmos_udenom.as_str() {
+            "" => DEFAULT_COSMOS_UDENOM,
+            udenom => udenom,
+        }
+        .to_string();
+        Ok(Self {
+            keys_service,
+            udenom,
+        })
+    }
+
+    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
+        if alias.len() == COSMOS_SECP_LEN {
+            self.keys_service
+                .crypto_service
+                .address_cosmos(alias, &self.udenom)
+                .map_err(|e| {
+                    let msg = format!("Failed to convert public key to address: {e:?}");
+                    error!("{}", &msg);
+                    msg
+                })
+        } else {
+            Ok(alias.to_string())
+        }
     }
 }
 

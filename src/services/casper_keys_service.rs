@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::constants::CASPER_SECP_PREFIX;
+use crate::constants::{CASPER_SECP_LEN, CASPER_SECP_PREFIX};
 use crate::services::crypto_service::CryptoService;
 use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait};
 use casper_rust_wasm_sdk::types::hash::transaction_hash::TransactionHash;
@@ -50,10 +50,11 @@ impl KeysServiceTrait for CasperKeysService {
                 let msg = format!("public_key conversion failed: {e:?}");
                 error!("{}", &msg);
                 msg
-            })?;
+            })?; // generated key contains does not contain prefix
 
-        // Prefix the public key if needed
-        let address = format!("{}{}", CASPER_SECP_PREFIX, &public_key); // address == prefix + public_key
+        info!(public_key);
+
+        let address = self.resolve_alias(&public_key)?; // address == prefix + public_key
 
         if public_key.is_empty() {
             let msg = "No public key generated".to_string();
@@ -62,6 +63,7 @@ impl KeysServiceTrait for CasperKeysService {
         }
 
         info!("Public key retrieved: {}", public_key);
+        info!("Address retrieved: {}", address);
 
         // Create alias for the key
         self.keys_service
@@ -116,16 +118,9 @@ impl KeysServiceTrait for CasperKeysService {
             return Err(format!("Error reading transaction parameters: {e}"));
         }
 
-        let public_key = self
-            .keys_service
-            .kms_client_service
-            .get_public_key(alias)
-            .await
-            .map_err(|e| {
-                let msg = format!("Failed to get public key from alias with KMS: {e}");
-                error!("{}", msg);
-                msg
-            })?;
+        let public_key = self.resolve_alias(alias)?;
+
+        info!(public_key);
 
         if let Err(e) = PublicKey::new(&public_key) {
             info!(
@@ -190,16 +185,7 @@ impl KeysServiceTrait for CasperKeysService {
             "Invalid transaction hash".to_string()
         })?;
 
-        let public_key = self
-            .keys_service
-            .kms_client_service
-            .get_public_key(alias)
-            .await
-            .map_err(|e| {
-                let msg = format!("Failed to get public key from alias with KMS: {e}");
-                error!("{}", msg);
-                msg
-            })?;
+        let public_key = self.resolve_alias(alias)?;
 
         PublicKey::new(&public_key).map_err(|e| {
             error!("Invalid public key: {:?}", e);
@@ -247,11 +233,22 @@ impl KeysServiceTrait for CasperKeysService {
     }
 
     async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        self.keys_service.delete_key(alias).await
+        let final_alias = self.resolve_alias(alias)?;
+        self.keys_service.delete_key(&final_alias).await
     }
 
     async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
         self.keys_service.list_keys().await
+    }
+}
+
+impl CasperKeysService {
+    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
+        if alias.len() == CASPER_SECP_LEN {
+            Ok(alias.to_string())
+        } else {
+            Ok(format!("{CASPER_SECP_PREFIX}{alias}"))
+        }
     }
 }
 

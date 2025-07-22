@@ -68,3 +68,9 @@ pub static ETH_TRANSACTION: &str = r#"
     "data": "0x"
 }
 "#;
+
+pub static COSMOS_SECP_LEN: usize = 66;
+
+#[cfg(test)]
+pub static COSMOS_PUBLIC_KEY: &str =
+    "02b121fdf4d8c12bfea0e39e4e7cae78464327a5259ceda191d8093e91ebc0537f";
