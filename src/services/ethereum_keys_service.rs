@@ -129,6 +129,8 @@ impl KeysServiceTrait for EthereumKeysService {
                 msg
             })?;
 
+        info!("Public key ethereum retrieved: {}", public_key);
+
         let public_key_bytes =
             match hex::decode(public_key.strip_prefix("0x").unwrap_or(&public_key)) {
                 Ok(bytes) => bytes,

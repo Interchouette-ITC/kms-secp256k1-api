@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    constants::DEFAULT_COSMOS_UDENOM,
+    constants::{COSMOS_SECP_LEN, DEFAULT_COSMOS_UDENOM},
     services::{
         crypto_service::CryptoService,
         keys_service::{KeyEntry, KeysServiceTrait},
@@ -9,49 +9,33 @@ use crate::{
 };
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use bech32::{Bech32m, Hrp};
 use ethers::{
     signers::{LocalWallet, Signer},
     types::{H256, TransactionRequest, TxHash},
 };
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng, sha2::Digest, sha2::Sha256};
-use ripemd::Ripemd160;
+use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use serde_json::json;
 use std::str::FromStr;
 use tracing::error;
 
 pub struct MockCosmosKeysService {
     inner: MockKeysService,
+    udenom: String,
 }
 
 #[async_trait::async_trait]
 impl KeysServiceTrait for MockCosmosKeysService {
-    async fn create_key(&mut self, config: &Config) -> Result<KeyEntry, String> {
+    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
         // Generate key pair
         let signing_key = SigningKey::random(&mut OsRng);
         let verifying_key = signing_key.verifying_key();
         let encoded_point = verifying_key.to_encoded_point(true);
 
-        let pubkey_bytes = encoded_point.as_bytes();
-
-        // Cosmos address = RIPEMD160(SHA256(pubkey))
-        let sha256_hash = Sha256::digest(pubkey_bytes);
-        let ripemd_hash = Ripemd160::digest(sha256_hash);
-
-        let cosmos_udenom = config.get_cosmos_udenom();
-        let udenom = match cosmos_udenom.as_str() {
-            "" => DEFAULT_COSMOS_UDENOM,
-            udenom => udenom,
-        };
-
-        // Encode to Bech32 (e.g. "cosmos1...")
-        let hrp = Hrp::parse(udenom).map_err(|e| format!("Bech32 Hrp failed: {e}"))?;
-        let address = bech32::encode::<Bech32m>(hrp, &ripemd_hash)
-            .map_err(|e| format!("Bech32 encoding failed: {e}"))?;
-
         let secret_key_bytes = signing_key.to_bytes();
         let secret_key_hex = hex::encode(secret_key_bytes);
+        let pubkey_bytes = encoded_point.as_bytes();
         let public_key_hex = hex::encode(pubkey_bytes);
+        let address = self.resolve_alias(&public_key_hex)?;
 
         {
             let key_pair = KeyPair {
@@ -60,7 +44,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
                 address: address.clone(),
             };
             let mut keys = self.inner.keys.lock().await;
-            keys.entry(public_key_hex.clone()).or_insert(key_pair);
+            keys.entry(address.clone()).or_insert(key_pair);
         }
 
         Ok(KeyEntry {
@@ -258,7 +242,8 @@ impl KeysServiceTrait for MockCosmosKeysService {
     /// Returns `Ok(true)` if the key was deleted, `Ok(false)` if the key was not found.
     /// Returns an error string if deletion fails.
     async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        Ok(self.inner.delete_key(alias).await)
+        let final_alias = self.resolve_alias(alias)?;
+        Ok(self.inner.delete_key(&final_alias).await)
     }
 
     /// Lists all stored keys along with their associated metadata.
@@ -283,8 +268,31 @@ impl MockCosmosKeysService {
     /// This function currently does not return an error, but it returns a `Result`
     /// to match a common interface and allow future fallibility.
     pub async fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
+        let cosmos_udenom = config.get_cosmos_udenom();
+        let udenom = match cosmos_udenom.as_str() {
+            "" => DEFAULT_COSMOS_UDENOM,
+            udenom => udenom,
+        }
+        .to_string();
+
         Ok(Self {
             inner: MockKeysService::new(config, crypto_service).await,
+            udenom,
         })
+    }
+
+    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
+        if alias.len() == COSMOS_SECP_LEN {
+            self.inner
+                .crypto_service
+                .address_cosmos(alias, &self.udenom)
+                .map_err(|e| {
+                    let msg = format!("Failed to convert public key to address: {e:?}");
+                    error!("{}", &msg);
+                    msg
+                })
+        } else {
+            Ok(alias.to_string())
+        }
     }
 }

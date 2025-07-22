@@ -118,6 +118,74 @@ impl CryptoService {
     ///
     /// # Arguments
     ///
+    /// * `public_key` - The compressed secp256k1 public key as a hex string (33 bytes, starts with 0x02 or 0x03).
+    /// * `udenom` - The desired Bech32 HRP prefix (e.g., "cosmos", "osmo"). If empty or invalid, defaults to `"cosmos"`.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the Cosmos address as a Bech32m string if successful,
+    /// or an error if the WASM invocation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the WASM function cannot be typed or invoked correctly,
+    /// or if the WASM function returns an error string.
+    pub fn address_cosmos(
+        &mut self,
+        public_key: &str,
+        udenom: &str,
+    ) -> Result<String, Box<dyn std::error::Error>> {
+        let alloc_func = self.alloc.typed::<i32, i32>(&self.store)?;
+        let free_func = self.free.typed::<(i32, i32), ()>(&self.store)?;
+        let func = self
+            .address_cosmos
+            .typed::<(i32, i32, i32, i32), i32>(&self.store)?;
+
+        // Helper closure to allocate and write string input into WASM memory
+        let mut alloc_and_write = |input: &str| -> Result<(i32, i32), Box<dyn std::error::Error>> {
+            let bytes = input.as_bytes();
+            let len = i32::try_from(bytes.len())?;
+            let ptr_i32 = alloc_func.call(&mut self.store, len)?;
+            let ptr = usize::try_from(ptr_i32)?;
+            let mem = self.memory.data_mut(&mut self.store);
+            mem[ptr..ptr + bytes.len()].copy_from_slice(bytes);
+            Ok((ptr_i32, len))
+        };
+
+        // Write the public key and udenom into WASM memory
+        let (pk_ptr, pk_len) = alloc_and_write(public_key)?;
+        let (ud_ptr, ud_len) = alloc_and_write(udenom)?;
+
+        // Call the WASM function
+        let ret_ptr = func.call(&mut self.store, (pk_ptr, pk_len, ud_ptr, ud_len))?;
+
+        // Free input memory
+        free_func.call(&mut self.store, (pk_ptr, pk_len))?;
+        free_func.call(&mut self.store, (ud_ptr, ud_len))?;
+
+        // Check for null return
+        if ret_ptr == 0 {
+            return Err("address_cosmos returned null pointer".into());
+        }
+
+        // Read null-terminated string from WASM memory
+        let mem = self.memory.data(&self.store);
+        let mut end = ret_ptr as usize;
+        while end < mem.len() && mem[end] != 0 {
+            end += 1;
+        }
+        let result_bytes = &mem[ret_ptr as usize..end];
+        let result_str = std::str::from_utf8(result_bytes)?.to_string();
+
+        // Free result string in WASM memory
+        free_func.call(&mut self.store, (ret_ptr, result_str.len() as i32))?;
+
+        Ok(result_str)
+    }
+
+    ///
+    /// # Arguments
+    ///
     /// * `signature` - The signature to convert as a string.
     ///
     /// # Returns
@@ -341,8 +409,9 @@ impl CryptoService {
 mod tests {
     use crate::{
         constants::{
-            CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, ETH_PUBLIC_KEY, ETH_SIGNATURE,
-            ETH_SIGNATURE_V, ETH_TRANSACTION_HASH, SIGNATURE, SIGNATURE_PREFIXED, SIGNATURE_RS_LEN,
+            CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, COSMOS_PUBLIC_KEY,
+            DEFAULT_COSMOS_UDENOM, ETH_PUBLIC_KEY, ETH_SIGNATURE, ETH_SIGNATURE_V,
+            ETH_TRANSACTION_HASH, SIGNATURE, SIGNATURE_PREFIXED, SIGNATURE_RS_LEN,
             TRANSACTION_HASH, WASM_PATH,
         },
         services::crypto_service::CryptoService,
@@ -684,6 +753,59 @@ mod tests {
         assert!(
             result.is_err() || !result.unwrap(),
             "Expected false or error for empty signature"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_crypto_service_address_eth() {
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let mut crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let public_key = ETH_PUBLIC_KEY;
+
+        let address = crypto_service
+            .address_eth(public_key)
+            .expect("Failed to derive Ethereum address");
+
+        assert!(
+            address.starts_with("0x") && address.len() == 42,
+            "Expected valid Ethereum address, got: {address}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_crypto_service_address_cosmos() {
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let mut crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        let public_key = COSMOS_PUBLIC_KEY;
+
+        let address = crypto_service
+            .address_cosmos(public_key, DEFAULT_COSMOS_UDENOM)
+            .expect("Failed to derive Cosmos address");
+
+        dbg!(&address);
+
+        // Use the constant for prefix dynamically
+        let expected_prefix = format!("{DEFAULT_COSMOS_UDENOM}1");
+
+        assert!(
+            address.starts_with(&expected_prefix),
+            "Address should start with '{expected_prefix}', got: {address}"
+        );
+
+        assert!(
+            address.len() >= expected_prefix.len() + 38,
+            "Address length too short: {}",
+            address.len()
         );
     }
 }

@@ -30,12 +30,10 @@ impl KeysServiceTrait for MockCasperKeysService {
             .map_err(|e| format!("Failed to generate secret key: {e}"))?;
         let secret_key = secret_key.to_pem().map_err(|e| e.to_string())?;
 
-        let public_key = public_key_from_secret_key(&secret_key)
-            .map_err(|e| format!("Failed to get public key: {e}"))?
-            .replacen(CASPER_SECP_PREFIX, "", 1)
-            .to_string();
+        let address = public_key_from_secret_key(&secret_key)
+            .map_err(|e| format!("Failed to get public key: {e}"))?; // generated key contains prefix
 
-        let address = format!("{}{}", CASPER_SECP_PREFIX, &public_key);
+        let public_key = address.replacen(CASPER_SECP_PREFIX, "", 1).to_string(); // removes Casper prefix
 
         let key_id = public_key.clone();
 
@@ -156,7 +154,8 @@ impl KeysServiceTrait for MockCasperKeysService {
     }
 
     async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        Ok(self.inner.delete_key(alias).await)
+        let final_alias = self.resolve_alias(alias)?;
+        Ok(self.inner.delete_key(&final_alias).await)
     }
 
     async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {

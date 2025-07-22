@@ -22,8 +22,8 @@ pub struct AwsConfig {
 pub enum HashType {
     #[default]
     Sha256,
-    Sha3_256,
     Keccak256,
+    // Sha3_256,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
