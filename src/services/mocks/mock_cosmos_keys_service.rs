@@ -1,6 +1,6 @@
 use crate::{
     config::Config,
-    constants::ETH_SECP_LEN,
+    constants::DEFAULT_COSMOS_UDENOM,
     services::{
         crypto_service::CryptoService,
         keys_service::{KeyEntry, KeysServiceTrait},
@@ -9,47 +9,49 @@ use crate::{
 };
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
+use bech32::{Bech32m, Hrp};
 use ethers::{
     signers::{LocalWallet, Signer},
     types::{H256, TransactionRequest, TxHash},
 };
-use k256::{
-    Secp256k1,
-    ecdsa::SigningKey,
-    elliptic_curve::{PublicKey, rand_core::OsRng, sec1::FromEncodedPoint},
-};
+use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng, sha2::Digest, sha2::Sha256};
+use ripemd::Ripemd160;
 use serde_json::json;
-use sha3::{Digest, Keccak256};
 use std::str::FromStr;
 use tracing::error;
-use tracing::info;
 
-pub struct MockEthereumKeysService {
+pub struct MockCosmosKeysService {
     inner: MockKeysService,
 }
 
 #[async_trait::async_trait]
-impl KeysServiceTrait for MockEthereumKeysService {
-    /// Creates a new cryptographic key.
-    ///
-    /// Returns the public key encoded as a hexadecimal string on success.
-    /// Returns an error string describing the issue on failure.
-    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
+impl KeysServiceTrait for MockCosmosKeysService {
+    async fn create_key(&mut self, config: &Config) -> Result<KeyEntry, String> {
+        // Generate key pair
         let signing_key = SigningKey::random(&mut OsRng);
         let verifying_key = signing_key.verifying_key();
         let encoded_point = verifying_key.to_encoded_point(true);
 
-        let public_key = PublicKey::<Secp256k1>::from_encoded_point(&encoded_point)
-            .into_option()
-            .ok_or_else(|| "Failed to create PublicKey from encoded point".to_string())?;
+        let pubkey_bytes = encoded_point.as_bytes();
 
-        let public_key_hex = hex::encode(public_key.to_sec1_bytes());
+        // Cosmos address = RIPEMD160(SHA256(pubkey))
+        let sha256_hash = Sha256::digest(pubkey_bytes);
+        let ripemd_hash = Ripemd160::digest(sha256_hash);
+
+        let cosmos_udenom = config.get_cosmos_udenom();
+        let udenom = match cosmos_udenom.as_str() {
+            "" => DEFAULT_COSMOS_UDENOM,
+            udenom => udenom,
+        };
+
+        // Encode to Bech32 (e.g. "cosmos1...")
+        let hrp = Hrp::parse(udenom).map_err(|e| format!("Bech32 Hrp failed: {e}"))?;
+        let address = bech32::encode::<Bech32m>(hrp, &ripemd_hash)
+            .map_err(|e| format!("Bech32 encoding failed: {e}"))?;
 
         let secret_key_bytes = signing_key.to_bytes();
         let secret_key_hex = hex::encode(secret_key_bytes);
-
-        let hash = Keccak256::digest(&verifying_key.to_encoded_point(false).as_bytes()[1..]);
-        let address = format!("0x{}", hex::encode(&hash[12..]));
+        let public_key_hex = hex::encode(pubkey_bytes);
 
         {
             let key_pair = KeyPair {
@@ -58,7 +60,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
                 address: address.clone(),
             };
             let mut keys = self.inner.keys.lock().await;
-            keys.entry(address.clone()).or_insert(key_pair);
+            keys.entry(public_key_hex.clone()).or_insert(key_pair);
         }
 
         Ok(KeyEntry {
@@ -78,13 +80,11 @@ impl KeysServiceTrait for MockEthereumKeysService {
         &mut self,
         _config: &Config,
         transaction_hash: &str,
-        alias: &str,
+        public_key: &str,
     ) -> Result<String, String> {
-        let final_alias = self.resolve_alias(alias)?;
-
         let key_pair = {
             let keys = self.inner.keys.lock().await;
-            keys.get(&final_alias)
+            keys.get(public_key)
                 .ok_or_else(|| "Public key not found".to_string())?
                 .clone()
         };
@@ -107,25 +107,20 @@ impl KeysServiceTrait for MockEthereumKeysService {
             .sign_hash(tx_hash)
             .map_err(|e| format!("Failed to sign hash: {e}"))?;
 
-        let signature_test = self
-            .inner
-            .crypto_service
-            .unconvert(&signature.to_string())
-            .map_err(|e| {
-                let msg = format!("Signature conversion failed: {e}");
-                error!("{}", msg);
-                msg
-            })?;
+        // let signature_test = self
+        //     .inner
+        //     .crypto_service
+        //     .unconvert(&signature.to_string())
+        //     .map_err(|e| {
+        //         let msg = format!("Signature conversion failed: {e}");
+        //         error!("{}", msg);
+        //         msg
+        //     })?;
 
-        info!(signature_test);
-        info!("{}", hex::encode(signature.to_vec()));
+        // info!(signature_test);
 
         // Verify signature
-        let is_valid = self.verify(
-            transaction_hash,
-            &signature.to_string(),
-            &key_pair.public_key,
-        )?;
+        let is_valid = self.verify(transaction_hash, &signature.to_string(), public_key)?;
 
         if !is_valid {
             return Err("Signature verification failed".to_string());
@@ -142,7 +137,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
         &mut self,
         _config: &Config,
         transaction_str: &str,
-        alias: &str,
+        public_key: &str,
     ) -> Result<String, String> {
         // Parse the transaction JSON (can be wrapped or plain)
         let parsed: serde_json::Value = serde_json::from_str(transaction_str)
@@ -178,10 +173,9 @@ impl KeysServiceTrait for MockEthereumKeysService {
         })?;
 
         // Get key pair and wallet
-        let final_alias = self.resolve_alias(alias)?;
         let key_pair = {
             let keys = self.inner.keys.lock().await;
-            keys.get(&final_alias)
+            keys.get(public_key)
                 .ok_or_else(|| "Public key not found".to_string())?
                 .clone()
         };
@@ -200,14 +194,14 @@ impl KeysServiceTrait for MockEthereumKeysService {
         let signature_hex = signature.to_string();
 
         // Verify signature
-        let is_valid = self.verify(&transaction_hash_str, &signature_hex, &key_pair.public_key)?;
+        let is_valid = self.verify(&transaction_hash_str, &signature_hex, public_key)?;
         if !is_valid {
             return Err("Generated signature failed verification".to_string());
         }
 
         // Append signature info
         signatures.push(json!({
-            "signer": &key_pair.public_key,
+            "signer": public_key,
             "v": format!("{:x}", signature.v),
             "r": format!("{:x}", signature.r),
             "s": format!("{:x}", signature.s),
@@ -225,7 +219,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
             .map_err(|e| format!("Failed to serialize final signed transaction: {e}"))
     }
 
-    /// Verifies an Ethereum EIP-155 signature for a given transaction hash and public key.
+    /// Verifies an Cosmos EIP-155 signature for a given transaction hash and public key.
     ///
     /// Returns `Ok(true)` if the signature is valid, `Ok(false)` if invalid.
     /// Returns an error string for failures such as invalid formats.
@@ -235,9 +229,8 @@ impl KeysServiceTrait for MockEthereumKeysService {
         signature_hex: &str,
         public_key: &str,
     ) -> Result<bool, String> {
-        info!(signature_hex);
         self.inner
-            .verify_eip155(transaction_hash_hex, signature_hex, public_key)
+            .verify(transaction_hash_hex, signature_hex, public_key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
@@ -256,7 +249,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
         public_key: &str,
     ) -> Result<bool, String> {
         self.inner
-            .verify_via_kms_eip155(transaction_hash_hex, signature_hex, public_key)
+            .verify_via_kms(transaction_hash_hex, signature_hex, public_key)
             .await
     }
 
@@ -265,21 +258,20 @@ impl KeysServiceTrait for MockEthereumKeysService {
     /// Returns `Ok(true)` if the key was deleted, `Ok(false)` if the key was not found.
     /// Returns an error string if deletion fails.
     async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        let final_alias = self.resolve_alias(alias)?;
-        Ok(self.inner.delete_key(&final_alias).await)
+        Ok(self.inner.delete_key(alias).await)
     }
 
     /// Lists all stored keys along with their associated metadata.
     ///
-    /// Returns a vector of KeyEntry on success.
+    /// Returns a vector of KeyEntry` on success.
     /// Returns an error string on failure.
     async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
         Ok(self.inner.list_keys().await)
     }
 }
 
-impl MockEthereumKeysService {
-    /// Creates a new `MockEthereumKeysService` with an empty in-memory key store.
+impl MockCosmosKeysService {
+    /// Creates a new `MockCosmosKeysService` with an empty in-memory key store.
     ///
     /// # Arguments
     ///
@@ -294,34 +286,5 @@ impl MockEthereumKeysService {
         Ok(Self {
             inner: MockKeysService::new(config, crypto_service).await,
         })
-    }
-
-    /// Resolves a given alias string to an Ethereum address.
-    ///
-    /// This function checks whether the input `alias` is a compressed secp256k1 public key
-    /// (by comparing its length to the expected `ETH_SECP_LEN`). If so, it attempts to convert
-    /// the public key to its corresponding Ethereum address using the crypto service. Otherwise,
-    /// it assumes the alias is already an address and returns it as-is.
-    ///
-    /// # Parameters
-    /// - `alias`: A string that is either an Ethereum address or a compressed public key (hex-encoded, starting with "02"/"03").
-    ///
-    /// # Returns
-    /// - `Ok(String)`: The resolved Ethereum address as a string.
-    /// - `Err(String)`: An error message if public key conversion fails.
-    ///
-    /// # Errors
-    /// - Returns an error if the input is treated as a public key and the conversion fails.
-    ///
-    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
-        if alias.len() == ETH_SECP_LEN {
-            self.inner.crypto_service.address_eth(alias).map_err(|e| {
-                let msg = format!("Failed to convert public key to address: {e:?}");
-                error!("{}", &msg);
-                msg
-            })
-        } else {
-            Ok(alias.to_string())
-        }
     }
 }

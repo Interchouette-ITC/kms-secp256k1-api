@@ -37,7 +37,7 @@ async fn test_sign_casper_transaction_returns_200_integration() {
         assert!(resp.status().is_success());
 
         let parsed: CreateKeyResponse = resp.json().await.expect("Invalid createKey response");
-        public_keys.push(parsed.public_key);
+        public_keys.push(parsed.address);
     }
 
     let tx_params = TransactionStrParams::default();

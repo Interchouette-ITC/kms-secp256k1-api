@@ -4,6 +4,8 @@ use crate::constants::{
     SIGNATURE_BASE64, TRANSACTION_HASH,
 };
 #[cfg(test)]
+use crate::services::keys_service::KeyEntry;
+#[cfg(test)]
 use crate::services::kms_client_service::KmsClientService;
 #[cfg(test)]
 use base64::Engine;
@@ -17,6 +19,8 @@ use k256::{
 };
 #[cfg(test)]
 pub struct MockKmsClientService;
+#[cfg(test)]
+use crate::constants::CASPER_SECP_PREFIX;
 
 #[cfg(test)]
 #[async_trait::async_trait]
@@ -39,7 +43,7 @@ impl KmsClientService for MockKmsClientService {
         Ok(("mock-key_id".to_string(), der_base64))
     }
 
-    async fn create_alias(&self, _key_id: &str, _public_key: &str) -> Result<(), String> {
+    async fn create_alias(&self, _key_id: &str, _alias: &str) -> Result<(), String> {
         Ok(())
     }
 
@@ -80,10 +84,28 @@ impl KmsClientService for MockKmsClientService {
         }
     }
 
-    async fn list_keys(&self) -> Result<Vec<(String, String)>, String> {
+    async fn list_keys(&self) -> Result<Vec<KeyEntry>, String> {
         Ok(vec![
-            ("key_id_1".to_string(), "public_key_1".to_string()),
-            ("key_id_2".to_string(), "public_key_2".to_string()),
+            KeyEntry {
+                address: "address_1".to_string().into(),
+                public_key_base64: STANDARD.encode("public_key_1_base64").into(),
+                public_key: Some("public_key_1".to_string()).into(),
+                key_id: "key_id_1".to_string().into(),
+            },
+            KeyEntry {
+                address: "address_2".to_string().into(),
+                public_key_base64: STANDARD.encode("public_key_2_base64").into(),
+                public_key: Some("public_key_2".to_string()).into(),
+                key_id: "key_id_2".to_string().into(),
+            },
         ])
+    }
+
+    async fn get_public_key(&self, alias: &str) -> Result<String, String> {
+        if alias.contains(&CASPER_PUBLIC_KEY_PREFIXED.replacen(CASPER_SECP_PREFIX, "", 1)) {
+            Ok(CASPER_PUBLIC_KEY_PREFIXED.to_string())
+        } else {
+            Ok(ETH_PUBLIC_KEY.to_string())
+        }
     }
 }

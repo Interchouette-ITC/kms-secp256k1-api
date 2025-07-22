@@ -1,6 +1,7 @@
 use crate::config::Config;
+use crate::constants::ETH_SECP_LEN;
 use crate::services::crypto_service::CryptoService;
-use crate::services::keys_service::{KeysService, KeysServiceTrait};
+use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait};
 use ethers::types::{H256, Signature, TransactionRequest, TxHash};
 use k256::PublicKey;
 use serde_json::json;
@@ -30,27 +31,29 @@ impl KeysServiceTrait for EthereumKeysService {
     /// # Errors
     ///
     /// Returns an error if key creation, public key conversion, or alias creation fails.
-    async fn create_key(&mut self, _config: &Config) -> Result<String, String> {
-        let (key_id, public_key) = self
+    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
+        let (key_id, public_key_base64) = self
             .keys_service
             .kms_client_service
             .create_key()
             .await
             .map_err(|e| {
-                let msg = format!("Failed to create_key in KmsClientService: {e}");
-                error!("{}", &msg);
-                msg
-            })?;
+            let msg = format!("Failed to create_key in KmsClientService: {e}");
+            error!("{}", &msg);
+            msg
+        })?;
 
         let public_key = self
             .keys_service
             .crypto_service
-            .public_key(&public_key)
+            .public_key(&public_key_base64)
             .map_err(|e| {
                 let msg = format!("public_key conversion failed: {e:?}");
                 error!("{}", &msg);
                 msg
             })?;
+
+        let alias = self.resolve_alias(&public_key)?;
 
         if public_key.is_empty() {
             let msg = "No public key generated".to_string();
@@ -59,11 +62,12 @@ impl KeysServiceTrait for EthereumKeysService {
         }
 
         info!("Public key ethereum retrieved: {}", public_key);
+        info!("Address alias ethereum retrieved: {}", alias);
 
         // Create alias for the key
         self.keys_service
             .kms_client_service
-            .create_alias(&key_id, &public_key)
+            .create_alias(&key_id, &alias)
             .await
             .map_err(|e| {
                 let msg = format!("Error creating alias: {e:?}");
@@ -71,7 +75,12 @@ impl KeysServiceTrait for EthereumKeysService {
                 msg
             })?;
 
-        Ok(public_key)
+        Ok(KeyEntry {
+            public_key: Some(public_key.clone()).into(),
+            address: alias.into(),
+            public_key_base64: public_key_base64.into(),
+            key_id: key_id.into(),
+        })
     }
 
     /// Signs a transaction hash using the provided public key and configuration mode.
@@ -92,7 +101,7 @@ impl KeysServiceTrait for EthereumKeysService {
         &mut self,
         config: &Config,
         transaction_hash: &str,
-        public_key: &str,
+        alias: &str,
     ) -> Result<String, String> {
         if !config.is_ethereum_mode() {
             return Err("Only Ethereum mode is supported".to_string());
@@ -102,15 +111,26 @@ impl KeysServiceTrait for EthereumKeysService {
 
         if let Err(e) = transaction_hash.parse::<H256>() {
             info!(
-                "Error reading parameters \npublic_key : {}\ntransaction_hash : {}",
-                public_key, transaction_hash
+                "Error reading parameters: transaction_hash : {}",
+                transaction_hash
             );
             error!("Validation error: {:?}", e);
             return Err("Error reading transaction TransactionHash parameters".to_string());
         }
 
+        let public_key = self
+            .keys_service
+            .kms_client_service
+            .get_public_key(alias)
+            .await
+            .map_err(|e| {
+                let msg = format!("Failed to get public key from alias with KMS: {e}");
+                error!("{}", msg);
+                msg
+            })?;
+
         let public_key_bytes =
-            match hex::decode(public_key.strip_prefix("0x").unwrap_or(public_key)) {
+            match hex::decode(public_key.strip_prefix("0x").unwrap_or(&public_key)) {
                 Ok(bytes) => bytes,
                 Err(e) => {
                     info!(
@@ -134,7 +154,7 @@ impl KeysServiceTrait for EthereumKeysService {
         // Perform signing
         let signature = self
             .keys_service
-            .sign(transaction_hash, public_key, None)
+            .sign(transaction_hash, &public_key, None)
             .await
             .map_err(|e| format!("Signing failed: {e}"))?;
 
@@ -152,7 +172,7 @@ impl KeysServiceTrait for EthereumKeysService {
         // info!(format!("{v:x}"));
 
         // Verify signature
-        let is_valid = self.verify(transaction_hash, &signature, public_key)?;
+        let is_valid = self.verify(transaction_hash, &signature, &public_key)?;
 
         if !is_valid {
             return Err("Signature verification failed".to_string());
@@ -185,7 +205,7 @@ impl KeysServiceTrait for EthereumKeysService {
         &mut self,
         config: &Config,
         transaction_str: &str,
-        public_key: &str,
+        alias: &str,
     ) -> Result<String, String> {
         if !config.is_ethereum_mode() {
             return Err("Only Ethereum mode is supported".to_string());
@@ -224,9 +244,20 @@ impl KeysServiceTrait for EthereumKeysService {
             "Invalid transaction hash".to_string()
         })?;
 
+        let public_key = self
+            .keys_service
+            .kms_client_service
+            .get_public_key(alias)
+            .await
+            .map_err(|e| {
+                let msg = format!("Failed to get public key from alias with KMS: {e}");
+                error!("{}", msg);
+                msg
+            })?;
+
         // Decode and validate public key bytes
         let public_key_bytes =
-            match hex::decode(public_key.strip_prefix("0x").unwrap_or(public_key)) {
+            match hex::decode(public_key.strip_prefix("0x").unwrap_or(&public_key)) {
                 Ok(bytes) => bytes,
                 Err(e) => {
                     info!(
@@ -250,12 +281,12 @@ impl KeysServiceTrait for EthereumKeysService {
         // Perform signing
         let signature_hex = self
             .keys_service
-            .sign(&transaction_hash_str, public_key, None)
+            .sign(&transaction_hash_str, &public_key, None)
             .await
             .map_err(|e| format!("Signing failed: {e}"))?;
 
         // Verify signature
-        let is_valid = self.verify(&transaction_hash_str, &signature_hex, public_key)?;
+        let is_valid = self.verify(&transaction_hash_str, &signature_hex, &public_key)?;
         if !is_valid {
             return Err("Generated signature failed verification".to_string());
         }
@@ -305,28 +336,65 @@ impl KeysServiceTrait for EthereumKeysService {
             .await
     }
 
-    async fn delete_key(&mut self, public_key: &str) -> Result<bool, String> {
-        self.keys_service.delete_key(public_key).await
+    async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
+        let final_alias = self.resolve_alias(alias)?;
+        self.keys_service.delete_key(&final_alias).await
     }
 
-    async fn list_keys(&mut self) -> Result<Vec<(String, String)>, String> {
+    async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
         self.keys_service.list_keys().await
+    }
+}
+
+impl EthereumKeysService {
+    /// Resolves a given alias string to an Ethereum address.
+    ///
+    /// This function checks whether the input `alias` is a compressed secp256k1 public key
+    /// (by comparing its length to the expected `ETH_SECP_LEN`). If so, it attempts to convert
+    /// the public key to its corresponding Ethereum address using the crypto service. Otherwise,
+    /// it assumes the alias is already an address and returns it as-is.
+    ///
+    /// # Parameters
+    /// - `alias`: A string that is either an Ethereum address or a compressed public key (hex-encoded, starting with "02"/"03").
+    ///
+    /// # Returns
+    /// - `Ok(String)`: The resolved Ethereum address as a string.
+    /// - `Err(String)`: An error message if public key conversion fails.
+    ///
+    /// # Errors
+    /// - Returns an error if the input is treated as a public key and the conversion fails.
+    ///
+    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
+        if alias.len() == ETH_SECP_LEN {
+            self.keys_service
+                .crypto_service
+                .address_eth(alias)
+                .map_err(|e| {
+                    let msg = format!("Failed to convert public key to address: {e:?}");
+                    error!("{}", &msg);
+                    msg
+                })
+        } else {
+            Ok(alias.to_string())
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use serde_json::Value;
-
     use super::*;
     use crate::{
         config::ConfigBuilder,
         constants::{
-            ETH_PUBLIC_KEY, ETH_SIGNATURE, ETH_TRANSACTION, ETH_TRANSACTION_HASH, WASM_PATH,
+            ETH_ADDRESS, ETH_PUBLIC_KEY, ETH_SIGNATURE, ETH_TRANSACTION, ETH_TRANSACTION_HASH,
+            WASM_PATH,
         },
         services::crypto_service::CryptoService,
         wasm_loader::WasmLoader,
     };
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
+    use serde_json::Value;
 
     #[tokio::test]
     async fn test_create_key() {
@@ -352,12 +420,14 @@ mod tests {
 
         // Assert the key is returned with the casper prefix
         assert!(result.is_ok(), "create_key failed: {result:?}");
-        let public_key = result.unwrap();
+        let key = result.unwrap();
+        let pubkey = key.public_key.as_deref().expect("Missing public key");
+
         assert!(
-            public_key.starts_with("02") || public_key.starts_with("03"),
+            pubkey.starts_with("02") || pubkey.starts_with("03"),
             "Public key must start with 02 or 03"
         );
-        assert!(!public_key.is_empty());
+        assert!(!pubkey.is_empty(), "Public key must not be empty");
     }
 
     #[tokio::test]
@@ -486,11 +556,21 @@ mod tests {
         assert_eq!(keys.len(), 2);
         assert_eq!(
             keys[0],
-            ("key_id_1".to_string(), "public_key_1".to_string())
+            KeyEntry {
+                address: "address_1".to_string().into(),
+                public_key_base64: STANDARD.encode("public_key_1_base64").into(),
+                public_key: Some("public_key_1".to_string()).into(),
+                key_id: "key_id_1".to_string().into(),
+            }
         );
         assert_eq!(
             keys[1],
-            ("key_id_2".to_string(), "public_key_2".to_string())
+            KeyEntry {
+                address: "address_2".to_string().into(),
+                public_key_base64: STANDARD.encode("public_key_2_base64").into(),
+                public_key: Some("public_key_2".to_string()).into(),
+                key_id: "key_id_2".to_string().into(),
+            }
         );
     }
 
@@ -528,6 +608,39 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_sign_transaction_hash_from_address() {
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        // Create EthereumKeysService (uses mocked KMS + real CryptoService)
+        let mut service = EthereumKeysService::new(config.clone(), crypto_service)
+            .await
+            .expect("Failed to create EthereumKeysService");
+
+        let result = service
+            .sign_transaction_hash(&config, ETH_TRANSACTION_HASH, ETH_ADDRESS)
+            .await;
+
+        assert!(result.is_ok(), "Expected signing to succeed");
+
+        let signed = result.unwrap();
+
+        assert_eq!(
+            signed, ETH_SIGNATURE,
+            "Expected signature to match expected format"
+        );
+    }
+
+    #[tokio::test]
     async fn test_sign_transaction() {
         let config = ConfigBuilder::new()
             .with_ethereum_mode()
@@ -548,6 +661,53 @@ mod tests {
 
         let result = service
             .sign_transaction(&config, ETH_TRANSACTION, ETH_PUBLIC_KEY)
+            .await;
+
+        assert!(result.is_ok(), "Expected signing to succeed");
+
+        let signed = result.unwrap();
+        let json: Value = serde_json::from_str(&signed).expect("Invalid JSON returned");
+
+        let signatures = json["signatures"]
+            .as_array()
+            .expect("Missing 'signatures' array");
+        let first = &signatures[0];
+
+        let signer = first["signer"].as_str().expect("Missing 'signer'");
+        let signature = first["signature"].as_str().expect("Missing 'signature'");
+
+        assert_eq!(
+            signer, ETH_PUBLIC_KEY,
+            "Expected signer to match ETH_PUBLIC_KEY"
+        );
+
+        assert_eq!(
+            signature, ETH_SIGNATURE,
+            "Expected signature to match expected format"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_sign_transaction_from_address() {
+        let config = ConfigBuilder::new()
+            .with_ethereum_mode()
+            .with_aws_mode(false)
+            .build();
+
+        let wasm_loader = WasmLoader::new(WASM_PATH)
+            .await
+            .expect("Failed to load WASM module");
+
+        let crypto_service =
+            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+
+        // Create EthereumKeysService (uses mocked KMS + real CryptoService)
+        let mut service = EthereumKeysService::new(config.clone(), crypto_service)
+            .await
+            .expect("Failed to create EthereumKeysService");
+
+        let result = service
+            .sign_transaction(&config, ETH_TRANSACTION, ETH_ADDRESS)
             .await;
 
         assert!(result.is_ok(), "Expected signing to succeed");

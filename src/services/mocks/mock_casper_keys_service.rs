@@ -1,11 +1,14 @@
 use crate::{
     config::Config,
+    constants::{CASPER_SECP_LEN, CASPER_SECP_PREFIX},
     services::{
         crypto_service::CryptoService,
-        keys_service::KeysServiceTrait,
+        keys_service::{KeyEntry, KeysServiceTrait},
         mocks::mock_keys_service::{KeyPair, MockKeysService},
     },
 };
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use casper_rust_wasm_sdk::{
     SDK,
     helpers::{public_key_from_secret_key, secret_key_secp256k1_generate},
@@ -22,31 +25,56 @@ pub struct MockCasperKeysService {
 
 #[async_trait::async_trait]
 impl KeysServiceTrait for MockCasperKeysService {
-    async fn create_key(&mut self, _config: &Config) -> Result<String, String> {
+    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
         let secret_key = secret_key_secp256k1_generate()
             .map_err(|e| format!("Failed to generate secret key: {e}"))?;
         let secret_key = secret_key.to_pem().map_err(|e| e.to_string())?;
+
         let public_key = public_key_from_secret_key(&secret_key)
-            .map_err(|e| format!("Failed to get public key: {e}"))?;
+            .map_err(|e| format!("Failed to get public key: {e}"))?
+            .replacen(CASPER_SECP_PREFIX, "", 1)
+            .to_string();
 
-        {
-            let key_pair = KeyPair {
-                public_key: public_key.clone(),
-                secret_key,
-            };
-            let mut keys = self.inner.keys.lock().await;
-            keys.entry(public_key.clone()).or_insert(key_pair);
-        }
+        let address = format!("{}{}", CASPER_SECP_PREFIX, &public_key);
 
-        Ok(public_key)
+        let key_id = public_key.clone();
+
+        let public_key_base64 = STANDARD.encode(&public_key);
+
+        // Store in map
+        let key_pair = KeyPair {
+            public_key: public_key.clone(),
+            secret_key,
+            address: address.clone(),
+        };
+
+        let mut keys = self.inner.keys.lock().await;
+        keys.entry(address.clone()).or_insert(key_pair);
+
+        Ok(KeyEntry {
+            public_key: Some(public_key).into(),
+            address: address.into(),
+            public_key_base64: public_key_base64.into(),
+            key_id: key_id.into(),
+        })
     }
 
     async fn sign_transaction_hash(
         &mut self,
         config: &Config,
         transaction_hash: &str,
-        public_key: &str,
+        alias: &str,
     ) -> Result<String, String> {
+        let final_alias = self.resolve_alias(alias)?;
+        let key_pair = {
+            let keys = self.inner.keys.lock().await;
+            keys.get(&final_alias)
+                .ok_or_else(|| "Public key not found".to_string())?
+                .clone()
+        };
+
+        let public_key = &key_pair.address;
+
         let transaction_params = TransactionStrParams::default();
         transaction_params.set_chain_name("casper-net-1");
         transaction_params.set_initiator_addr(public_key);
@@ -83,14 +111,15 @@ impl KeysServiceTrait for MockCasperKeysService {
         &mut self,
         _config: &Config,
         transaction_str: &str,
-        public_key: &str,
+        alias: &str,
     ) -> Result<String, String> {
         let mut transaction: Transaction = Transaction::from_json_string(transaction_str)
             .map_err(|e| format!("Failed to parse transaction: {e}"))?;
 
+        let final_alias = self.resolve_alias(alias)?;
         let key_pair = {
             let keys = self.inner.keys.lock().await;
-            keys.get(public_key)
+            keys.get(&final_alias)
                 .ok_or_else(|| "Public key not found".to_string())?
                 .clone()
         };
@@ -126,11 +155,11 @@ impl KeysServiceTrait for MockCasperKeysService {
             .await
     }
 
-    async fn delete_key(&mut self, public_key: &str) -> Result<bool, String> {
-        Ok(self.inner.delete_key(public_key).await)
+    async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
+        Ok(self.inner.delete_key(alias).await)
     }
 
-    async fn list_keys(&mut self) -> Result<Vec<(String, String)>, String> {
+    async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
         Ok(self.inner.list_keys().await)
     }
 }
@@ -151,5 +180,13 @@ impl MockCasperKeysService {
         Ok(Self {
             inner: MockKeysService::new(config, crypto_service).await,
         })
+    }
+
+    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
+        if alias.len() == CASPER_SECP_LEN {
+            Ok(alias.to_string())
+        } else {
+            Ok(format!("{CASPER_SECP_PREFIX}{alias}"))
+        }
     }
 }

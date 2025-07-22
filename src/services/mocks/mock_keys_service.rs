@@ -1,4 +1,9 @@
-use crate::{config::Config, services::crypto_service::CryptoService};
+use crate::{
+    config::Config,
+    services::{crypto_service::CryptoService, keys_service::KeyEntry},
+};
+use base64::Engine;
+use base64::engine::general_purpose::STANDARD;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
     sync::Mutex,
@@ -10,6 +15,7 @@ use tracing::error;
 pub struct KeyPair {
     pub secret_key: String,
     pub public_key: String,
+    pub address: String,
 }
 
 pub struct MockKeysService {
@@ -114,20 +120,25 @@ impl MockKeysService {
     /// Deletes a public key from the internal key storage.
     ///
     /// Returns `true` if the key existed and was removed, `false` otherwise.
-    pub async fn delete_key(&self, public_key: &str) -> bool {
-        self.keys.lock().await.remove(public_key).is_some()
+    pub async fn delete_key(&self, alias: &str) -> bool {
+        self.keys.lock().await.remove(alias).is_some()
     }
 
     /// Lists all stored keys with mock metadata.
     ///
-    /// Returns a vector of tuples `(public_key, metadata)` representing all keys.
-    pub async fn list_keys(&self) -> Vec<(String, String)> {
+    /// Returns a vector of KeyEntry representing all keys.
+    pub async fn list_keys(&self) -> Vec<KeyEntry> {
         self.keys
             .lock()
             .await
-            .keys()
+            .values()
             .enumerate()
-            .map(|(i, public_key)| (public_key.clone(), format!("mock-key-{}", i + 1)))
+            .map(|(i, keypair)| KeyEntry {
+                address: keypair.address.clone().into(),
+                public_key_base64: STANDARD.encode(keypair.public_key.clone()).into(),
+                public_key: Some(keypair.public_key.clone()).into(),
+                key_id: format!("mock-key-{}", i + 1).into(),
+            })
             .collect()
     }
 
@@ -135,9 +146,7 @@ impl MockKeysService {
     ///
     /// Used to add keys for testing purposes.
     pub async fn insert_key(&self, key_pair: KeyPair) {
-        self.keys
-            .lock()
-            .await
-            .insert(key_pair.public_key.clone(), key_pair);
+        let alias = key_pair.address.clone();
+        self.keys.lock().await.insert(alias, key_pair);
     }
 }

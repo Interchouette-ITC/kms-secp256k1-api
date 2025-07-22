@@ -7,11 +7,13 @@ use crate::{
     },
     services::{
         casper_keys_service::CasperKeysService,
+        cosmos_keys_service::CosmosKeysService,
         crypto_service::CryptoService,
         ethereum_keys_service::EthereumKeysService,
         keys_service::KeysServiceTrait,
         mocks::{
             mock_casper_keys_service::MockCasperKeysService,
+            mock_cosmos_keys_service::MockCosmosKeysService,
             mock_ethereum_keys_service::MockEthereumKeysService,
         },
     },
@@ -81,12 +83,20 @@ pub async fn create_app(config: Config) -> Router {
                     .await
                     .expect("Failed to initialize MockEthereumKeysService"),
             )
-        } else {
+        } else if config.is_casper_mode() {
             Box::new(
                 MockCasperKeysService::new(config.clone(), crypto_service)
                     .await
                     .expect("Failed to initialize MockCasperKeysService"),
             )
+        } else if config.is_cosmos_mode() {
+            Box::new(
+                MockCosmosKeysService::new(config.clone(), crypto_service)
+                    .await
+                    .expect("Failed to initialize MockCasperKeysService"),
+            )
+        } else {
+            unimplemented!()
         }
     } else if config.is_ethereum_mode() {
         Box::new(
@@ -94,12 +104,20 @@ pub async fn create_app(config: Config) -> Router {
                 .await
                 .expect("Failed to initialize Failed to initialize EthereumKeysService"),
         )
-    } else {
+    } else if config.is_casper_mode() {
         Box::new(
             CasperKeysService::new(config.clone(), crypto_service)
                 .await
                 .expect("Failed to initialize Failed to initialize CasperKeysService"),
         )
+    } else if config.is_cosmos_mode() {
+        Box::new(
+            CosmosKeysService::new(config.clone(), crypto_service)
+                .await
+                .expect("Failed to initialize Failed to initialize CasperKeysService"),
+        )
+    } else {
+        unimplemented!()
     };
 
     let shared_state = AppState {
@@ -213,7 +231,7 @@ mod tests_lib {
                 .oneshot(
                     http::Request::builder()
                         .method("DELETE")
-                        .uri("/deleteKey?public_key=test_key")
+                        .uri("/deleteKey?key=test_key")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )

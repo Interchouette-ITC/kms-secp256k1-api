@@ -41,7 +41,7 @@ async fn test_sign_eth_transaction_hash_returns_200_integration() {
             .await
             .expect("Failed to parse createKey response");
 
-        public_keys.push(parsed.public_key);
+        public_keys.push(parsed.address);
     }
 
     let query_string = public_keys
