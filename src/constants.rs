@@ -1,7 +1,12 @@
 pub static WASM_PATH: &str = "./wasm/wasm.wasm";
-pub static CASPER_SECP_PREFIX: &str = "02";
 pub static DEFAULT_PORT: u16 = 4000;
+
 pub static DEFAULT_ETH_CHAIN_ID: u8 = 1;
+pub static DEFAULT_COSMOS_UDENOM: &str = "cosmos";
+
+pub static CASPER_SECP_PREFIX: &str = "02";
+pub static CASPER_SECP_LEN: usize = 68;
+
 pub const SIGNATURE_RS_LEN: usize = 128;
 pub const SIGNATURE_RSV_LEN: usize = 130;
 
@@ -25,12 +30,17 @@ pub const SIGNATURE_PREFIXED: &str = concat!(
 #[cfg(test)]
 pub static SIGNATURE_BASE64: &str = "MEQCID2mCuxo/kxpb464biqloCg0Ot7NzU2yLHaeypGgu3qLAiAOyAS+0PvFiDP+mDzxzxNUyAv+4QrCW+6R2Njj7lHLXg==";
 
+pub static ETH_SECP_LEN: usize = 66;
+
 pub static ETH_TRANSACTION_HASH: &str =
     "d2ab5d10a332cdf3222b7ffecb5abd07b44f338be7193775465e10b3e4fe0299";
 
 #[cfg(test)]
 pub static ETH_PUBLIC_KEY: &str =
     "02cdf5f74f32842442a6e1263aee727b2bd2accb5ce71525c5ea986501536eac00";
+
+#[cfg(test)]
+pub static ETH_ADDRESS: &str = "0x8b0b40d3a70712fd94b55291327d0140ec3c7ab3";
 
 #[cfg(test)]
 pub static ETH_SIGNATURE: &str = "ccb866b7e9ed5028d2e2456e734671549c47e560580735f1ff3a29cd2060f481396bbb8fffa855927d4a9179315826e31863091243232cebda1b894d678dce1425";

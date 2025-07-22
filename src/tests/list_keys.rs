@@ -58,15 +58,15 @@ mod tests {
 
         for created in &created_keys {
             let matching = keys.iter().find(|key| {
-                key["public_key"].as_str() == Some(&created.public_key)
+                key["address"].as_str() == Some(&created.address)
                     && key["key_id"].as_str().is_some()
                     && !key["key_id"].as_str().unwrap().is_empty()
             });
 
             assert!(
                 matching.is_some(),
-                "Expected public_key {} to be in the response with a non-empty key_id",
-                created.public_key
+                "Expected address {} to be in the response with a non-empty key_id",
+                created.address
             );
         }
     }

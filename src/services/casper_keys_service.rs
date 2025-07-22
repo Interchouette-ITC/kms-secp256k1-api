@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::constants::CASPER_SECP_PREFIX;
 use crate::services::crypto_service::CryptoService;
-use crate::services::keys_service::{KeysService, KeysServiceTrait};
+use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait};
 use casper_rust_wasm_sdk::types::hash::transaction_hash::TransactionHash;
 use casper_rust_wasm_sdk::types::public_key::PublicKey;
 use casper_rust_wasm_sdk::types::transaction::Transaction;
@@ -30,29 +30,22 @@ impl KeysServiceTrait for CasperKeysService {
     /// # Errors
     ///
     /// Returns an error if key creation, public key conversion, or alias creation fails.
-    async fn create_key(&mut self, config: &Config) -> Result<String, String> {
-        // Determine prefix keys_serviced on config
-        let prefix = if config.is_casper_mode() {
-            CASPER_SECP_PREFIX
-        } else {
-            ""
-        };
-
-        let (key_id, public_key) = self
+    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
+        let (key_id, public_key_base64) = self
             .keys_service
             .kms_client_service
             .create_key()
             .await
             .map_err(|e| {
-                let msg = format!("Failed to create_key in KmsClientService: {e}");
-                error!("{}", &msg);
-                msg
-            })?;
+            let msg = format!("Failed to create_key in KmsClientService: {e}");
+            error!("{}", &msg);
+            msg
+        })?;
 
-        let mut public_key = self
+        let public_key = self
             .keys_service
             .crypto_service
-            .public_key(&public_key)
+            .public_key(&public_key_base64)
             .map_err(|e| {
                 let msg = format!("public_key conversion failed: {e:?}");
                 error!("{}", &msg);
@@ -60,7 +53,7 @@ impl KeysServiceTrait for CasperKeysService {
             })?;
 
         // Prefix the public key if needed
-        public_key = format!("{}{}", prefix, &public_key);
+        let address = format!("{}{}", CASPER_SECP_PREFIX, &public_key); // address == prefix + public_key
 
         if public_key.is_empty() {
             let msg = "No public key generated".to_string();
@@ -73,7 +66,7 @@ impl KeysServiceTrait for CasperKeysService {
         // Create alias for the key
         self.keys_service
             .kms_client_service
-            .create_alias(&key_id, &public_key)
+            .create_alias(&key_id, &address)
             .await
             .map_err(|e| {
                 let msg = format!("Error creating alias: {e:?}");
@@ -81,7 +74,12 @@ impl KeysServiceTrait for CasperKeysService {
                 msg
             })?;
 
-        Ok(public_key)
+        Ok(KeyEntry {
+            public_key: Some(public_key).into(),
+            address: address.into(),
+            public_key_base64: public_key_base64.into(),
+            key_id: key_id.into(),
+        })
     }
 
     /// Signs a transaction hash using the provided public key and configuration mode.
@@ -102,7 +100,7 @@ impl KeysServiceTrait for CasperKeysService {
         &mut self,
         config: &Config,
         transaction_hash: &str,
-        public_key: &str,
+        alias: &str,
     ) -> Result<String, String> {
         if !config.is_casper_mode() {
             return Err("Only Casper mode is supported".to_string());
@@ -111,29 +109,40 @@ impl KeysServiceTrait for CasperKeysService {
 
         if let Err(e) = TransactionHash::new(transaction_hash) {
             info!(
-                "Error reading parameters \npublic_key : {}\ntransaction_hash : {}",
-                public_key, transaction_hash
+                "Error reading parameters: transaction_hash : {}",
+                transaction_hash
             );
             error!("Validation error: {:?}", e);
-            return Err("Error reading transaction parameters".to_string());
+            return Err(format!("Error reading transaction parameters: {e}"));
         }
 
-        if let Err(e) = PublicKey::new(public_key) {
+        let public_key = self
+            .keys_service
+            .kms_client_service
+            .get_public_key(alias)
+            .await
+            .map_err(|e| {
+                let msg = format!("Failed to get public key from alias with KMS: {e}");
+                error!("{}", msg);
+                msg
+            })?;
+
+        if let Err(e) = PublicKey::new(&public_key) {
             info!(
                 "Error reading parameters \npublic_key : {}\ntransaction_hash : {}",
                 public_key, transaction_hash
             );
             error!("Validation error: {:?}", e);
-            return Err("Error reading transaction parameters".to_string());
+            return Err(format!("Error reading transaction parameters: {e}"));
         }
 
         let signature = self
             .keys_service
-            .sign(transaction_hash, public_key, Some(CASPER_SECP_PREFIX))
+            .sign(transaction_hash, &public_key, Some(CASPER_SECP_PREFIX))
             .await?;
 
         // Now verify the signature immediately
-        let verified = self.verify(transaction_hash, &signature, public_key)?;
+        let verified = self.verify(transaction_hash, &signature, &public_key)?;
         if !verified {
             return Err("Signature verification failed after signing".to_string());
         }
@@ -165,7 +174,7 @@ impl KeysServiceTrait for CasperKeysService {
         &mut self,
         config: &Config,
         transaction_str: &str,
-        public_key: &str,
+        alias: &str,
     ) -> Result<String, String> {
         if !config.is_casper_mode() {
             return Err("Only Casper mode is supported".to_string());
@@ -181,24 +190,35 @@ impl KeysServiceTrait for CasperKeysService {
             "Invalid transaction hash".to_string()
         })?;
 
-        PublicKey::new(public_key).map_err(|e| {
+        let public_key = self
+            .keys_service
+            .kms_client_service
+            .get_public_key(alias)
+            .await
+            .map_err(|e| {
+                let msg = format!("Failed to get public key from alias with KMS: {e}");
+                error!("{}", msg);
+                msg
+            })?;
+
+        PublicKey::new(&public_key).map_err(|e| {
             error!("Invalid public key: {:?}", e);
             "Invalid public key".to_string()
         })?;
 
         let signature = self
             .keys_service
-            .sign(&transaction_hash_str, public_key, Some(CASPER_SECP_PREFIX))
+            .sign(&transaction_hash_str, &public_key, Some(CASPER_SECP_PREFIX))
             .await
             .map_err(|e| format!("Signing failed: {e}"))?;
 
         // Verify the signature immediately
-        let verified = self.verify(&transaction_hash_str, &signature, public_key)?;
+        let verified = self.verify(&transaction_hash_str, &signature, &public_key)?;
         if !verified {
             return Err("Signature verification failed after signing".to_string());
         }
 
-        let signed_transaction = transaction.add_signature(public_key, &signature);
+        let signed_transaction = transaction.add_signature(&public_key, &signature);
 
         signed_transaction
             .to_json_string()
@@ -226,17 +246,19 @@ impl KeysServiceTrait for CasperKeysService {
             .await
     }
 
-    async fn delete_key(&mut self, public_key: &str) -> Result<bool, String> {
-        self.keys_service.delete_key(public_key).await
+    async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
+        self.keys_service.delete_key(alias).await
     }
 
-    async fn list_keys(&mut self) -> Result<Vec<(String, String)>, String> {
+    async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
         self.keys_service.list_keys().await
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
     use casper_rust_wasm_sdk::{
         SDK, types::transaction_params::transaction_str_params::TransactionStrParams,
     };
@@ -249,7 +271,7 @@ mod tests {
         constants::{
             CASPER_PUBLIC_KEY_PREFIXED, SIGNATURE, SIGNATURE_PREFIXED, TRANSACTION_HASH, WASM_PATH,
         },
-        services::crypto_service::CryptoService,
+        services::{crypto_service::CryptoService, keys_service::KeyEntry},
         wasm_loader::WasmLoader,
     };
 
@@ -277,9 +299,9 @@ mod tests {
 
         // Assert the key is returned with the casper prefix
         assert!(result.is_ok(), "create_key failed: {result:?}");
-        let public_key = result.unwrap();
-        assert!(public_key.starts_with(CASPER_SECP_PREFIX));
-        assert!(!public_key.is_empty());
+        let key = result.unwrap();
+        assert!(key.address.to_string().starts_with(CASPER_SECP_PREFIX));
+        assert!(!key.address.to_string().is_empty());
     }
 
     #[tokio::test]
@@ -423,14 +445,23 @@ mod tests {
         assert!(result.is_ok(), "Expected list_keys to succeed");
 
         let keys = result.unwrap();
-        assert_eq!(keys.len(), 2);
         assert_eq!(
             keys[0],
-            ("key_id_1".to_string(), "public_key_1".to_string())
+            KeyEntry {
+                address: "address_1".to_string().into(),
+                public_key_base64: STANDARD.encode("public_key_1_base64").into(),
+                public_key: Some("public_key_1".to_string()).into(),
+                key_id: "key_id_1".to_string().into(),
+            }
         );
         assert_eq!(
             keys[1],
-            ("key_id_2".to_string(), "public_key_2".to_string())
+            KeyEntry {
+                address: "address_2".to_string().into(),
+                public_key_base64: STANDARD.encode("public_key_2_base64").into(),
+                public_key: Some("public_key_2".to_string()).into(),
+                key_id: "key_id_2".to_string().into(),
+            }
         );
     }
 

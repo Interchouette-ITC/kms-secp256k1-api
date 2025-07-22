@@ -1,13 +1,13 @@
 use crate::{
     config::{AwsConfig, HashType},
-    services::kms_client_service::KmsClientService,
+    services::{keys_service::KeyEntry, kms_client_service::KmsClientService},
 };
 use aws_config::SdkConfig;
 use aws_credential_types::Credentials;
 use aws_sdk_kms::{
     Client as KmsClient,
     primitives::Blob,
-    types::{KeySpec, KeyUsageType, MessageType, OriginType, SigningAlgorithmSpec},
+    types::{KeyMetadata, KeySpec, KeyUsageType, MessageType, OriginType, SigningAlgorithmSpec},
 };
 use aws_types::region::Region;
 use base64::Engine;
@@ -145,34 +145,14 @@ impl KmsClientService for AWSKmsClientService {
         info!("Key created: {}", key_id);
 
         // Fetch the public key
-        let get_public_key_resp = kms_client
-            .get_public_key()
-            .key_id(&key_id)
-            .send()
-            .await
-            .map_err(|e| {
-                let msg = format!("Error fetching public key: {e:?}");
-                error!("{}", &msg);
-                msg
-            })?;
+        let public_key_base64 = self.get_public_key_base64(kms_client, &key_id).await?;
 
-        let public_key = get_public_key_resp
-            .public_key
-            .as_ref()
-            .ok_or_else(|| {
-                let msg = "No public key returned by AWS KMS".to_string();
-                error!("{}", &msg);
-                msg
-            })?
-            .as_ref();
-
-        let public_key = STANDARD.encode(public_key);
-        // info!("Public key (base64): {}", public_key);
-        Ok((key_id, public_key))
+        // info!("Public key (base64): {}", public_key_base64);
+        Ok((key_id, public_key_base64))
     }
 
-    async fn create_alias(&self, key_id: &str, public_key: &str) -> Result<(), String> {
-        let alias_name = format!("alias/{public_key}");
+    async fn create_alias(&self, key_id: &str, alias: &str) -> Result<(), String> {
+        let alias_name = Self::format_alias(alias);
         let kms_client = &self.create;
 
         kms_client
@@ -190,26 +170,11 @@ impl KmsClientService for AWSKmsClientService {
         Ok(())
     }
 
-    async fn sign(&self, transaction_hash_hex: &str, public_key: &str) -> Result<String, String> {
+    async fn sign(&self, transaction_hash_hex: &str, alias: &str) -> Result<String, String> {
         let kms_client = &self.sign;
-        let alias_name = format!("alias/{public_key}");
 
-        let describe_key_output = kms_client
-            .describe_key()
-            .key_id(&alias_name)
-            .send()
-            .await
-            .map_err(|e| {
-                let msg = format!("Failed to describe key for alias {alias_name}: {e:?}");
-                error!("{}", msg);
-                msg
-            })?;
-
-        let key_metadata = describe_key_output.key_metadata.ok_or_else(|| {
-            let msg = format!("KeyMetadata not found for alias {alias_name}");
-            error!("{}", msg);
-            msg
-        })?;
+        // Resolve alias to key ID
+        let key_metadata = self.describe_key_metadata(kms_client, alias).await?;
 
         let key_id = key_metadata.key_id;
 
@@ -260,28 +225,12 @@ impl KmsClientService for AWSKmsClientService {
         &self,
         transaction_hash_hex: &str,
         signature_asn1_base64: &str,
-        public_key: &str,
+        alias: &str,
     ) -> Result<bool, String> {
         let kms_client = &self.sign;
-        let alias_name = format!("alias/{public_key}");
 
         // Resolve alias to key ID
-        let describe_key_output = kms_client
-            .describe_key()
-            .key_id(&alias_name)
-            .send()
-            .await
-            .map_err(|e| {
-                let msg = format!("Failed to describe key for alias {alias_name}: {e:?}");
-                error!("{}", msg);
-                msg
-            })?;
-
-        let key_metadata = describe_key_output.key_metadata.ok_or_else(|| {
-            let msg = format!("KeyMetadata not found for alias {alias_name}");
-            error!("{}", msg);
-            msg
-        })?;
+        let key_metadata = self.describe_key_metadata(kms_client, alias).await?;
 
         let key_id = key_metadata.key_id;
 
@@ -321,7 +270,7 @@ impl KmsClientService for AWSKmsClientService {
         Ok(verify_output.signature_valid)
     }
 
-    async fn delete_key(&self, public_key: &str) -> Result<bool, String> {
+    async fn delete_key(&self, alias: &str) -> Result<bool, String> {
         let Some(kms_client) = &self.delete else {
             tracing::warn!(
                 "Attempted to delete key, but delete_kms client is not configured/enabled"
@@ -329,26 +278,11 @@ impl KmsClientService for AWSKmsClientService {
             return Ok(false);
         };
 
-        let alias_name = format!("alias/{public_key}");
-
-        let describe_output = kms_client
-            .describe_key()
-            .key_id(&alias_name)
-            .send()
-            .await
-            .map_err(|e| {
-                let msg = format!("Failed to describe key for alias {alias_name}: {e:?}");
-                error!("{}", msg);
-                msg
-            })?;
-
-        let key_metadata = describe_output.key_metadata.ok_or_else(|| {
-            let msg = format!("No key metadata found for alias {alias_name}");
-            error!("{}", msg);
-            msg
-        })?;
+        // Resolve alias to key ID
+        let key_metadata = self.describe_key_metadata(kms_client, alias).await?;
 
         let key_id = key_metadata.key_id.clone();
+        let alias_name = Self::format_alias(alias);
 
         kms_client
             .delete_alias()
@@ -380,37 +314,159 @@ impl KmsClientService for AWSKmsClientService {
         Ok(true)
     }
 
-    async fn list_keys(&self) -> Result<Vec<(String, String)>, String> {
+    async fn list_keys(&self) -> Result<Vec<KeyEntry>, String> {
         let Some(kms_client) = &self.list else {
             tracing::warn!("Attempted to list keys, but list_kms client is not configured/enabled");
             return Ok(vec![]);
         };
 
         let mut paginator = kms_client.list_aliases().into_paginator().send();
-        let mut results = Vec::new();
+        let mut results = Vec::<KeyEntry>::new();
 
-        while let Some(page) = paginator.next().await {
-            let page = page.map_err(|e| {
+        while let Some(page_result) = paginator.next().await {
+            let page = page_result.map_err(|e| {
                 let msg = format!("Failed to list aliases: {e:?}");
                 error!("{}", msg);
                 msg
             })?;
 
-            if let Some(aliases) = page.aliases {
-                for alias in aliases {
-                    if let (Some(alias_name), Some(target_key_id)) =
-                        (alias.alias_name, alias.target_key_id)
-                        && !alias_name.starts_with("alias/aws/")
-                    {
-                        let cleaned_alias = alias_name.trim_start_matches("alias/").to_string();
-                        results.push((cleaned_alias, target_key_id));
-                    }
+            let aliases = page.aliases.unwrap_or_default();
+
+            for alias in aliases {
+                let (Some(alias_name), Some(key_id)) = (alias.alias_name, alias.target_key_id)
+                else {
+                    continue;
+                };
+
+                if alias_name.starts_with("alias/aws/") {
+                    continue;
                 }
+
+                // Resolve alias to key ID
+                let key_metadata = self.describe_key_metadata(kms_client, &alias_name).await?;
+
+                let is_enabled =
+                    key_metadata.key_state.as_ref() == Some(&aws_sdk_kms::types::KeyState::Enabled);
+
+                if !is_enabled {
+                    continue;
+                }
+
+                let address = alias_name.trim_start_matches("alias/").to_string();
+                let public_key_base64 = self.get_public_key_base64(kms_client, &key_id).await?;
+
+                results.push(KeyEntry {
+                    address: address.into(),
+                    public_key_base64: public_key_base64.into(),
+                    public_key: None.into(), // recomputed later per keys service list_keys
+                    key_id: key_id.into(),
+                });
             }
         }
 
-        //  info!("Found {} client key aliases", results.len());
         Ok(results)
+    }
+
+    /// Resolves an alias and fetches the base64-encoded public key associated with it.
+    ///
+    /// # Arguments
+    /// * `kms_client` - The AWS KMS client used for the request.
+    /// * `alias` - The alias name (with or without the `alias/` prefix).
+    ///
+    /// # Returns
+    /// * `Ok(String)` - The base64-encoded public key.
+    /// * `Err(String)` - If resolving the alias or fetching the key fails.
+    async fn get_public_key(&self, alias: &str) -> Result<String, String> {
+        // Ensure alias is in the correct format
+        let alias_name = if alias.starts_with("alias/") {
+            alias.to_string()
+        } else {
+            format!("alias/{alias}")
+        };
+
+        let kms_client = &self.sign; // Sign credentials are used to get a public key
+
+        let key_metadata = self.describe_key_metadata(kms_client, &alias_name).await?;
+        let key_id = &key_metadata.key_id;
+
+        self.get_public_key_base64(kms_client, key_id).await
+    }
+}
+
+impl AWSKmsClientService {
+    /// Retrieves the public key for the given key ID from AWS KMS.
+    ///
+    /// # Arguments
+    /// * `kms_client` - A reference to the KMS client used to call `get_public_key`.
+    /// * `key_id` - The ID of the key to retrieve the public key for.
+    ///
+    /// # Returns
+    /// * `Ok(String)` - The base64-encoded public key.
+    /// * `Err(String)` - Error message if the call fails or the key is missing.
+    async fn get_public_key_base64(
+        &self,
+        kms_client: &aws_sdk_kms::Client,
+        key_id: &str,
+    ) -> Result<String, String> {
+        let pubkey_resp = kms_client
+            .get_public_key()
+            .key_id(key_id)
+            .send()
+            .await
+            .map_err(|e| {
+                let msg = format!("Could not get public key for key_id {key_id}: {e:?}");
+                error!("{}", msg);
+                msg
+            })?;
+
+        let pubkey = pubkey_resp.public_key.ok_or_else(|| {
+            let msg = format!("Missing public key for key_id {key_id}");
+            error!("{}", msg);
+            msg
+        })?;
+
+        Ok(STANDARD.encode(pubkey.as_ref()))
+    }
+
+    /// Retrieves KeyMetadata for a given alias by calling AWS KMS `DescribeKey`.
+    ///
+    /// # Arguments
+    /// * `alias` - The alias name without the `alias/` prefix.
+    ///
+    /// # Returns
+    /// * `Ok(KeyMetadata)` if the key is found.
+    /// * `Err(String)` if the request fails or metadata is missing.
+    async fn describe_key_metadata(
+        &self,
+        kms_client: &aws_sdk_kms::Client,
+        alias: &str,
+    ) -> Result<KeyMetadata, String> {
+        let alias_name = Self::format_alias(alias);
+
+        let output = kms_client
+            .describe_key()
+            .key_id(&alias_name)
+            .send()
+            .await
+            .map_err(|e| {
+                let msg = format!("Failed to describe key for alias {alias_name}: {e:?}");
+                error!("{}", msg);
+                msg
+            })?;
+
+        output.key_metadata.ok_or_else(|| {
+            let msg = format!("KeyMetadata not found for alias {alias_name}");
+            error!("{}", msg);
+            msg
+        })
+    }
+
+    fn format_alias(alias: &str) -> String {
+        if alias.starts_with("alias/") {
+            alias.to_string()
+        } else {
+            format!("alias/{alias}")
+        }
     }
 }
 

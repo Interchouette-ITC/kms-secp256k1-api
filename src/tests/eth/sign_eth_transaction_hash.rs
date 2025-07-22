@@ -33,7 +33,7 @@ mod tests {
             let body_str = String::from_utf8(body.to_vec()).unwrap();
             let parsed: CreateKeyResponse = serde_json::from_str(&body_str).unwrap();
 
-            public_keys.push(parsed.public_key);
+            public_keys.push(parsed.address);
         }
 
         let query_string = public_keys

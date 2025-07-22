@@ -99,6 +99,25 @@ impl CryptoService {
     ///
     /// # Arguments
     ///
+    /// * `public_key` - The public key as a string.
+    ///
+    /// # Returns
+    ///
+    /// A `Result` containing the Ethereum address as a hexadecimal string (with `0x` prefix) if successful,
+    /// or an error if the WASM invocation fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the WASM function cannot be typed or invoked correctly,
+    /// or if the WASM function returns an error string.
+    pub fn address_eth(&mut self, public_key: &str) -> Result<String, Box<dyn std::error::Error>> {
+        let func = self.address_eth.typed::<(i32, i32), i32>(&self.store)?;
+        self.invoke_wasm_str_func(&func, public_key)
+    }
+
+    ///
+    /// # Arguments
+    ///
     /// * `signature` - The signature to convert as a string.
     ///
     /// # Returns

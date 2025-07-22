@@ -5,8 +5,17 @@ use crate::services::{
     kms_client_service::KmsClientService,
 };
 use crate::{config::Config, constants::SIGNATURE_RSV_LEN};
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tracing::{error, info};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct KeyEntry {
+    pub address: Arc<String>,
+    pub public_key: Arc<Option<String>>,
+    pub public_key_base64: Arc<String>,
+    pub key_id: Arc<String>,
+}
 
 #[async_trait::async_trait]
 pub trait KeysServiceTrait: Send + Sync {
@@ -15,13 +24,13 @@ pub trait KeysServiceTrait: Send + Sync {
     /// # Errors
     /// Returns an error if key creation fails due to misconfiguration, internal cryptographic errors,
     /// or if the underlying storage backend is unavailable.
-    async fn create_key(&mut self, config: &Config) -> Result<String, String>;
+    async fn create_key(&mut self, config: &Config) -> Result<KeyEntry, String>;
 
     /// Signs the given transaction hash using the specified public key.
     ///
     /// # Arguments
     /// - `transaction_hash`: A hex-encoded hash of the transaction data.
-    /// - `public_key`: The key used to locate the corresponding private key for signing.
+    /// - `alias`: The key used to locate the corresponding private key for signing.
     ///
     /// # Errors
     /// Returns an error if the key is not found, if signing fails, or if the inputs are malformed.
@@ -29,14 +38,14 @@ pub trait KeysServiceTrait: Send + Sync {
         &mut self,
         config: &Config,
         transaction_hash: &str,
-        public_key: &str,
+        alias: &str,
     ) -> Result<String, String>;
 
     /// Signs the raw transaction data using the specified public key.
     ///
     /// # Arguments
     /// - `transaction_str`: The raw transaction string to be hashed and signed.
-    /// - `public_key`: The public key used to determine the signing key.
+    /// - `alias`: The public key used to determine the signing key.
     ///
     /// # Errors
     /// Returns an error if hashing, signing, or key retrieval fails.
@@ -44,7 +53,7 @@ pub trait KeysServiceTrait: Send + Sync {
         &mut self,
         config: &Config,
         transaction_str: &str,
-        public_key: &str,
+        alias: &str,
     ) -> Result<String, String>;
 
     /// Verifies that the given signature is valid for the provided transaction hash and public key.
@@ -81,20 +90,20 @@ pub trait KeysServiceTrait: Send + Sync {
         public_key: &str,
     ) -> Result<bool, String>;
 
-    /// Deletes the cryptographic key associated with the given public key.
+    /// Deletes the cryptographic key associated with the given alias.
     ///
     /// # Arguments
-    /// - `public_key`: The public key whose associated private key should be deleted.
+    /// - `alias`: The alias whose associated private key should be deleted.
     ///
     /// # Errors
     /// Returns an error if the key cannot be found or deletion fails due to internal issues or access control.
-    async fn delete_key(&mut self, public_key: &str) -> Result<bool, String>;
+    async fn delete_key(&mut self, alias: &str) -> Result<bool, String>;
 
     /// Lists all available public keys and their metadata.
     ///
     /// # Errors
     /// Returns an error if key listing fails due to storage access problems or unexpected internal errors.
-    async fn list_keys(&mut self) -> Result<Vec<(String, String)>, String>;
+    async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String>;
 }
 
 pub struct KeysService {
@@ -147,12 +156,12 @@ impl KeysService {
     pub async fn sign(
         &mut self,
         transaction_hash_hex: &str,
-        public_key: &str,
+        alias: &str,
         prefix: Option<&str>,
     ) -> Result<String, String> {
         let signature = self
             .kms_client_service
-            .sign(transaction_hash_hex, public_key)
+            .sign(transaction_hash_hex, alias)
             .await
             .map_err(|e| {
                 let msg = format!("Failed to sign transaction with KMS: {e}");
@@ -167,11 +176,21 @@ impl KeysService {
         })?;
 
         if self.ethereum_mode && signature.len() == 128 {
+            let public_key = self
+                .kms_client_service
+                .get_public_key(alias)
+                .await
+                .map_err(|e| {
+                    let msg = format!("Failed to get public key from alias with KMS: {e}");
+                    error!("{}", msg);
+                    msg
+                })?;
+
             info!("adding V");
             let v_hex: String = match self.crypto_service.recover_v(
                 transaction_hash_hex,
                 &signature,
-                public_key,
+                &public_key,
                 Some(self.eth_chain_id),
             ) {
                 Ok(v) => v,
@@ -350,11 +369,11 @@ impl KeysService {
             })
     }
 
-    /// Deletes a key identified by the given public key using the KMS client.
+    /// Deletes a key identified by the given alias using the KMS client.
     ///
     /// # Arguments
     ///
-    /// * `public_key` - The public key identifying the key to delete.
+    /// * `alias` - The alias identifying the key to delete.
     ///
     /// # Errors
     ///
@@ -363,12 +382,12 @@ impl KeysService {
     /// # Returns
     ///
     /// `Ok(true)` if the key was successfully deleted.
-    pub async fn delete_key(&mut self, public_key: &str) -> Result<bool, String> {
+    pub async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
         self.kms_client_service
-            .delete_key(public_key)
+            .delete_key(alias)
             .await
             .map_err(|e| {
-                let msg = format!("SignatKey deletion failed: {e}");
+                let msg = format!("Key deletion failed: {e}");
                 error!("{}", msg);
                 msg
             })
@@ -382,13 +401,38 @@ impl KeysService {
     ///
     /// # Returns
     ///
-    /// `Ok` with a vector of tuples containing key identifiers and their aliases.
-    pub async fn list_keys(&mut self) -> Result<Vec<(String, String)>, String> {
-        self.kms_client_service.list_keys().await.map_err(|e| {
+    /// `Ok` with a vector of KeyEntry
+    pub async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
+        let entries = self.kms_client_service.list_keys().await.map_err(|e| {
             let msg = format!("Listing keys failed: {e}");
             error!("{}", msg);
             msg
-        })
+        })?;
+
+        let mut result = Vec::with_capacity(entries.len());
+
+        for mut entry in entries {
+            if entry.public_key.is_none() {
+                let public_key_base64 = entry.public_key_base64.to_string();
+
+                let public_key =
+                    self.crypto_service
+                        .public_key(&public_key_base64)
+                        .map_err(|e| {
+                            let msg = format!("public_key conversion failed: {e:?}");
+                            error!("{}", &msg);
+                            msg
+                        })?;
+
+                entry.public_key = Some(public_key).into();
+
+                result.push(entry);
+            } else {
+                result.push(entry);
+            }
+        }
+
+        Ok(result)
     }
 }
 
@@ -404,6 +448,8 @@ mod tests {
         services::crypto_service::CryptoService,
         wasm_loader::WasmLoader,
     };
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
 
     #[tokio::test]
     async fn test_sign_successful() {
@@ -660,11 +706,21 @@ mod tests {
         assert_eq!(keys.len(), 2, "Expected two keys from mocked KMS");
         assert_eq!(
             keys[0],
-            ("key_id_1".to_string(), "public_key_1".to_string())
+            KeyEntry {
+                address: "address_1".to_string().into(),
+                public_key_base64: STANDARD.encode("public_key_1_base64").into(),
+                public_key: Some("public_key_1".to_string()).into(),
+                key_id: "key_id_1".to_string().into(),
+            }
         );
         assert_eq!(
             keys[1],
-            ("key_id_2".to_string(), "public_key_2".to_string())
+            KeyEntry {
+                address: "address_2".to_string().into(),
+                public_key_base64: STANDARD.encode("public_key_2_base64").into(),
+                public_key: Some("public_key_2".to_string()).into(),
+                key_id: "key_id_2".to_string().into(),
+            }
         );
     }
 }

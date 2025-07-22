@@ -55,9 +55,10 @@ pub async fn hello(
     format!("Hello {message}! Version: {}", *VERSION)
 }
 
-#[derive(Serialize, ToSchema, Deserialize, Debug)]
+#[derive(Serialize, ToSchema, Deserialize, Debug, Clone)]
 pub struct CreateKeyResponse {
     pub public_key: String,
+    pub address: String,
 }
 
 #[utoipa::path(
@@ -72,9 +73,12 @@ pub async fn create_keypair(Extension(state): Extension<AppState>) -> impl IntoR
     let mut keys_service = state.keys_service.lock().await;
 
     match keys_service.create_key(&state.config).await {
-        Ok(public_key) => (
+        Ok(key) => (
             StatusCode::CREATED,
-            Json(json!({ "public_key": public_key })),
+            Json(json!({
+                "public_key": key.public_key,
+                "address": key.address
+            })),
         ),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -315,17 +319,18 @@ pub async fn verify_signature(
 
 #[derive(Deserialize)]
 pub struct DeleteKeyParams {
-    pub public_key: String,
+    pub key: String,
 }
 
 #[utoipa::path(
     delete,
     path = "/deleteKey",
     params(
-        ("public_key" = String, Query, description = "The public key associated with the key to delete")
+        ("key" = String, Query, description = "Address or public key of the key to delete")
     ),
     responses(
         (status = 200, description = "Key deletion status", body = bool),
+        (status = 400, description = "Bad request - specify exactly one of address or public_key"),
         (status = 404, description = "Delete feature is disabled"),
         (status = 500, description = "Internal server error", body = String)
     ),
@@ -337,7 +342,16 @@ pub async fn delete_key(
 ) -> impl IntoResponse {
     let mut keys_service = state.keys_service.lock().await;
 
-    match keys_service.delete_key(&params.public_key).await {
+    let alias = params.key.trim();
+
+    if alias.is_empty() {
+        return (
+            StatusCode::BAD_REQUEST,
+            Json(json!({ "error": "Key cannot be empty" })),
+        );
+    }
+
+    match keys_service.delete_key(alias).await {
         Ok(result) => (StatusCode::OK, Json(json!({ "deleted": result }))),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -346,8 +360,10 @@ pub async fn delete_key(
     }
 }
 
-#[derive(Serialize, Deserialize, ToSchema)]
-pub struct KeyEntry {
+#[derive(Serialize, Deserialize, ToSchema, Eq, PartialEq, Debug, Clone)]
+pub struct KeyEntryResponse {
+    pub address: String,
+    pub public_key_base64: String,
     pub public_key: String,
     pub key_id: String,
 }
@@ -356,7 +372,7 @@ pub struct KeyEntry {
     get,
     path = "/listKeys",
     responses(
-        (status = 200, description = "List of keys", body = [KeyEntry]),
+        (status = 200, description = "List of keys", body = [KeyEntryResponse]),
         (status = 404, description = "Listing of keys feature is disabled"),
         (status = 500, description = "Internal server error", body = String)
     ),
@@ -367,9 +383,18 @@ pub async fn list_keys(Extension(state): Extension<AppState>) -> impl IntoRespon
 
     match keys_service.list_keys().await {
         Ok(keys) => {
-            let keys_entries: Vec<KeyEntry> = keys
+            let keys_entries: Vec<KeyEntryResponse> = keys
                 .into_iter()
-                .map(|(public_key, key_id)| KeyEntry { public_key, key_id })
+                .map(|key_entry| KeyEntryResponse {
+                    address: key_entry.address.to_string(),
+                    public_key_base64: key_entry.public_key_base64.to_string(),
+                    public_key: key_entry
+                        .public_key
+                        .as_deref()
+                        .unwrap_or_default()
+                        .to_string(),
+                    key_id: key_entry.key_id.to_string(),
+                })
                 .collect();
 
             if keys_entries.is_empty() {
@@ -390,31 +415,41 @@ pub async fn list_keys(Extension(state): Extension<AppState>) -> impl IntoRespon
 
 #[cfg(test)]
 mod tests_routes {
-    use async_trait::async_trait;
-    use http_body_util::BodyExt;
-    use tokio::sync::Mutex;
-
     use super::*;
     use crate::{
         AppState,
         config::{Config, ConfigBuilder},
         constants::{CASPER_PUBLIC_KEY_PREFIXED, SIGNATURE_PREFIXED, TRANSACTION_HASH},
-        services::keys_service::KeysServiceTrait,
+        services::keys_service::{KeyEntry, KeysServiceTrait},
     };
+    use async_trait::async_trait;
+    use base64::Engine;
+    use base64::engine::general_purpose::STANDARD;
+    use http_body_util::BodyExt;
     use std::sync::Arc;
+    use tokio::sync::Mutex;
 
     #[derive(Default, Debug)]
     struct MockKeysService {
-        keys: Vec<(String, String)>,
+        keys: Vec<KeyEntry>,
     }
 
     #[async_trait]
     impl KeysServiceTrait for MockKeysService {
-        async fn create_key(&mut self, _config: &crate::config::Config) -> Result<String, String> {
-            Ok(CASPER_PUBLIC_KEY_PREFIXED.to_string())
+        async fn create_key(
+            &mut self,
+            _config: &crate::config::Config,
+        ) -> Result<KeyEntry, String> {
+            let public_key = CASPER_PUBLIC_KEY_PREFIXED.to_string();
+            Ok(KeyEntry {
+                public_key: Some(public_key).into(),
+                address: "address".to_string().into(),
+                public_key_base64: STANDARD.encode("public_key_base64").into(),
+                key_id: "key_id".to_string().into(),
+            })
         }
 
-        async fn list_keys(&mut self) -> Result<Vec<(String, String)>, String> {
+        async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
             Ok(self.keys.clone())
         }
 
@@ -488,9 +523,12 @@ mod tests_routes {
             Ok(signature_hex == "kms-valid" && public_key == "pubkey")
         }
 
-        async fn delete_key(&mut self, public_key: &str) -> Result<bool, String> {
+        async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
             let before = self.keys.len();
-            self.keys.retain(|(pk, _)| pk != public_key);
+            self.keys.retain(|key_entry| {
+                alias != key_entry.address.as_str()
+                    && key_entry.public_key.as_deref() != Some(alias)
+            });
             let after = self.keys.len();
             Ok(after < before)
         }
@@ -560,8 +598,18 @@ mod tests_routes {
     async fn test_list_keys_success() {
         let mock_service = MockKeysService {
             keys: vec![
-                ("pubkey1".into(), "keyid1".into()),
-                ("pubkey2".into(), "keyid2".into()),
+                KeyEntry {
+                    address: "address_1".to_string().into(),
+                    public_key_base64: STANDARD.encode("public_key_1_base64").into(),
+                    public_key: Some("public_key_1".to_string()).into(),
+                    key_id: "key_id_1".to_string().into(),
+                },
+                KeyEntry {
+                    address: "address_2".to_string().into(),
+                    public_key_base64: STANDARD.encode("public_key_2_base64").into(),
+                    public_key: Some("public_key_2".to_string()).into(),
+                    key_id: "key_id_2".to_string().into(),
+                },
             ],
         };
 
@@ -580,18 +628,38 @@ mod tests_routes {
         let keys = json_val.get("keys").unwrap().as_array().unwrap();
 
         assert_eq!(keys.len(), 2);
-        assert_eq!(keys[0]["public_key"], "pubkey1");
-        assert_eq!(keys[0]["key_id"], "keyid1");
-        assert_eq!(keys[1]["public_key"], "pubkey2");
-        assert_eq!(keys[1]["key_id"], "keyid2");
+        assert_eq!(keys[0]["address"], "address_1");
+        assert_eq!(
+            keys[0]["public_key_base64"],
+            STANDARD.encode("public_key_1_base64")
+        );
+        assert_eq!(keys[0]["public_key"], "public_key_1");
+        assert_eq!(keys[0]["key_id"], "key_id_1");
+        assert_eq!(keys[1]["address"], "address_2");
+        assert_eq!(
+            keys[1]["public_key_base64"],
+            STANDARD.encode("public_key_2_base64")
+        );
+        assert_eq!(keys[1]["public_key"], "public_key_2");
+        assert_eq!(keys[1]["key_id"], "key_id_2");
     }
 
     #[tokio::test]
-    async fn test_delete_key_success() {
+    async fn test_delete_key_success_from_address() {
         let mock_service = MockKeysService {
             keys: vec![
-                ("pubkey1".into(), "keyid1".into()),
-                ("pubkey2".into(), "keyid2".into()),
+                KeyEntry {
+                    address: "address_1".to_string().into(),
+                    public_key_base64: STANDARD.encode("public_key_1_base64").into(),
+                    public_key: Some("public_key_1".to_string()).into(),
+                    key_id: "key_id_1".to_string().into(),
+                },
+                KeyEntry {
+                    address: "address_2".to_string().into(),
+                    public_key_base64: STANDARD.encode("public_key_2_base64").into(),
+                    public_key: Some("public_key_2".to_string()).into(),
+                    key_id: "key_id_2".to_string().into(),
+                },
             ],
         };
 
@@ -601,7 +669,7 @@ mod tests_routes {
         };
 
         let params = DeleteKeyParams {
-            public_key: "pubkey1".to_string(),
+            key: "address_1".to_string(),
         };
 
         let response = delete_key(Extension(state), Query(params))
@@ -617,9 +685,22 @@ mod tests_routes {
     }
 
     #[tokio::test]
-    async fn test_delete_key_not_found() {
+    async fn test_delete_key_success() {
         let mock_service = MockKeysService {
-            keys: vec![("pubkey2".into(), "keyid2".into())],
+            keys: vec![
+                KeyEntry {
+                    address: "address_1".to_string().into(),
+                    public_key_base64: STANDARD.encode("public_key_1_base64").into(),
+                    public_key: Some("public_key_1".to_string()).into(),
+                    key_id: "key_id_1".to_string().into(),
+                },
+                KeyEntry {
+                    address: "address_2".to_string().into(),
+                    public_key_base64: STANDARD.encode("public_key_2_base64").into(),
+                    public_key: Some("public_key_2".to_string()).into(),
+                    key_id: "key_id_2".to_string().into(),
+                },
+            ],
         };
 
         let state = AppState {
@@ -628,7 +709,69 @@ mod tests_routes {
         };
 
         let params = DeleteKeyParams {
-            public_key: "nonexistent".to_string(),
+            key: "public_key_1".to_string(),
+        };
+
+        let response = delete_key(Extension(state), Query(params))
+            .await
+            .into_response();
+
+        assert_eq!(response.status(), StatusCode::OK);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert_eq!(body_json["deleted"], true);
+    }
+
+    #[tokio::test]
+    async fn test_delete_key_with_none_or_empty_should_fail() {
+        let mock_service = MockKeysService { keys: vec![] };
+
+        let state = AppState {
+            keys_service: Arc::new(Mutex::new(Box::new(mock_service))),
+            config: Config::default(),
+        };
+
+        let params = DeleteKeyParams {
+            key: "".to_string(),
+        };
+
+        let response = delete_key(Extension(state.clone()), Query(params))
+            .await
+            .into_response();
+
+        assert_eq!(response.status(), StatusCode::BAD_REQUEST);
+
+        let body = response.into_body().collect().await.unwrap().to_bytes();
+        let body_json: serde_json::Value = serde_json::from_slice(&body).unwrap();
+
+        assert!(
+            body_json["error"]
+                .as_str()
+                .unwrap()
+                .contains("Key cannot be empty")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_delete_key_not_found() {
+        let mock_service = MockKeysService {
+            keys: vec![KeyEntry {
+                address: "address_1".to_string().into(),
+                public_key_base64: STANDARD.encode("public_key_1_base64").into(),
+                public_key: Some("public_key_1".to_string()).into(),
+                key_id: "key_id_1".to_string().into(),
+            }],
+        };
+
+        let state = AppState {
+            keys_service: Arc::new(Mutex::new(Box::new(mock_service))),
+            config: Config::default(),
+        };
+
+        let params = DeleteKeyParams {
+            key: "nonexistent".to_string(),
         };
 
         let response = delete_key(Extension(state), Query(params))

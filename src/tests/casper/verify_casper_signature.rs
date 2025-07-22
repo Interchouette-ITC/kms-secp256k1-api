@@ -28,7 +28,7 @@ mod tests {
         let body_str = String::from_utf8(body.to_vec()).unwrap();
         let parsed: CreateKeyResponse = serde_json::from_str(&body_str).unwrap();
 
-        let public_key = parsed.public_key;
+        let public_key = parsed.address;
 
         let transaction_hash = TRANSACTION_HASH;
         let query_string = format!("public_keys={public_key}");

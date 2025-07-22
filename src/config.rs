@@ -1,4 +1,4 @@
-use crate::constants::{DEFAULT_ETH_CHAIN_ID, DEFAULT_PORT};
+use crate::constants::{DEFAULT_COSMOS_UDENOM, DEFAULT_ETH_CHAIN_ID, DEFAULT_PORT};
 use std::env;
 use tracing::{error, info};
 
@@ -32,6 +32,7 @@ pub enum BlockchainMode {
     #[default]
     Casper,
     Ethereum,
+    Cosmos,
 }
 
 #[allow(clippy::struct_excessive_bools)]
@@ -45,6 +46,7 @@ pub struct Config {
     delete_mode: bool,
     list_mode: bool,
     eth_chain_id: u8,
+    cosmos_udenom: String,
 }
 
 impl Default for Config {
@@ -58,6 +60,7 @@ impl Default for Config {
             delete_mode: false,
             list_mode: false,
             eth_chain_id: DEFAULT_ETH_CHAIN_ID,
+            cosmos_udenom: DEFAULT_COSMOS_UDENOM.to_string(),
         }
     }
 }
@@ -89,12 +92,14 @@ impl Config {
         {
             "casper" => BlockchainMode::Casper,
             "ethereum" => BlockchainMode::Ethereum,
+            "cosmos" => BlockchainMode::Cosmos,
             _ => BlockchainMode::default(),
         };
 
         let hash_type = match blockchain_mode {
             BlockchainMode::Casper => HashType::Sha256,
             BlockchainMode::Ethereum => HashType::Keccak256,
+            BlockchainMode::Cosmos => HashType::Sha256,
         };
 
         log_modes(&Modes {
@@ -128,6 +133,10 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(DEFAULT_ETH_CHAIN_ID),
+            cosmos_udenom: env::var("COSMOS_UDENOM")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or(DEFAULT_COSMOS_UDENOM.to_string()),
         }
     }
 
@@ -141,6 +150,10 @@ impl Config {
 
     pub fn is_casper_mode(&self) -> bool {
         self.blockchain_mode == BlockchainMode::Casper
+    }
+
+    pub fn is_cosmos_mode(&self) -> bool {
+        self.blockchain_mode == BlockchainMode::Cosmos
     }
 
     pub fn is_delete_mode(&self) -> bool {
@@ -165,6 +178,10 @@ impl Config {
 
     pub fn get_eth_chain_id(&self) -> u8 {
         self.eth_chain_id
+    }
+
+    pub fn get_cosmos_udenom(&self) -> String {
+        self.cosmos_udenom.clone()
     }
 }
 
@@ -227,6 +244,11 @@ impl ConfigBuilder {
 
     pub fn with_ethereum_mode(mut self) -> Self {
         self.config.blockchain_mode = BlockchainMode::Ethereum;
+        self
+    }
+
+    pub fn with_cosmos_mode(mut self) -> Self {
+        self.config.blockchain_mode = BlockchainMode::Cosmos;
         self
     }
 

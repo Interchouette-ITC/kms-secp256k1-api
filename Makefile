@@ -2,7 +2,7 @@ build:
 	cargo build
 
 test:
-	cargo test
+	cargo test -- --nocapture
 
 lint:
 	cargo clippy --bins -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery

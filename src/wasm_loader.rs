@@ -18,6 +18,7 @@ pub struct WasmInstance {
     pub verify: Func,
     pub verify_eip155: Func,
     pub recover_v: Func,
+    pub address_eth: Func,
     pub store: Store<()>,
     pub instance: Instance,
 }
@@ -92,6 +93,10 @@ impl WasmLoader {
             .get_func(&mut store, "recover_v")
             .ok_or("failed to find recover_v export")?;
 
+        let address_eth = instance
+            .get_func(&mut store, "address_eth")
+            .ok_or("failed to find address_eth export")?;
+
         Ok(WasmInstance {
             memory,
             alloc,
@@ -102,6 +107,7 @@ impl WasmLoader {
             verify,
             verify_eip155,
             recover_v,
+            address_eth,
             store,
             instance,
         })
@@ -183,10 +189,16 @@ mod tests {
         );
 
         // Check recover function is present
-        let unconvert_ty = wasm_instance.recover_v.ty(&wasm_instance.store);
+        let recover_v_ty = wasm_instance.recover_v.ty(&wasm_instance.store);
         assert!(
-            unconvert_ty.params().len() > 0,
+            recover_v_ty.params().len() > 0,
             "recover_v should have at least one parameter"
+        );
+
+        let address_eth_ty = wasm_instance.address_eth.ty(&wasm_instance.store);
+        assert!(
+            address_eth_ty.params().len() > 0,
+            "address_eth should have at least one parameter"
         );
     }
 }
