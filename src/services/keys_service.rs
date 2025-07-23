@@ -1,3 +1,4 @@
+use crate::constants::ETH_SECP_LEN;
 #[cfg(test)]
 use crate::services::mocks::mock_kms_client_service::MockKmsClientService;
 use crate::services::{
@@ -30,7 +31,7 @@ pub trait KeysServiceTrait: Send + Sync {
     ///
     /// # Arguments
     /// - `transaction_hash`: A hex-encoded hash of the transaction data.
-    /// - `alias`: The key used to locate the corresponding private key for signing.
+    /// - `key`: The key used to locate the corresponding private key for signing.
     ///
     /// # Errors
     /// Returns an error if the key is not found, if signing fails, or if the inputs are malformed.
@@ -38,14 +39,14 @@ pub trait KeysServiceTrait: Send + Sync {
         &mut self,
         config: &Config,
         transaction_hash: &str,
-        alias: &str,
+        key: &str,
     ) -> Result<String, String>;
 
     /// Signs the raw transaction data using the specified public key.
     ///
     /// # Arguments
     /// - `transaction_str`: The raw transaction string to be hashed and signed.
-    /// - `alias`: The public key used to determine the signing key.
+    /// - `key`: The public key used to determine the signing key.
     ///
     /// # Errors
     /// Returns an error if hashing, signing, or key retrieval fails.
@@ -53,7 +54,7 @@ pub trait KeysServiceTrait: Send + Sync {
         &mut self,
         config: &Config,
         transaction_str: &str,
-        alias: &str,
+        key: &str,
     ) -> Result<String, String>;
 
     /// Verifies that the given signature is valid for the provided transaction hash and public key.
@@ -61,16 +62,16 @@ pub trait KeysServiceTrait: Send + Sync {
     /// # Arguments
     /// - `transaction_hash_hex`: A hex-encoded transaction hash.
     /// - `signature_hex`: A hex-encoded digital signature.
-    /// - `public_key`: The public key to verify against.
+    /// - `key`: The key alias to verify against.
     ///
     /// # Errors
     /// Returns an error if the signature is invalid, the input format is incorrect,
     /// or if verification logic encounters a failure.
-    fn verify(
+    async fn verify(
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String>;
 
     /// Verifies a transaction hash using an external KMS (Key Management System).
@@ -78,7 +79,7 @@ pub trait KeysServiceTrait: Send + Sync {
     /// # Arguments
     /// - `transaction_hash_hex`: A hex-encoded hash of the transaction.
     /// - `signature_hex`: A hex-encoded signature to verify.
-    /// - `public_key`: The public key identifier in the KMS.
+    /// - `key`: The key alias in the KMS.
     ///
     /// # Errors
     /// Returns an error if KMS access fails, if the inputs are malformed,
@@ -87,17 +88,17 @@ pub trait KeysServiceTrait: Send + Sync {
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String>;
 
-    /// Deletes the cryptographic key associated with the given alias.
+    /// Deletes the cryptographic key associated with the given key.
     ///
     /// # Arguments
-    /// - `alias`: The alias whose associated private key should be deleted.
+    /// - `key`: The key whose associated private key should be deleted.
     ///
     /// # Errors
     /// Returns an error if the key cannot be found or deletion fails due to internal issues or access control.
-    async fn delete_key(&mut self, alias: &str) -> Result<bool, String>;
+    async fn delete_key(&mut self, key: &str) -> Result<bool, String>;
 
     /// Lists all available public keys and their metadata.
     ///
@@ -109,8 +110,6 @@ pub trait KeysServiceTrait: Send + Sync {
 pub struct KeysService {
     pub kms_client_service: Arc<dyn KmsClientService>,
     pub crypto_service: CryptoService,
-    ethereum_mode: bool,
-    eth_chain_id: u8,
 }
 
 impl KeysService {
@@ -138,8 +137,6 @@ impl KeysService {
         Ok(Self {
             kms_client_service,
             crypto_service,
-            ethereum_mode: config.is_ethereum_mode(),
-            eth_chain_id: config.get_eth_chain_id(),
         })
     }
 
@@ -156,12 +153,12 @@ impl KeysService {
     pub async fn sign(
         &mut self,
         transaction_hash_hex: &str,
-        alias: &str,
+        key: &str,
         prefix: Option<&str>,
     ) -> Result<String, String> {
         let signature = self
             .kms_client_service
-            .sign(transaction_hash_hex, alias)
+            .sign(transaction_hash_hex, key)
             .await
             .map_err(|e| {
                 let msg = format!("Failed to sign transaction with KMS: {e}");
@@ -175,41 +172,9 @@ impl KeysService {
             msg
         })?;
 
-        if self.ethereum_mode && signature.len() == 128 {
-            let public_key = self
-                .kms_client_service
-                .get_public_key(alias)
-                .await
-                .map_err(|e| {
-                    let msg = format!("Failed to get public key from alias with KMS: {e}");
-                    error!("{}", msg);
-                    msg
-                })?;
-
-            info!("adding V");
-            let v_hex: String = match self.crypto_service.recover_v(
-                transaction_hash_hex,
-                &signature,
-                &public_key,
-                Some(self.eth_chain_id),
-            ) {
-                Ok(v) => v,
-                Err(e) => {
-                    error!("Failed to recover v: {}", e);
-                    "".to_string()
-                }
-            };
-            if !v_hex.is_empty() {
-                signature.push_str(&v_hex);
-            }
-        }
-
         if let Some(pref) = prefix {
-            info!("adding prefix");
             signature = format!("{pref}{signature}");
         }
-
-        info!("Final signature: {}", signature);
 
         Ok(signature)
     }
@@ -359,8 +324,18 @@ impl KeysService {
             msg
         })?;
 
+        let alias = if use_eip155 {
+            self.crypto_service.address_eth(public_key).map_err(|e| {
+                let msg = format!("Failed to convert public key to address: {e:?}");
+                error!("{}", &msg);
+                msg
+            })?
+        } else {
+            public_key.to_string()
+        };
+
         self.kms_client_service
-            .verify(transaction_hash_hex, &signature, public_key)
+            .verify(transaction_hash_hex, &signature, &alias)
             .await
             .map_err(|e| {
                 let msg = format!("Failed to verify signature with KMS: {e}");
@@ -369,11 +344,11 @@ impl KeysService {
             })
     }
 
-    /// Deletes a key identified by the given alias using the KMS client.
+    /// Deletes a key identified by the given key using the KMS client.
     ///
     /// # Arguments
     ///
-    /// * `alias` - The alias identifying the key to delete.
+    /// * `key` - The key identifying the key to delete.
     ///
     /// # Errors
     ///
@@ -382,15 +357,12 @@ impl KeysService {
     /// # Returns
     ///
     /// `Ok(true)` if the key was successfully deleted.
-    pub async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        self.kms_client_service
-            .delete_key(alias)
-            .await
-            .map_err(|e| {
-                let msg = format!("Key deletion failed: {e}");
-                error!("{}", msg);
-                msg
-            })
+    pub async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+        self.kms_client_service.delete_key(key).await.map_err(|e| {
+            let msg = format!("Key deletion failed: {e}");
+            error!("{}", msg);
+            msg
+        })
     }
 
     /// Retrieves a list of keys from the KMS client.
@@ -443,7 +415,7 @@ mod tests {
         config::ConfigBuilder,
         constants::{
             CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, ETH_PUBLIC_KEY, ETH_SIGNATURE,
-            ETH_TRANSACTION_HASH, SIGNATURE_RSV_LEN, TRANSACTION_HASH, WASM_PATH,
+            ETH_TRANSACTION_HASH, TRANSACTION_HASH, WASM_PATH,
         },
         services::crypto_service::CryptoService,
         wasm_loader::WasmLoader,
@@ -493,36 +465,36 @@ mod tests {
         assert_eq!(signature.len(), 128, "Signature length invalid");
     }
 
-    #[tokio::test]
-    async fn test_sign_eip155_successful() {
-        let config = ConfigBuilder::new().with_ethereum_mode().build();
+    // #[tokio::test]
+    // async fn test_sign_eip155_successful() {
+    //     let config = ConfigBuilder::new().with_ethereum_mode().build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+    //     let wasm_loader = WasmLoader::new(WASM_PATH)
+    //         .await
+    //         .expect("Failed to load WASM module");
 
-        let crypto_service =
-            CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+    //     let crypto_service =
+    //         CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
 
-        // Create CasperKeysService (uses mocked KMS + real CryptoService)
-        let mut service = KeysService::new(config.clone(), crypto_service)
-            .await
-            .expect("Failed to create KeysService");
+    //     // Create CasperKeysService (uses mocked KMS + real CryptoService)
+    //     let mut service = KeysService::new(config.clone(), crypto_service)
+    //         .await
+    //         .expect("Failed to create KeysService");
 
-        // Call the sign method without PREFIX
-        let result = service
-            .sign(ETH_TRANSACTION_HASH, ETH_PUBLIC_KEY, None)
-            .await;
-        assert!(result.is_ok(), "sign failed: {result:?}");
-        let signature = result.unwrap();
+    //     // Call the sign method without PREFIX
+    //     let result = service
+    //         .sign(ETH_TRANSACTION_HASH, ETH_PUBLIC_KEY, None)
+    //         .await;
+    //     assert!(result.is_ok(), "sign failed: {result:?}");
+    //     let signature = result.unwrap();
 
-        assert_eq!(signature.to_string(), ETH_SIGNATURE, "Signature invalid");
-        assert_eq!(
-            signature.len(),
-            SIGNATURE_RSV_LEN,
-            "Signature length invalid"
-        );
-    }
+    //     assert_eq!(signature.to_string(), ETH_SIGNATURE, "Signature invalid");
+    //     assert_eq!(
+    //         signature.len(),
+    //         SIGNATURE_RSV_LEN,
+    //         "Signature length invalid"
+    //     );
+    // }
 
     #[tokio::test]
     async fn test_verify_successful() {

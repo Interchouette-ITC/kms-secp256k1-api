@@ -1,7 +1,8 @@
 #[cfg(test)]
 use crate::constants::{
-    CASPER_PUBLIC_KEY_PREFIXED, ETH_PUBLIC_KEY, ETH_SIGNATURE_BASE64, ETH_TRANSACTION_HASH,
-    SIGNATURE_BASE64, TRANSACTION_HASH,
+    CASPER_PUBLIC_KEY_BASE64, CASPER_PUBLIC_KEY_PREFIXED, ETH_ADDRESS, ETH_PUBLIC_KEY,
+    ETH_PUBLIC_KEY_BASE64, ETH_SIGNATURE_BASE64, ETH_TRANSACTION_HASH, SIGNATURE_BASE64,
+    TRANSACTION_HASH,
 };
 #[cfg(test)]
 use crate::services::keys_service::KeyEntry;
@@ -17,10 +18,9 @@ use k256::{
     ecdsa::SigningKey,
     elliptic_curve::{PublicKey, pkcs8::EncodePublicKey, rand_core::OsRng, sec1::FromEncodedPoint},
 };
+
 #[cfg(test)]
 pub struct MockKmsClientService;
-#[cfg(test)]
-use crate::constants::CASPER_SECP_PREFIX;
 
 #[cfg(test)]
 #[async_trait::async_trait]
@@ -47,13 +47,13 @@ impl KmsClientService for MockKmsClientService {
         Ok(())
     }
 
-    async fn sign(&self, _transaction_hash_hex: &str, public_key: &str) -> Result<String, String> {
-        if public_key.contains(CASPER_PUBLIC_KEY_PREFIXED) {
+    async fn sign(&self, _transaction_hash_hex: &str, address: &str) -> Result<String, String> {
+        if address.eq(CASPER_PUBLIC_KEY_PREFIXED) {
             Ok(SIGNATURE_BASE64.to_string())
-        } else if public_key.contains(ETH_PUBLIC_KEY) {
+        } else if address.eq(ETH_ADDRESS) {
             Ok(ETH_SIGNATURE_BASE64.to_string())
         } else {
-            unimplemented!("Mock KMS Client signature type unimplemented")
+            unimplemented!("Mock KMS Client signature type unimplemented for sign")
         }
     }
 
@@ -61,14 +61,14 @@ impl KmsClientService for MockKmsClientService {
         &self,
         transaction_hash_hex: &str,
         signature_base64: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
         if (transaction_hash_hex.contains(TRANSACTION_HASH)
             && signature_base64.eq(SIGNATURE_BASE64)
-            && public_key.contains(CASPER_PUBLIC_KEY_PREFIXED))
+            && key.contains(CASPER_PUBLIC_KEY_PREFIXED))
             || (transaction_hash_hex.contains(ETH_TRANSACTION_HASH)
                 && signature_base64.eq(ETH_SIGNATURE_BASE64)
-                && public_key.contains(ETH_PUBLIC_KEY))
+                && key.eq(ETH_ADDRESS))
         {
             Ok(true)
         } else {
@@ -76,8 +76,8 @@ impl KmsClientService for MockKmsClientService {
         }
     }
 
-    async fn delete_key(&self, public_key: &str) -> Result<bool, String> {
-        if public_key.contains("known_public_key") {
+    async fn delete_key(&self, key: &str) -> Result<bool, String> {
+        if key.contains("known_public_key") {
             Ok(true)
         } else {
             Ok(false)
@@ -102,10 +102,17 @@ impl KmsClientService for MockKmsClientService {
     }
 
     async fn get_public_key(&self, alias: &str) -> Result<String, String> {
-        if alias.contains(&CASPER_PUBLIC_KEY_PREFIXED.replacen(CASPER_SECP_PREFIX, "", 1)) {
-            Ok(CASPER_PUBLIC_KEY_PREFIXED.to_string())
+        if CASPER_PUBLIC_KEY_PREFIXED.contains(alias) {
+            Ok(CASPER_PUBLIC_KEY_BASE64.to_string())
+        } else if alias.eq(ETH_ADDRESS) {
+            Ok(ETH_PUBLIC_KEY_BASE64.to_string())
+        } else if alias.eq("bad_key") {
+            Ok(
+                "MDYwEAYHKoZIzj0CAQYFK4EEAAoDIgAD97Il35cIXVY5dQimWRuWH9IYZ83coSENdDeaK3MjCIY="
+                    .to_string(), // random key
+            )
         } else {
-            Ok(ETH_PUBLIC_KEY.to_string())
+            unimplemented!("Mock KMS Client signature type unimplemented for get_public_key")
         }
     }
 }

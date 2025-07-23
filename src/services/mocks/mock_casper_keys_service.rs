@@ -61,12 +61,12 @@ impl KeysServiceTrait for MockCasperKeysService {
         &mut self,
         config: &Config,
         transaction_hash: &str,
-        alias: &str,
+        key: &str,
     ) -> Result<String, String> {
-        let final_alias = self.resolve_alias(alias)?;
+        let key = self.resolve_key(key)?;
         let key_pair = {
             let keys = self.inner.keys.lock().await;
-            keys.get(&final_alias)
+            keys.get(&key)
                 .ok_or_else(|| "Public key not found".to_string())?
                 .clone()
         };
@@ -109,15 +109,15 @@ impl KeysServiceTrait for MockCasperKeysService {
         &mut self,
         _config: &Config,
         transaction_str: &str,
-        alias: &str,
+        key: &str,
     ) -> Result<String, String> {
         let mut transaction: Transaction = Transaction::from_json_string(transaction_str)
             .map_err(|e| format!("Failed to parse transaction: {e}"))?;
 
-        let final_alias = self.resolve_alias(alias)?;
+        let key = self.resolve_key(key)?;
         let key_pair = {
             let keys = self.inner.keys.lock().await;
-            keys.get(&final_alias)
+            keys.get(&key)
                 .ok_or_else(|| "Public key not found".to_string())?
                 .clone()
         };
@@ -127,14 +127,15 @@ impl KeysServiceTrait for MockCasperKeysService {
         Ok(signed_tx.to_json_string().unwrap_or_default())
     }
 
-    fn verify(
+    async fn verify(
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
         self.inner
-            .verify(transaction_hash_hex, signature_hex, public_key)
+            .verify(transaction_hash_hex, signature_hex, &key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
@@ -146,16 +147,17 @@ impl KeysServiceTrait for MockCasperKeysService {
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
         self.inner
-            .verify_via_kms(transaction_hash_hex, signature_hex, public_key)
+            .verify_via_kms(transaction_hash_hex, signature_hex, &key)
             .await
     }
 
-    async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        let final_alias = self.resolve_alias(alias)?;
-        Ok(self.inner.delete_key(&final_alias).await)
+    async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
+        Ok(self.inner.delete_key(&key).await)
     }
 
     async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
@@ -181,11 +183,28 @@ impl MockCasperKeysService {
         })
     }
 
-    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
-        if alias.len() == CASPER_SECP_LEN {
-            Ok(alias.to_string())
+    /// Resolves a given key string to a Casper address format.
+    ///
+    /// This function checks whether the input `key` is a full Casper-compatible public key (by
+    /// comparing its length to the expected `CASPER_SECP_LEN`). If so, it returns the key as-is.
+    /// Otherwise, it assumes the input is a truncated or raw key, and prefixes it with
+    /// `CASPER_SECP_PREFIX` to form a valid Casper address format.
+    ///
+    /// # Parameters
+    /// - `key`: A string that is either a full-length Casper-compatible key or a truncated key.
+    ///
+    /// # Returns
+    /// - `Ok(String)`: The resolved Casper address string.
+    /// - `Err(String)`: This implementation does not return errors, but the signature allows for future error handling.
+    ///
+    /// # Behavior
+    /// - If `key.len() == CASPER_SECP_LEN`, the input is returned directly.
+    /// - Otherwise, the key is prefixed with `CASPER_SECP_PREFIX` and returned.
+    fn resolve_key(&mut self, key: &str) -> Result<String, String> {
+        if key.len() == CASPER_SECP_LEN {
+            Ok(key.to_string())
         } else {
-            Ok(format!("{CASPER_SECP_PREFIX}{alias}"))
+            Ok(format!("{CASPER_SECP_PREFIX}{key}"))
         }
     }
 }

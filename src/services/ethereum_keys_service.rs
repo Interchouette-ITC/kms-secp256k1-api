@@ -1,12 +1,12 @@
 use crate::config::Config;
-use crate::constants::ETH_SECP_LEN;
+use crate::constants::{ETH_SECP_LEN, SIGNATURE_RS_LEN};
 use crate::services::crypto_service::CryptoService;
 use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait};
-use ethers::types::{H256, Signature, TransactionRequest, TxHash};
+use ethers::types::{H256, Signature, TransactionRequest};
 use k256::PublicKey;
 use serde_json::json;
 use std::str::FromStr;
-use tracing::{error, info};
+use tracing::error;
 
 pub struct EthereumKeysService {
     keys_service: KeysService,
@@ -53,7 +53,7 @@ impl KeysServiceTrait for EthereumKeysService {
                 msg
             })?;
 
-        let alias = self.resolve_alias(&public_key)?;
+        let address = self.resolve_key(&public_key)?;
 
         if public_key.is_empty() {
             let msg = "No public key generated".to_string();
@@ -61,13 +61,10 @@ impl KeysServiceTrait for EthereumKeysService {
             return Err(msg);
         }
 
-        info!("Public key ethereum retrieved: {}", public_key);
-        info!("Address alias ethereum retrieved: {}", alias);
-
         // Create alias for the key
         self.keys_service
             .kms_client_service
-            .create_alias(&key_id, &alias)
+            .create_alias(&key_id, &address)
             .await
             .map_err(|e| {
                 let msg = format!("Error creating alias: {e:?}");
@@ -77,7 +74,7 @@ impl KeysServiceTrait for EthereumKeysService {
 
         Ok(KeyEntry {
             public_key: Some(public_key.clone()).into(),
-            address: alias.into(),
+            address: address.into(),
             public_key_base64: public_key_base64.into(),
             key_id: key_id.into(),
         })
@@ -85,8 +82,7 @@ impl KeysServiceTrait for EthereumKeysService {
 
     /// Signs a transaction hash using the provided public key and configuration mode.
     ///
-    /// Selects a prefix based on the active mode (Ethereum or Ethereum),
-    /// and delegates signing to the internal `sign` method.
+    /// Delegates signing to the keys service `sign` method.
     ///
     /// # Arguments
     ///
@@ -101,86 +97,23 @@ impl KeysServiceTrait for EthereumKeysService {
         &mut self,
         config: &Config,
         transaction_hash: &str,
-        alias: &str,
+        key: &str,
     ) -> Result<String, String> {
-        if !config.is_ethereum_mode() {
-            return Err("Only Ethereum mode is supported".to_string());
-        }
+        Self::ensure_ethereum_mode(config)?;
 
-        info!("transaction_hash to sign: {}", transaction_hash);
+        Self::validate_transaction_hash(transaction_hash)?;
 
-        if let Err(e) = transaction_hash.parse::<H256>() {
-            info!(
-                "Error reading parameters: transaction_hash : {}",
-                transaction_hash
-            );
-            error!("Validation error: {:?}", e);
-            return Err("Error reading transaction TransactionHash parameters".to_string());
-        }
+        let key = self.resolve_key(key)?;
+        let public_key = self.resolve_public_key(&key).await?;
 
-        let public_key = self
-            .keys_service
-            .kms_client_service
-            .get_public_key(alias)
-            .await
-            .map_err(|e| {
-                let msg = format!("Failed to get public key from alias with KMS: {e}");
-                error!("{}", msg);
-                msg
-            })?;
-
-        info!("Public key ethereum retrieved: {}", public_key);
-
-        let public_key_bytes =
-            match hex::decode(public_key.strip_prefix("0x").unwrap_or(&public_key)) {
-                Ok(bytes) => bytes,
-                Err(e) => {
-                    info!(
-                        "Error reading parameters \npublic_key : {}\ntransaction_hash : {}",
-                        public_key, transaction_hash
-                    );
-                    error!("Validation error (hex decode): {:?}", e);
-                    return Err("Error reading transaction PublicKey parameters".to_string());
-                }
-            };
-
-        if let Err(e) = PublicKey::from_sec1_bytes(&public_key_bytes) {
-            info!(
-                "Error reading parameters \npublic_key : {}\ntransaction_hash : {}",
-                public_key, transaction_hash
-            );
-            error!("Validation error (public key parse): {:?}", e);
-            return Err("Error reading transaction PublicKey parameters".to_string());
-        }
+        Self::validate_public_key(&public_key, "sign_transaction_hash")?;
 
         // Perform signing
-        let signature = self
-            .keys_service
-            .sign(transaction_hash, &public_key, None)
-            .await
-            .map_err(|e| format!("Signing failed: {e}"))?;
+        let signature_hex = self
+            .sign_with_recovery_id(transaction_hash, &key, &public_key, config)
+            .await?;
 
-        match hex::decode(&signature) {
-            Ok(bytes) if bytes.len() == 64 || bytes.len() == 65 => bytes,
-            _ => return Err("Error reading signature length".to_string()),
-        };
-
-        // let v = if sig_bytes.len() == 65 {
-        //     sig_bytes[64]
-        // } else {
-        //     0 // default v for Casper or signatures without recovery id
-        // };
-
-        // info!(format!("{v:x}"));
-
-        // Verify signature
-        let is_valid = self.verify(transaction_hash, &signature, &public_key)?;
-
-        if !is_valid {
-            return Err("Signature verification failed".to_string());
-        }
-
-        Ok(signature)
+        Ok(signature_hex)
     }
 
     /// Signs a serialized Ethereum transaction using the provided public key.
@@ -207,11 +140,9 @@ impl KeysServiceTrait for EthereumKeysService {
         &mut self,
         config: &Config,
         transaction_str: &str,
-        alias: &str,
+        key: &str,
     ) -> Result<String, String> {
-        if !config.is_ethereum_mode() {
-            return Err("Only Ethereum mode is supported".to_string());
-        }
+        Self::ensure_ethereum_mode(config)?;
 
         // Parse the input JSON (support wrapped or plain)
         let parsed: serde_json::Value = serde_json::from_str(transaction_str)
@@ -237,75 +168,30 @@ impl KeysServiceTrait for EthereumKeysService {
         let transaction: TransactionRequest = serde_json::from_value(transaction_value.clone())
             .map_err(|e| format!("Failed to parse transaction: {e}"))?;
 
-        let mut transaction_hash_str = format!("{:x}", transaction.sighash());
-        transaction_hash_str = transaction_hash_str.trim_start_matches("0x").to_string();
+        let mut transaction_hash = format!("{:x}", transaction.sighash());
+        transaction_hash = transaction_hash.trim_start_matches("0x").to_string();
 
-        // Validate transaction hash
-        TxHash::from_str(&transaction_hash_str).map_err(|e| {
-            error!("Invalid transaction hash: {:?}", e);
-            "Invalid transaction hash".to_string()
-        })?;
-
-        let public_key = self
-            .keys_service
-            .kms_client_service
-            .get_public_key(alias)
-            .await
-            .map_err(|e| {
-                let msg = format!("Failed to get public key from alias with KMS: {e}");
-                error!("{}", msg);
-                msg
-            })?;
+        let key = self.resolve_key(key)?;
+        let public_key = self.resolve_public_key(&key).await?;
 
         // Decode and validate public key bytes
-        let public_key_bytes =
-            match hex::decode(public_key.strip_prefix("0x").unwrap_or(&public_key)) {
-                Ok(bytes) => bytes,
-                Err(e) => {
-                    info!(
-                        "Error reading parameters \npublic_key : {}\ntransaction_hash : {}",
-                        public_key, transaction_hash_str
-                    );
-                    error!("Validation error (hex decode): {:?}", e);
-                    return Err("Error reading transaction PublicKey parameters".to_string());
-                }
-            };
-
-        if let Err(e) = PublicKey::from_sec1_bytes(&public_key_bytes) {
-            info!(
-                "Error reading parameters \npublic_key : {}\ntransaction_hash : {}",
-                public_key, transaction_hash_str
-            );
-            error!("Validation error (public key parse): {:?}", e);
-            return Err("Error reading transaction PublicKey parameters".to_string());
-        }
+        Self::validate_public_key(&public_key, "sign_transaction")?;
 
         // Perform signing
         let signature_hex = self
-            .keys_service
-            .sign(&transaction_hash_str, &public_key, None)
-            .await
-            .map_err(|e| format!("Signing failed: {e}"))?;
-
-        // Verify signature
-        let is_valid = self.verify(&transaction_hash_str, &signature_hex, &public_key)?;
-        if !is_valid {
-            return Err("Generated signature failed verification".to_string());
-        }
+            .sign_with_recovery_id(&transaction_hash, &key, &public_key, config)
+            .await?;
 
         // Parse signature to get v, r, s
         let signature = Signature::from_str(&signature_hex)
             .map_err(|e| format!("Failed to serialize signature: {e}"))?;
 
         // Append new signature to signatures array
-        signatures.push(json!({
-            "signer": public_key,
-            "v": format!("{:x}", signature.v),
-            "r": format!("{:x}", signature.r),
-            "s": format!("{:x}", signature.s),
-            "hash": transaction_hash_str,
-            "signature": signature_hex,
-        }));
+        signatures.push(Self::signature_to_json(
+            &signature,
+            &public_key,
+            &transaction_hash,
+        ));
 
         // Return wrapped transaction and signatures
         let result = json!({
@@ -317,30 +203,32 @@ impl KeysServiceTrait for EthereumKeysService {
             .map_err(|e| format!("Failed to serialize signed transaction JSON: {e}"))
     }
 
-    fn verify(
+    async fn verify(
         &mut self,
-        transaction_hash_hex: &str,
+        transaction_hash: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
+        let public_key = self.resolve_public_key(key).await?;
         self.keys_service
-            .verify_eip155(transaction_hash_hex, signature_hex, public_key)
+            .verify_eip155(transaction_hash, signature_hex, &public_key)
     }
 
     async fn verify_via_kms(
         &mut self,
-        transaction_hash_hex: &str,
+        transaction_hash: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
+        let public_key = self.resolve_public_key(key).await?;
         self.keys_service
-            .verify_via_kms_eip155(transaction_hash_hex, signature_hex, public_key)
+            .verify_via_kms_eip155(transaction_hash, signature_hex, &public_key)
             .await
     }
 
-    async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        let final_alias = self.resolve_alias(alias)?;
-        self.keys_service.delete_key(&final_alias).await
+    async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
+        self.keys_service.delete_key(&key).await
     }
 
     async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
@@ -349,15 +237,71 @@ impl KeysServiceTrait for EthereumKeysService {
 }
 
 impl EthereumKeysService {
-    /// Resolves a given alias string to an Ethereum address.
-    ///
-    /// This function checks whether the input `alias` is a compressed secp256k1 public key
-    /// (by comparing its length to the expected `ETH_SECP_LEN`). If so, it attempts to convert
-    /// the public key to its corresponding Ethereum address using the crypto service. Otherwise,
-    /// it assumes the alias is already an address and returns it as-is.
+    /// Signs a transaction hash using the provided key, and appends the recovery byte (`v`)
+    /// if the resulting signature is 128 hex characters long (i.e., 64 bytes).
     ///
     /// # Parameters
-    /// - `alias`: A string that is either an Ethereum address or a compressed public key (hex-encoded, starting with "02"/"03").
+    /// - `transaction_hash`: The hex-encoded transaction hash to sign.
+    /// - `public_key`: The public key associated with the signer.
+    /// - `config`: The application config (used to determine chain ID).
+    ///
+    /// # Returns
+    /// - `Ok(String)`: The final hex-encoded signature (possibly with `v` appended).
+    /// - `Err(String)`: An error message if signing fails or recovery fails.
+    async fn sign_with_recovery_id(
+        &mut self,
+        transaction_hash: &str,
+        key: &str,
+        public_key: &str,
+        config: &Config,
+    ) -> Result<String, String> {
+        let mut signature_hex = self
+            .keys_service
+            .sign(transaction_hash, key, None)
+            .await
+            .map_err(|e| format!("Signing failed: {e}"))?;
+
+        if signature_hex.len() == SIGNATURE_RS_LEN {
+            let v_hex = match self.keys_service.crypto_service.recover_v(
+                transaction_hash,
+                &signature_hex,
+                public_key,
+                Some(config.get_eth_chain_id()),
+            ) {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed to recover v: {}", e);
+                    String::new()
+                }
+            };
+
+            if !v_hex.is_empty() {
+                signature_hex.push_str(&v_hex);
+            }
+        }
+
+        Self::validate_signature_length(&signature_hex)?;
+
+        // Verify signature
+        let is_valid = self
+            .verify(transaction_hash, &signature_hex, public_key)
+            .await?;
+        if !is_valid {
+            return Err("Signature verification failed".to_string());
+        }
+
+        Ok(signature_hex)
+    }
+
+    /// Resolves a given key string to an Ethereum address.
+    ///
+    /// This function checks whether the input `key` is a compressed secp256k1 public key
+    /// (by comparing its length to the expected `ETH_SECP_LEN`). If so, it attempts to convert
+    /// the public key to its corresponding Ethereum address using the crypto service. Otherwise,
+    /// it assumes the key is already an address and returns it as-is.
+    ///
+    /// # Parameters
+    /// - `key`: A string that is either an Ethereum address or a compressed public key (hex-encoded, starting with "02"/"03").
     ///
     /// # Returns
     /// - `Ok(String)`: The resolved Ethereum address as a string.
@@ -366,19 +310,109 @@ impl EthereumKeysService {
     /// # Errors
     /// - Returns an error if the input is treated as a public key and the conversion fails.
     ///
-    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
-        if alias.len() == ETH_SECP_LEN {
+    fn resolve_key(&mut self, key: &str) -> Result<String, String> {
+        if key.len() == ETH_SECP_LEN {
             self.keys_service
                 .crypto_service
-                .address_eth(alias)
+                .address_eth(key)
                 .map_err(|e| {
                     let msg = format!("Failed to convert public key to address: {e:?}");
                     error!("{}", &msg);
                     msg
                 })
         } else {
-            Ok(alias.to_string())
+            Ok(key.to_string())
         }
+    }
+
+    /// Resolves a key string to its corresponding public key.
+    ///
+    /// If the input `key` is already a compressed secp256k1 public key (determined by its length),
+    /// it is returned directly. Otherwise, it is treated as an alias and resolved via the KMS service,
+    /// followed by conversion to a usable public key format.
+    ///
+    /// # Parameters
+    /// - `key`: A compressed public key or a key alias.
+    ///
+    /// # Returns
+    /// - `Ok(String)`: The resolved public key as a hex string.
+    /// - `Err(String)`: An error message if resolution or conversion fails.
+    pub async fn resolve_public_key(&mut self, key: &str) -> Result<String, String> {
+        if key.len() == ETH_SECP_LEN {
+            Ok(key.to_string())
+        } else {
+            let public_key = self
+                .keys_service
+                .kms_client_service
+                .get_public_key(key)
+                .await
+                .map_err(|e| {
+                    let msg = format!("Failed to get public key from alias with KMS: {e}");
+                    error!("{}", msg);
+                    msg
+                })?;
+
+            self.keys_service
+                .crypto_service
+                .public_key(&public_key)
+                .map_err(|e| {
+                    let msg = format!("public_key conversion failed: {e:?}");
+                    error!("{}", &msg);
+                    msg
+                })
+        }
+    }
+
+    fn validate_public_key(public_key: &str, context: &str) -> Result<(), String> {
+        let public_key_bytes = hex::decode(public_key).map_err(|e| {
+            let msg = format!("Error decoding public key in {context}: {e:?}");
+            error!("{}", msg);
+            msg
+        })?;
+
+        PublicKey::from_sec1_bytes(&public_key_bytes).map_err(|e| {
+            let msg = format!("Invalid public key bytes in {context}: {e:?}");
+            error!("{}", msg);
+            msg
+        })?;
+
+        Ok(())
+    }
+
+    fn validate_signature_length(hex: &str) -> Result<(), String> {
+        let bytes = hex::decode(hex).map_err(|_| "Invalid hex in signature".to_string())?;
+        if bytes.len() == 65 {
+            Ok(())
+        } else {
+            Err("Invalid signature length (expected 65 bytes)".to_string())
+        }
+    }
+
+    fn ensure_ethereum_mode(config: &Config) -> Result<(), String> {
+        if config.is_ethereum_mode() {
+            Ok(())
+        } else {
+            Err("Only Ethereum mode is supported".to_string())
+        }
+    }
+
+    fn validate_transaction_hash(hash: &str) -> Result<H256, String> {
+        hash.parse::<H256>().map_err(|e| {
+            let msg = format!("Invalid transaction hash: {e:?}");
+            error!("{}", msg);
+            msg
+        })
+    }
+
+    fn signature_to_json(sig: &Signature, public_key: &str, hash: &str) -> serde_json::Value {
+        json!({
+            "signer": public_key,
+            "v": format!("{:x}", sig.v),
+            "r": format!("{:x}", sig.r),
+            "s": format!("{:x}", sig.s),
+            "hash": hash,
+            "signature": sig.to_string(),
+        })
     }
 }
 
@@ -454,12 +488,14 @@ mod tests {
         // Valid signature
         let result = service
             .verify(ETH_TRANSACTION_HASH, ETH_SIGNATURE, ETH_PUBLIC_KEY)
+            .await
             .unwrap();
         assert!(result, "Expected signature to verify correctly");
 
-        // Invalid signature
+        //Invalid signature
         let result = service
             .verify("bad_hash", "bad_signature", "bad_key")
+            .await
             .unwrap();
         assert!(!result, "Expected signature verification to fail");
     }

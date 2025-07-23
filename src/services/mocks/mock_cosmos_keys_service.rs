@@ -34,12 +34,12 @@ impl KeysServiceTrait for MockCosmosKeysService {
         let secret_key_bytes = signing_key.to_bytes();
         let secret_key_hex = hex::encode(secret_key_bytes);
         let pubkey_bytes = encoded_point.as_bytes();
-        let public_key_hex = hex::encode(pubkey_bytes);
-        let address = self.resolve_alias(&public_key_hex)?;
+        let public_key = hex::encode(pubkey_bytes);
+        let address = self.resolve_key(&public_key)?;
 
         {
             let key_pair = KeyPair {
-                public_key: public_key_hex.clone(),
+                public_key: public_key.clone(),
                 secret_key: secret_key_hex,
                 address: address.clone(),
             };
@@ -48,9 +48,9 @@ impl KeysServiceTrait for MockCosmosKeysService {
         }
 
         Ok(KeyEntry {
-            public_key: Some(public_key_hex.clone()).into(),
+            public_key: Some(public_key.clone()).into(),
             address: address.clone().into(),
-            public_key_base64: STANDARD.encode(public_key_hex).into(),
+            public_key_base64: STANDARD.encode(public_key).into(),
             key_id: address.into(),
         })
     }
@@ -104,7 +104,9 @@ impl KeysServiceTrait for MockCosmosKeysService {
         // info!(signature_test);
 
         // Verify signature
-        let is_valid = self.verify(transaction_hash, &signature.to_string(), public_key)?;
+        let is_valid = self
+            .verify(transaction_hash, &signature.to_string(), public_key)
+            .await?;
 
         if !is_valid {
             return Err("Signature verification failed".to_string());
@@ -178,7 +180,9 @@ impl KeysServiceTrait for MockCosmosKeysService {
         let signature_hex = signature.to_string();
 
         // Verify signature
-        let is_valid = self.verify(&transaction_hash_str, &signature_hex, public_key)?;
+        let is_valid = self
+            .verify(&transaction_hash_str, &signature_hex, public_key)
+            .await?;
         if !is_valid {
             return Err("Generated signature failed verification".to_string());
         }
@@ -207,7 +211,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
     ///
     /// Returns `Ok(true)` if the signature is valid, `Ok(false)` if invalid.
     /// Returns an error string for failures such as invalid formats.
-    fn verify(
+    async fn verify(
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
@@ -241,9 +245,9 @@ impl KeysServiceTrait for MockCosmosKeysService {
     ///
     /// Returns `Ok(true)` if the key was deleted, `Ok(false)` if the key was not found.
     /// Returns an error string if deletion fails.
-    async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        let final_alias = self.resolve_alias(alias)?;
-        Ok(self.inner.delete_key(&final_alias).await)
+    async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
+        Ok(self.inner.delete_key(&key).await)
     }
 
     /// Lists all stored keys along with their associated metadata.
@@ -281,18 +285,38 @@ impl MockCosmosKeysService {
         })
     }
 
-    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
-        if alias.len() == COSMOS_SECP_LEN {
+    /// Resolves a given key string to a Cosmos Bech32 address.
+    ///
+    /// This function checks whether the input `key` is a compressed secp256k1 public key
+    /// (by comparing its length to the expected `COSMOS_SECP_LEN`). If so, it attempts to convert
+    /// the public key to its corresponding Cosmos address using the underlying crypto service and the configured `udenom`.
+    /// Otherwise, it assumes the key is already a valid address and returns it unchanged.
+    ///
+    /// # Parameters
+    /// - `key`: A string that is either a Cosmos Bech32 address or a compressed public key (hex-encoded, 33 bytes).
+    ///
+    /// # Returns
+    /// - `Ok(String)`: The resolved Cosmos address as a Bech32-encoded string.
+    /// - `Err(String)`: An error message if the conversion from public key to address fails.
+    ///
+    /// # Errors
+    /// - Returns an error if the input is assumed to be a public key and the address derivation fails.
+    ///
+    /// # Notes
+    /// - The Bech32 address is generated using the provided `udenom` as prefix.
+    /// - This function logs an error internally if conversion fails.
+    fn resolve_key(&mut self, key: &str) -> Result<String, String> {
+        if key.len() == COSMOS_SECP_LEN {
             self.inner
                 .crypto_service
-                .address_cosmos(alias, &self.udenom)
+                .address_cosmos(key, &self.udenom)
                 .map_err(|e| {
                     let msg = format!("Failed to convert public key to address: {e:?}");
                     error!("{}", &msg);
                     msg
                 })
         } else {
-            Ok(alias.to_string())
+            Ok(key.to_string())
         }
     }
 }

@@ -15,7 +15,7 @@ use base64::engine::general_purpose::STANDARD;
 use k256::sha2::{Digest, Sha256};
 // use sha3::{Digest as Sha3Digest, Sha3_256};
 use std::vec;
-use tracing::{error, info};
+use tracing::error;
 
 pub struct AWSKmsClientService {
     create: KmsClient,
@@ -143,7 +143,7 @@ impl KmsClientService for AWSKmsClientService {
                 msg
             })?;
 
-        info!("Key created: {}", key_id);
+        // info!("Key created: {}", key_id);
 
         // Fetch the public key
         let public_key_base64 = self.get_public_key_base64(kms_client, &key_id).await?;
@@ -171,12 +171,11 @@ impl KmsClientService for AWSKmsClientService {
         Ok(())
     }
 
-    async fn sign(&self, transaction_hash_hex: &str, alias: &str) -> Result<String, String> {
+    async fn sign(&self, transaction_hash_hex: &str, key: &str) -> Result<String, String> {
         let kms_client = &self.sign;
 
-        // Resolve alias to key ID
-        let key_metadata = self.describe_key_metadata(kms_client, alias).await?;
-
+        // Resolve key to key ID
+        let key_metadata = self.describe_key_metadata(kms_client, key).await?;
         let key_id = key_metadata.key_id;
 
         let data = hex::decode(transaction_hash_hex).map_err(|e| {
@@ -185,8 +184,8 @@ impl KmsClientService for AWSKmsClientService {
             msg
         })?;
 
-        let transaction_hash = STANDARD.encode(data.clone());
-        info!("transaction_hash: {}", transaction_hash);
+        // let transaction_hash = STANDARD.encode(data.clone());
+        // info!("transaction_hash: {}", transaction_hash);
 
         let input_data = self.hash(&data);
 
@@ -214,10 +213,10 @@ impl KmsClientService for AWSKmsClientService {
         let signature = signature.as_ref();
 
         // Log signature
-        let signature_hex = hex::encode(signature);
+        // let signature_hex = hex::encode(signature);
+        // info!("signature: {}", signature_hex);
         let signature = STANDARD.encode(signature);
-        info!("signature: {}", signature);
-        info!("signature: {}", signature_hex);
+        // info!("signature: {}", signature);
 
         Ok(signature)
     }
@@ -226,13 +225,12 @@ impl KmsClientService for AWSKmsClientService {
         &self,
         transaction_hash_hex: &str,
         signature_asn1_base64: &str,
-        alias: &str,
+        key: &str,
     ) -> Result<bool, String> {
         let kms_client = &self.sign;
 
-        // Resolve alias to key ID
-        let key_metadata = self.describe_key_metadata(kms_client, alias).await?;
-
+        // Resolve key to key ID
+        let key_metadata = self.describe_key_metadata(kms_client, key).await?;
         let key_id = key_metadata.key_id;
 
         // Decode the digest hex to bytes
@@ -271,7 +269,7 @@ impl KmsClientService for AWSKmsClientService {
         Ok(verify_output.signature_valid)
     }
 
-    async fn delete_key(&self, alias: &str) -> Result<bool, String> {
+    async fn delete_key(&self, key: &str) -> Result<bool, String> {
         let Some(kms_client) = &self.delete else {
             tracing::warn!(
                 "Attempted to delete key, but delete_kms client is not configured/enabled"
@@ -279,11 +277,11 @@ impl KmsClientService for AWSKmsClientService {
             return Ok(false);
         };
 
-        // Resolve alias to key ID
-        let key_metadata = self.describe_key_metadata(kms_client, alias).await?;
+        // Resolve key to key ID
+        let key_metadata = self.describe_key_metadata(kms_client, key).await?;
 
         let key_id = key_metadata.key_id.clone();
-        let alias_name = Self::format_alias(alias);
+        let alias_name = Self::format_alias(key);
 
         kms_client
             .delete_alias()
@@ -308,10 +306,10 @@ impl KmsClientService for AWSKmsClientService {
                 msg
             })?;
 
-        info!(
-            "Key {} (alias {}) scheduled for deletion",
-            key_id, alias_name
-        );
+        // info!(
+        //     "Key {} (alias {}) scheduled for deletion",
+        //     key_id, alias_name
+        // );
         Ok(true)
     }
 
@@ -343,7 +341,6 @@ impl KmsClientService for AWSKmsClientService {
                     continue;
                 }
 
-                // Resolve alias to key ID
                 let key_metadata = self.describe_key_metadata(kms_client, &alias_name).await?;
 
                 let is_enabled =
@@ -425,14 +422,13 @@ impl AWSKmsClientService {
             error!("{}", msg);
             msg
         })?;
-
         Ok(STANDARD.encode(pubkey.as_ref()))
     }
 
-    /// Retrieves KeyMetadata for a given alias by calling AWS KMS `DescribeKey`.
+    /// Retrieves KeyMetadata for a given key key by calling AWS KMS `DescribeKey`.
     ///
     /// # Arguments
-    /// * `alias` - The alias name without the `alias/` prefix.
+    /// * `key` - The key name without the `alias/` prefix.
     ///
     /// # Returns
     /// * `Ok(KeyMetadata)` if the key is found.
@@ -440,9 +436,9 @@ impl AWSKmsClientService {
     async fn describe_key_metadata(
         &self,
         kms_client: &aws_sdk_kms::Client,
-        alias: &str,
+        key: &str,
     ) -> Result<KeyMetadata, String> {
-        let alias_name = Self::format_alias(alias);
+        let alias_name = Self::format_alias(key);
 
         let output = kms_client
             .describe_key()

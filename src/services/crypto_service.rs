@@ -792,8 +792,6 @@ mod tests {
             .address_cosmos(public_key, DEFAULT_COSMOS_UDENOM)
             .expect("Failed to derive Cosmos address");
 
-        dbg!(&address);
-
         // Use the constant for prefix dynamically
         let expected_prefix = format!("{DEFAULT_COSMOS_UDENOM}1");
 

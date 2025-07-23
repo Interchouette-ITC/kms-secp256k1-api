@@ -4,7 +4,7 @@ use crate::services::crypto_service::CryptoService;
 use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use tracing::{error, info};
+use tracing::error;
 
 pub struct CosmosKeysService {
     keys_service: KeysService,
@@ -51,9 +51,7 @@ impl KeysServiceTrait for CosmosKeysService {
             return Err(msg);
         }
 
-        info!("Public key retrieved: {}", public_key);
-
-        let address = self.resolve_alias(&public_key)?;
+        let address = self.resolve_key(&public_key)?;
 
         // Create alias for the key
         self.keys_service
@@ -82,7 +80,7 @@ impl KeysServiceTrait for CosmosKeysService {
     ///
     /// * `config` - Reference to the application configuration to determine signing mode.
     /// * `transaction_hash` - The hash of the transaction to be signed.
-    /// * `public_key` - The public key corresponding to the private key for signing.
+    /// * `key` - The key alias corresponding to the private key for signing.
     ///
     /// # Errors
     ///
@@ -91,12 +89,11 @@ impl KeysServiceTrait for CosmosKeysService {
         &mut self,
         config: &Config,
         transaction_hash: &str,
-        _public_key: &str,
+        key: &str,
     ) -> Result<String, String> {
         if !config.is_cosmos_mode() {
             return Err("Only Cosmos mode is supported".to_string());
         }
-        info!("transaction_hash to sign: {}", transaction_hash);
 
         // if let Err(e) = TransactionHash::new(transaction_hash) {
         //     info!(
@@ -140,7 +137,7 @@ impl KeysServiceTrait for CosmosKeysService {
     ///
     /// * `config` - Reference to the application configuration. Only Cosmos mode is supported.
     /// * `transaction_str` - A JSON string representing the transaction to be signed.
-    /// * `public_key` - The public key corresponding to the signing key.
+    /// * `key` - The key alias corresponding to the signing key.
     ///
     /// # Errors
     ///
@@ -154,7 +151,7 @@ impl KeysServiceTrait for CosmosKeysService {
         &mut self,
         config: &Config,
         _transaction_str: &str,
-        _public_key: &str,
+        key: &str,
     ) -> Result<String, String> {
         if !config.is_cosmos_mode() {
             return Err("Only Cosmos mode is supported".to_string());
@@ -195,30 +192,32 @@ impl KeysServiceTrait for CosmosKeysService {
         Ok(String::from("value"))
     }
 
-    fn verify(
+    async fn verify(
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
         self.keys_service
-            .verify(transaction_hash_hex, signature_hex, public_key)
+            .verify(transaction_hash_hex, signature_hex, &key)
     }
 
     async fn verify_via_kms(
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
         self.keys_service
-            .verify_via_kms(transaction_hash_hex, signature_hex, public_key)
+            .verify_via_kms(transaction_hash_hex, signature_hex, &key)
             .await
     }
 
-    async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        let final_alias = self.resolve_alias(alias)?;
-        self.keys_service.delete_key(&final_alias).await
+    async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
+        self.keys_service.delete_key(&key).await
     }
 
     async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
@@ -241,18 +240,18 @@ impl CosmosKeysService {
         })
     }
 
-    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
-        if alias.len() == COSMOS_SECP_LEN {
+    fn resolve_key(&mut self, key: &str) -> Result<String, String> {
+        if key.len() == COSMOS_SECP_LEN {
             self.keys_service
                 .crypto_service
-                .address_cosmos(alias, &self.udenom)
+                .address_cosmos(key, &self.udenom)
                 .map_err(|e| {
                     let msg = format!("Failed to convert public key to address: {e:?}");
                     error!("{}", &msg);
                     msg
                 })
         } else {
-            Ok(alias.to_string())
+            Ok(key.to_string())
         }
     }
 }
