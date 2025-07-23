@@ -1,4 +1,3 @@
-use crate::constants::ETH_SECP_LEN;
 #[cfg(test)]
 use crate::services::mocks::mock_kms_client_service::MockKmsClientService;
 use crate::services::{
@@ -8,7 +7,7 @@ use crate::services::{
 use crate::{config::Config, constants::SIGNATURE_RSV_LEN};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use tracing::{error, info};
+use tracing::error;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 pub struct KeyEntry {

@@ -46,7 +46,7 @@ async fn test_sign_eth_transaction_hash_returns_200_integration() {
 
     let query_string = public_keys
         .iter()
-        .map(|k| format!("public_keys={k}"))
+        .map(|k| format!("keys={k}"))
         .collect::<Vec<_>>()
         .join("&");
 

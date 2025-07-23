@@ -9,13 +9,11 @@ use crate::{
 };
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use ethers::{
-    signers::{LocalWallet, Signer},
-    types::{H256, TransactionRequest, TxHash},
+use k256::{
+    ecdsa::{Signature, SigningKey, signature::Signer, signature::SignerMut},
+    elliptic_curve::rand_core::OsRng,
 };
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use serde_json::json;
-use std::str::FromStr;
 use tracing::error;
 
 pub struct MockCosmosKeysService {
@@ -26,7 +24,6 @@ pub struct MockCosmosKeysService {
 #[async_trait::async_trait]
 impl KeysServiceTrait for MockCosmosKeysService {
     async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
-        // Generate key pair
         let signing_key = SigningKey::random(&mut OsRng);
         let verifying_key = signing_key.verifying_key();
         let encoded_point = verifying_key.to_encoded_point(true);
@@ -55,64 +52,65 @@ impl KeysServiceTrait for MockCosmosKeysService {
         })
     }
 
-    /// Signs a given transaction hash using the specified public key.
+    /// Signs a given transaction hash using the specified key.
     ///
-    /// Takes the transaction hash, public key, and configuration.
+    /// Takes the transaction hash, key, and configuration.
     /// Returns the signature as a hexadecimal string if successful.
     /// Returns an error string if signing fails.
     async fn sign_transaction_hash(
         &mut self,
         _config: &Config,
         transaction_hash: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<String, String> {
+        let key = self.resolve_key(key)?;
+
         let key_pair = {
             let keys = self.inner.keys.lock().await;
-            keys.get(public_key)
-                .ok_or_else(|| "Public key not found".to_string())?
+            keys.get(&key)
+                .ok_or_else(|| "Key not found".to_string())?
                 .clone()
         };
 
-        let tx_hash_bytes = hex::decode(transaction_hash)
+        let hash_bytes = hex::decode(transaction_hash)
             .map_err(|e| format!("Invalid transaction hash hex: {e}"))?;
 
-        if tx_hash_bytes.len() != 32 {
-            return Err("Transaction hash must be 32 bytes".into());
+        if hash_bytes.len() != 32 {
+            return Err("Transaction hash must be 32 bytes".to_string());
         }
 
-        let tx_hash = H256::from_slice(&tx_hash_bytes);
+        let secret_key_bytes = hex::decode(&key_pair.secret_key)
+            .map_err(|e| format!("Failed to decode secret key: {e}"))?;
 
-        let wallet: LocalWallet = key_pair
-            .secret_key
-            .parse()
-            .map_err(|e| format!("Failed to parse secret key into wallet: {e}"))?;
+        let signing_key = SigningKey::from_slice(&secret_key_bytes)
+            .map_err(|e| format!("Failed to create signing key: {e}"))?;
 
-        let signature = wallet
-            .sign_hash(tx_hash)
-            .map_err(|e| format!("Failed to sign hash: {e}"))?;
+        let signature: Signature = signing_key.sign(&hash_bytes);
+        let der = signature.to_der();
+        let der_bytes = der.as_bytes();
+        let base64_signature = STANDARD.encode(der_bytes);
+        // let sig_hex_long = hex::encode(der_bytes);
 
-        // let signature_test = self
-        //     .inner
-        //     .crypto_service
-        //     .unconvert(&signature.to_string())
-        //     .map_err(|e| {
-        //         let msg = format!("Signature conversion failed: {e}");
-        //         error!("{}", msg);
-        //         msg
-        //     })?;
-
-        // info!(signature_test);
+        let signature_hex = self
+            .inner
+            .crypto_service
+            .convert(&base64_signature)
+            .map_err(|e| {
+                let msg = format!("Failed to convert signature: {e}");
+                error!("{}", msg);
+                msg
+            })?;
 
         // Verify signature
         let is_valid = self
-            .verify(transaction_hash, &signature.to_string(), public_key)
+            .verify(transaction_hash, &signature_hex, &key_pair.public_key)
             .await?;
 
         if !is_valid {
             return Err("Signature verification failed".to_string());
         }
 
-        Ok(hex::encode(signature.to_vec()))
+        Ok(signature_hex)
     }
 
     /// Signs a transaction represented as a JSON string with the given public key.
@@ -126,84 +124,8 @@ impl KeysServiceTrait for MockCosmosKeysService {
         public_key: &str,
     ) -> Result<String, String> {
         // Parse the transaction JSON (can be wrapped or plain)
-        let parsed: serde_json::Value = serde_json::from_str(transaction_str)
-            .map_err(|e| format!("Failed to parse input JSON: {e}"))?;
 
-        // Extract transaction and signatures array if wrapped
-        let (transaction_value, mut signatures) = match parsed {
-            serde_json::Value::Object(mut map) => {
-                if let Some(tx) = map.remove("transaction") {
-                    let sigs = map
-                        .remove("signatures")
-                        .and_then(|v| v.as_array().cloned())
-                        .unwrap_or_default();
-                    (tx, sigs)
-                } else {
-                    (serde_json::Value::Object(map), vec![])
-                }
-            }
-            _ => return Err("Unsupported transaction format".to_string()),
-        };
-
-        // Deserialize transaction to struct for sighash
-        let transaction: TransactionRequest = serde_json::from_value(transaction_value.clone())
-            .map_err(|e| format!("Failed to parse transaction: {e}"))?;
-
-        // Calculate sighash and validate
-        let mut transaction_hash_str = format!("{:x}", transaction.sighash());
-        transaction_hash_str = transaction_hash_str.trim_start_matches("0x").to_string();
-
-        TxHash::from_str(&transaction_hash_str).map_err(|e| {
-            error!("Invalid transaction hash: {:?}", e);
-            "Invalid transaction hash".to_string()
-        })?;
-
-        // Get key pair and wallet
-        let key_pair = {
-            let keys = self.inner.keys.lock().await;
-            keys.get(public_key)
-                .ok_or_else(|| "Public key not found".to_string())?
-                .clone()
-        };
-
-        let wallet: LocalWallet = key_pair
-            .secret_key
-            .parse()
-            .map_err(|e| format!("Failed to parse secret key into wallet: {e}"))?;
-
-        // Sign the transaction
-        let signature = wallet
-            .sign_transaction(&transaction.clone().into())
-            .await
-            .map_err(|e| format!("Failed to sign transaction: {e}"))?;
-
-        let signature_hex = signature.to_string();
-
-        // Verify signature
-        let is_valid = self
-            .verify(&transaction_hash_str, &signature_hex, public_key)
-            .await?;
-        if !is_valid {
-            return Err("Generated signature failed verification".to_string());
-        }
-
-        // Append signature info
-        signatures.push(json!({
-            "signer": public_key,
-            "v": format!("{:x}", signature.v),
-            "r": format!("{:x}", signature.r),
-            "s": format!("{:x}", signature.s),
-            "hash": transaction_hash_str,
-            "signature": signature_hex
-        }));
-
-        // Return wrapped transaction + signatures
-        let result = json!({
-            "transaction": transaction_value,
-            "signatures": signatures
-        });
-
-        serde_json::to_string(&result)
+        serde_json::to_string("")
             .map_err(|e| format!("Failed to serialize final signed transaction: {e}"))
     }
 
@@ -215,10 +137,17 @@ impl KeysServiceTrait for MockCosmosKeysService {
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
+        let key_pair = {
+            let keys = self.inner.keys.lock().await;
+            keys.get(&key)
+                .ok_or_else(|| "Public key not found".to_string())?
+                .clone()
+        };
         self.inner
-            .verify(transaction_hash_hex, signature_hex, public_key)
+            .verify(transaction_hash_hex, signature_hex, &key_pair.public_key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
@@ -234,10 +163,17 @@ impl KeysServiceTrait for MockCosmosKeysService {
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
+        let key_pair = {
+            let keys = self.inner.keys.lock().await;
+            keys.get(&key)
+                .ok_or_else(|| "Public key not found".to_string())?
+                .clone()
+        };
         self.inner
-            .verify_via_kms(transaction_hash_hex, signature_hex, public_key)
+            .verify_via_kms(transaction_hash_hex, signature_hex, &key_pair.public_key)
             .await
     }
 
