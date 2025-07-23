@@ -57,8 +57,8 @@ pub async fn hello(
 
 #[derive(Serialize, ToSchema, Deserialize, Debug, Clone)]
 pub struct CreateKeyResponse {
-    pub public_key: String,
     pub address: String,
+    pub public_key: String,
 }
 
 #[utoipa::path(
@@ -301,11 +301,13 @@ pub async fn verify_signature(
             )
             .await
     } else {
-        keys_service.verify(
-            &params.transaction_hash,
-            &params.signature,
-            &params.public_key,
-        )
+        keys_service
+            .verify(
+                &params.transaction_hash,
+                &params.signature,
+                &params.public_key,
+            )
+            .await
     };
 
     match result {
@@ -342,16 +344,16 @@ pub async fn delete_key(
 ) -> impl IntoResponse {
     let mut keys_service = state.keys_service.lock().await;
 
-    let alias = params.key.trim();
+    let key = params.key.trim();
 
-    if alias.is_empty() {
+    if key.is_empty() {
         return (
             StatusCode::BAD_REQUEST,
             Json(json!({ "error": "Key cannot be empty" })),
         );
     }
 
-    match keys_service.delete_key(alias).await {
+    match keys_service.delete_key(key).await {
         Ok(result) => (StatusCode::OK, Json(json!({ "deleted": result }))),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
@@ -505,7 +507,7 @@ mod tests_routes {
             Ok(SIGNATURE_PREFIXED.to_string())
         }
 
-        fn verify(
+        async fn verify(
             &mut self,
             _transaction_hash_hex: &str,
             signature_hex: &str,
@@ -523,11 +525,10 @@ mod tests_routes {
             Ok(signature_hex == "kms-valid" && public_key == "pubkey")
         }
 
-        async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
+        async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
             let before = self.keys.len();
             self.keys.retain(|key_entry| {
-                alias != key_entry.address.as_str()
-                    && key_entry.public_key.as_deref() != Some(alias)
+                key != key_entry.address.as_str() && key_entry.public_key.as_deref() != Some(key)
             });
             let after = self.keys.len();
             Ok(after < before)

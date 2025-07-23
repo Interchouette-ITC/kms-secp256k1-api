@@ -51,10 +51,10 @@ impl MockKeysService {
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
         self.crypto_service
-            .verify(transaction_hash_hex, signature_hex, public_key)
+            .verify(transaction_hash_hex, signature_hex, key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
@@ -75,10 +75,10 @@ impl MockKeysService {
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
         self.crypto_service
-            .verify_eip155(transaction_hash_hex, signature_hex, public_key)
+            .verify_eip155(transaction_hash_hex, signature_hex, key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
@@ -101,27 +101,27 @@ impl MockKeysService {
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
         sleep(Duration::from_millis(50)).await;
-        self.verify(transaction_hash_hex, signature_hex, public_key)
+        self.verify(transaction_hash_hex, signature_hex, key)
     }
 
     pub async fn verify_via_kms_eip155(
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
         sleep(Duration::from_millis(50)).await;
-        self.verify_eip155(transaction_hash_hex, signature_hex, public_key)
+        self.verify_eip155(transaction_hash_hex, signature_hex, key)
     }
 
     /// Deletes a public key from the internal key storage.
     ///
     /// Returns `true` if the key existed and was removed, `false` otherwise.
-    pub async fn delete_key(&self, alias: &str) -> bool {
-        self.keys.lock().await.remove(alias).is_some()
+    pub async fn delete_key(&self, key: &str) -> bool {
+        self.keys.lock().await.remove(key).is_some() // key alias used is key_pair address
     }
 
     /// Lists all stored keys with mock metadata.
@@ -146,7 +146,7 @@ impl MockKeysService {
     ///
     /// Used to add keys for testing purposes.
     pub async fn insert_key(&self, key_pair: KeyPair) {
-        let alias = key_pair.address.clone();
-        self.keys.lock().await.insert(alias, key_pair);
+        let key = key_pair.address.clone(); // key alias used is key_pair address
+        self.keys.lock().await.insert(key, key_pair);
     }
 }

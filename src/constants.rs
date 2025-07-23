@@ -19,6 +19,10 @@ pub const CASPER_PUBLIC_KEY_PREFIXED: &str = concat!(
 );
 
 #[cfg(test)]
+pub static CASPER_PUBLIC_KEY_BASE64: &str =
+    "MDYwEAYHKoZIzj0CAQYFK4EEAAoDIgAD97Il35cIXVY5dQimWRuWH9IYZ83coSENdDeaK3MjCIY";
+
+#[cfg(test)]
 pub static SIGNATURE: &str = "3da60aec68fe4c696f8eb86e2aa5a028343adecdcd4db22c769eca91a0bb7a8b0ec804bed0fbc58833fe983cf1cf1354c80bfee10ac25bee91d8d8e3ee51cb5e";
 
 #[cfg(test)]
@@ -40,7 +44,11 @@ pub static ETH_PUBLIC_KEY: &str =
     "02cdf5f74f32842442a6e1263aee727b2bd2accb5ce71525c5ea986501536eac00";
 
 #[cfg(test)]
-pub static ETH_ADDRESS: &str = "0x8b0b40d3a70712fd94b55291327d0140ec3c7ab3";
+pub static ETH_PUBLIC_KEY_BASE64: &str =
+    "MDYwEAYHKoZIzj0CAQYFK4EEAAoDIgACzfX3TzKEJEKm4SY67nJ7K9Ksy1znFSXF6phlAVNurAA=";
+
+#[cfg(test)]
+pub static ETH_ADDRESS: &str = "0x38f836791eed0f3248dbae129f64c98e6d7fe497";
 
 #[cfg(test)]
 pub static ETH_SIGNATURE: &str = "ccb866b7e9ed5028d2e2456e734671549c47e560580735f1ff3a29cd2060f481396bbb8fffa855927d4a9179315826e31863091243232cebda1b894d678dce1425";
@@ -74,3 +82,7 @@ pub static COSMOS_SECP_LEN: usize = 66;
 #[cfg(test)]
 pub static COSMOS_PUBLIC_KEY: &str =
     "02b121fdf4d8c12bfea0e39e4e7cae78464327a5259ceda191d8093e91ebc0537f";
+
+#[cfg(test)]
+pub static COSMOS_PUBLIC_KEY_BASE64: &str =
+    "MDYwEAYHKoZIzj0CAQYFK4EEAAoDIgACsSH99NjBK/6g455OfK54RkMnpSWc7aGR2Ak+kevAU38=";

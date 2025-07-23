@@ -21,7 +21,6 @@ use k256::{
 use serde_json::json;
 use std::str::FromStr;
 use tracing::error;
-use tracing::info;
 
 pub struct MockEthereumKeysService {
     inner: MockKeysService,
@@ -42,16 +41,16 @@ impl KeysServiceTrait for MockEthereumKeysService {
             .into_option()
             .ok_or_else(|| "Failed to create PublicKey from encoded point".to_string())?;
 
-        let public_key_hex = hex::encode(public_key.to_sec1_bytes());
+        let public_key = hex::encode(public_key.to_sec1_bytes());
 
         let secret_key_bytes = signing_key.to_bytes();
         let secret_key_hex = hex::encode(secret_key_bytes);
 
-        let address = self.resolve_alias(&public_key_hex)?;
+        let address = self.resolve_key(&public_key)?;
 
         {
             let key_pair = KeyPair {
-                public_key: public_key_hex.clone(),
+                public_key: public_key.clone(),
                 secret_key: secret_key_hex,
                 address: address.clone(),
             };
@@ -60,9 +59,9 @@ impl KeysServiceTrait for MockEthereumKeysService {
         }
 
         Ok(KeyEntry {
-            public_key: Some(public_key_hex.clone()).into(),
+            public_key: Some(public_key.clone()).into(),
             address: address.clone().into(),
-            public_key_base64: STANDARD.encode(public_key_hex).into(),
+            public_key_base64: STANDARD.encode(public_key).into(),
             key_id: address.into(),
         })
     }
@@ -76,13 +75,13 @@ impl KeysServiceTrait for MockEthereumKeysService {
         &mut self,
         _config: &Config,
         transaction_hash: &str,
-        alias: &str,
+        key: &str,
     ) -> Result<String, String> {
-        let final_alias = self.resolve_alias(alias)?;
+        let key = self.resolve_key(key)?;
 
         let key_pair = {
             let keys = self.inner.keys.lock().await;
-            keys.get(&final_alias)
+            keys.get(&key)
                 .ok_or_else(|| "Public key not found".to_string())?
                 .clone()
         };
@@ -105,25 +104,14 @@ impl KeysServiceTrait for MockEthereumKeysService {
             .sign_hash(tx_hash)
             .map_err(|e| format!("Failed to sign hash: {e}"))?;
 
-        let signature_test = self
-            .inner
-            .crypto_service
-            .unconvert(&signature.to_string())
-            .map_err(|e| {
-                let msg = format!("Signature conversion failed: {e}");
-                error!("{}", msg);
-                msg
-            })?;
-
-        info!(signature_test);
-        info!("{}", hex::encode(signature.to_vec()));
-
         // Verify signature
-        let is_valid = self.verify(
-            transaction_hash,
-            &signature.to_string(),
-            &key_pair.public_key,
-        )?;
+        let is_valid = self
+            .verify(
+                transaction_hash,
+                &signature.to_string(),
+                &key_pair.public_key,
+            )
+            .await?;
 
         if !is_valid {
             return Err("Signature verification failed".to_string());
@@ -140,7 +128,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
         &mut self,
         _config: &Config,
         transaction_str: &str,
-        alias: &str,
+        key: &str,
     ) -> Result<String, String> {
         // Parse the transaction JSON (can be wrapped or plain)
         let parsed: serde_json::Value = serde_json::from_str(transaction_str)
@@ -176,10 +164,10 @@ impl KeysServiceTrait for MockEthereumKeysService {
         })?;
 
         // Get key pair and wallet
-        let final_alias = self.resolve_alias(alias)?;
+        let key = self.resolve_key(key)?;
         let key_pair = {
             let keys = self.inner.keys.lock().await;
-            keys.get(&final_alias)
+            keys.get(&key)
                 .ok_or_else(|| "Public key not found".to_string())?
                 .clone()
         };
@@ -198,7 +186,9 @@ impl KeysServiceTrait for MockEthereumKeysService {
         let signature_hex = signature.to_string();
 
         // Verify signature
-        let is_valid = self.verify(&transaction_hash_str, &signature_hex, &key_pair.public_key)?;
+        let is_valid = self
+            .verify(&transaction_hash_str, &signature_hex, &key_pair.public_key)
+            .await?;
         if !is_valid {
             return Err("Generated signature failed verification".to_string());
         }
@@ -227,15 +217,21 @@ impl KeysServiceTrait for MockEthereumKeysService {
     ///
     /// Returns `Ok(true)` if the signature is valid, `Ok(false)` if invalid.
     /// Returns an error string for failures such as invalid formats.
-    fn verify(
+    async fn verify(
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
-        info!(signature_hex);
+        let key = self.resolve_key(key)?;
+        let key_pair = {
+            let keys = self.inner.keys.lock().await;
+            keys.get(&key)
+                .ok_or_else(|| "Public key not found".to_string())?
+                .clone()
+        };
         self.inner
-            .verify_eip155(transaction_hash_hex, signature_hex, public_key)
+            .verify_eip155(transaction_hash_hex, signature_hex, &key_pair.public_key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
@@ -251,10 +247,17 @@ impl KeysServiceTrait for MockEthereumKeysService {
         &mut self,
         transaction_hash_hex: &str,
         signature_hex: &str,
-        public_key: &str,
+        key: &str,
     ) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
+        let key_pair = {
+            let keys = self.inner.keys.lock().await;
+            keys.get(&key)
+                .ok_or_else(|| "Public key not found".to_string())?
+                .clone()
+        };
         self.inner
-            .verify_via_kms_eip155(transaction_hash_hex, signature_hex, public_key)
+            .verify_via_kms_eip155(transaction_hash_hex, signature_hex, &key_pair.public_key)
             .await
     }
 
@@ -262,9 +265,9 @@ impl KeysServiceTrait for MockEthereumKeysService {
     ///
     /// Returns `Ok(true)` if the key was deleted, `Ok(false)` if the key was not found.
     /// Returns an error string if deletion fails.
-    async fn delete_key(&mut self, alias: &str) -> Result<bool, String> {
-        let final_alias = self.resolve_alias(alias)?;
-        Ok(self.inner.delete_key(&final_alias).await)
+    async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+        let key = self.resolve_key(key)?;
+        Ok(self.inner.delete_key(&key).await)
     }
 
     /// Lists all stored keys along with their associated metadata.
@@ -294,15 +297,15 @@ impl MockEthereumKeysService {
         })
     }
 
-    /// Resolves a given alias string to an Ethereum address.
+    /// Resolves a given key string to an Ethereum address.
     ///
-    /// This function checks whether the input `alias` is a compressed secp256k1 public key
+    /// This function checks whether the input `key` is a compressed secp256k1 public key
     /// (by comparing its length to the expected `ETH_SECP_LEN`). If so, it attempts to convert
     /// the public key to its corresponding Ethereum address using the crypto service. Otherwise,
-    /// it assumes the alias is already an address and returns it as-is.
+    /// it assumes the key is already an address and returns it as-is.
     ///
     /// # Parameters
-    /// - `alias`: A string that is either an Ethereum address or a compressed public key (hex-encoded, starting with "02"/"03").
+    /// - `key`: A string that is either an Ethereum address or a compressed public key (hex-encoded, starting with "02"/"03").
     ///
     /// # Returns
     /// - `Ok(String)`: The resolved Ethereum address as a string.
@@ -311,15 +314,15 @@ impl MockEthereumKeysService {
     /// # Errors
     /// - Returns an error if the input is treated as a public key and the conversion fails.
     ///
-    fn resolve_alias(&mut self, alias: &str) -> Result<String, String> {
-        if alias.len() == ETH_SECP_LEN {
-            self.inner.crypto_service.address_eth(alias).map_err(|e| {
+    fn resolve_key(&mut self, key: &str) -> Result<String, String> {
+        if key.len() == ETH_SECP_LEN {
+            self.inner.crypto_service.address_eth(key).map_err(|e| {
                 let msg = format!("Failed to convert public key to address: {e:?}");
                 error!("{}", &msg);
                 msg
             })
         } else {
-            Ok(alias.to_string())
+            Ok(key.to_string())
         }
     }
 }
