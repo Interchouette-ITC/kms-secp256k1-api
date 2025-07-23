@@ -100,25 +100,28 @@ pub struct Approval {
 #[utoipa::path(
     post,
     path = "/signTransactionHash",
-    params(SignTransactionQuery),
+    params(
+        ("keys" = Vec<String>, Query, description = "List of addresses or public keys to sign the transaction with"),
+    ),
     request_body(
         content = String,
+        description = "The transaction hash as hexadecimal",
         example = "0x..."
     ),
     responses(
-        (status = 200, description = "Signatures for each key", body = [Approval]),
+        (status = 200, description = "Signatures for each key", body = Vec<Approval>),
         (status = 500, description = "Internal server error", body = String)
     ),
     tag = "Signature Management"
 )]
 pub async fn sign_transaction_hash(
     Extension(state): Extension<AppState>,
-    Query(query): Query<SignTransactionQuery>,
+    Query(query): Query<SignTransactionParams>,
     transaction_hash: String,
 ) -> impl IntoResponse {
     let mut keys_service = state.keys_service.lock().await;
 
-    let unique_keys: HashSet<_> = query.public_keys.iter().cloned().collect();
+    let unique_keys: HashSet<_> = query.keys.iter().cloned().collect();
 
     if unique_keys.len() > 10 {
         return (
@@ -185,33 +188,36 @@ pub async fn sign_transaction_hash(
 }
 
 #[derive(Deserialize, IntoParams)]
-pub struct SignTransactionQuery {
+pub struct SignTransactionParams {
     #[param(min_items = 1, max_items = 10)]
-    pub public_keys: Vec<String>,
+    pub keys: Vec<String>,
 }
 
 #[utoipa::path(
     post,
     path = "/signTransaction",
-    params(SignTransactionQuery),
+    params(
+        ("keys" = Vec<String>, Query, description = "List of addresses or public keys to sign the transaction with"),
+    ),
     request_body(
         content = Value,
-        example = json!({})
+        description = "The transaction (json format)",
+        example = json!({}),
     ),
     responses(
-        (status = 200, description = "Signed transaction", body = String),
+        (status = 200, description = "Signed transaction", body = Value),
         (status = 500, description = "Internal server error", body = String)
     ),
     tag = "Signature Management"
 )]
 pub async fn sign_transaction(
     Extension(state): Extension<AppState>,
-    Query(query): Query<SignTransactionQuery>,
+    Query(query): Query<SignTransactionParams>,
     Json(body): Json<Value>,
 ) -> impl IntoResponse {
     let mut keys_service = state.keys_service.lock().await;
 
-    let unique_keys: HashSet<_> = query.public_keys.iter().cloned().collect();
+    let unique_keys: HashSet<_> = query.keys.iter().cloned().collect();
 
     if unique_keys.len() > 10 {
         return (
@@ -225,9 +231,9 @@ pub async fn sign_transaction(
     // Start with the original unsigned transaction
     let mut current_signed = body.to_string();
 
-    for public_key in unique_keys {
+    for key in unique_keys {
         match keys_service
-            .sign_transaction(&state.config, &current_signed, &public_key)
+            .sign_transaction(&state.config, &current_signed, &key)
             .await
         {
             Ok(signed) => {
@@ -238,7 +244,7 @@ pub async fn sign_transaction(
                 return (
                     StatusCode::INTERNAL_SERVER_ERROR,
                     Json(json!({
-                        "error": format!("Failed to sign with key {}: {}", public_key, err)
+                        "error": format!("Failed to sign with key {}: {}", key, err)
                     })),
                 );
             }
@@ -261,10 +267,10 @@ pub async fn sign_transaction(
     (StatusCode::OK, Json(final_value))
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, IntoParams)]
 pub struct VerifySignatureParams {
     pub transaction_hash: String,
-    pub public_key: String,
+    pub key: String,
     pub signature: String,
     pub via_kms: Option<bool>,
 }
@@ -273,7 +279,7 @@ pub struct VerifySignatureParams {
     get,
     path = "/verifySignature",
     params(
-        ("public_key" = String, Query, description = "The public key to verify against"),
+        ("key" = String, Query, description = "The address or public key of the key to verify against"),
         ("transaction_hash" = String, Query, description = "The original transaction hash"),
         ("signature" = String, Query, description = "The signature to verify (with prefix)"),
         ("via_kms" = Option<bool>, Query, description = "Whether to verify the signature using AWS KMS (default: false)")
@@ -294,19 +300,11 @@ pub async fn verify_signature(
 
     let result = if via_kms {
         keys_service
-            .verify_via_kms(
-                &params.transaction_hash,
-                &params.signature,
-                &params.public_key,
-            )
+            .verify_via_kms(&params.transaction_hash, &params.signature, &params.key)
             .await
     } else {
         keys_service
-            .verify(
-                &params.transaction_hash,
-                &params.signature,
-                &params.public_key,
-            )
+            .verify(&params.transaction_hash, &params.signature, &params.key)
             .await
     };
 
@@ -319,7 +317,7 @@ pub async fn verify_signature(
     }
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, IntoParams)]
 pub struct DeleteKeyParams {
     pub key: String,
 }
@@ -332,7 +330,6 @@ pub struct DeleteKeyParams {
     ),
     responses(
         (status = 200, description = "Key deletion status", body = bool),
-        (status = 400, description = "Bad request - specify exactly one of address or public_key"),
         (status = 404, description = "Delete feature is disabled"),
         (status = 500, description = "Internal server error", body = String)
     ),
@@ -363,7 +360,7 @@ pub async fn delete_key(
 }
 
 #[derive(Serialize, Deserialize, ToSchema, Eq, PartialEq, Debug, Clone)]
-pub struct KeyEntryResponse {
+struct KeyEntryResponse {
     pub address: String,
     pub public_key_base64: String,
     pub public_key: String,
@@ -374,7 +371,7 @@ pub struct KeyEntryResponse {
     get,
     path = "/listKeys",
     responses(
-        (status = 200, description = "List of keys", body = [KeyEntryResponse]),
+        (status = 200, description = "List of keys", body = Vec<KeyEntryResponse>),
         (status = 404, description = "Listing of keys feature is disabled"),
         (status = 500, description = "Internal server error", body = String)
     ),
@@ -799,7 +796,7 @@ mod tests_routes {
         let params = VerifySignatureParams {
             transaction_hash: "abc123".into(),
             signature: "valid".into(),
-            public_key: "pubkey".into(),
+            key: "pubkey".into(),
             via_kms: Some(false),
         };
 
@@ -825,7 +822,7 @@ mod tests_routes {
         let params = VerifySignatureParams {
             transaction_hash: "abc123".into(),
             signature: "kms-valid".into(),
-            public_key: "pubkey".into(),
+            key: "pubkey".into(),
             via_kms: Some(true),
         };
 
@@ -851,7 +848,7 @@ mod tests_routes {
         let params = VerifySignatureParams {
             transaction_hash: "abc123".into(),
             signature: "invalid".into(),
-            public_key: "pubkey".into(),
+            key: "pubkey".into(),
             via_kms: Some(false),
         };
 
@@ -874,8 +871,8 @@ mod tests_routes {
             config: Config::default(),
         };
 
-        let query = SignTransactionQuery {
-            public_keys: vec!["key1".to_string(), "key2".to_string(), "key1".to_string()],
+        let query = SignTransactionParams {
+            keys: vec!["key1".to_string(), "key2".to_string(), "key1".to_string()],
         };
 
         let transaction_hash =
@@ -912,7 +909,7 @@ mod tests_routes {
         for i in 0..11 {
             keys.push(format!("key{i}"));
         }
-        let query = SignTransactionQuery { public_keys: keys };
+        let query = SignTransactionParams { keys };
 
         let transaction_hash = TRANSACTION_HASH.to_string();
 
@@ -937,8 +934,8 @@ mod tests_routes {
             config: Config::default(),
         };
 
-        let query = SignTransactionQuery {
-            public_keys: vec!["keyA".to_string(), "keyB".to_string()],
+        let query = SignTransactionParams {
+            keys: vec!["keyA".to_string(), "keyB".to_string()],
         };
 
         let transaction_json = json!({
@@ -970,8 +967,8 @@ mod tests_routes {
             config: Config::default(),
         };
 
-        let query = SignTransactionQuery {
-            public_keys: (0..11).map(|i| format!("key{i}")).collect(),
+        let query = SignTransactionParams {
+            keys: (0..11).map(|i| format!("key{i}")).collect(),
         };
 
         let transaction_json = json!({"foo": "bar"});
@@ -997,8 +994,8 @@ mod tests_routes {
             config: Config::default(),
         };
 
-        let query = SignTransactionQuery {
-            public_keys: vec!["keyA".to_string()],
+        let query = SignTransactionParams {
+            keys: vec!["keyA".to_string()],
         };
 
         let transaction_json = json!(["not", "an", "object"]);
@@ -1027,8 +1024,8 @@ mod tests_routes {
             config: Config::default(),
         };
 
-        let query = SignTransactionQuery {
-            public_keys: vec!["keyA".to_string(), "fail".to_string()],
+        let query = SignTransactionParams {
+            keys: vec!["keyA".to_string(), "fail".to_string()],
         };
 
         let transaction_json = json!({"foo": "bar"});

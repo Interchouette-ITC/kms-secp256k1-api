@@ -32,7 +32,7 @@ mod tests {
         let public_key = parsed.public_key;
 
         let transaction_hash = ETH_TRANSACTION_HASH;
-        let query_string = format!("public_keys={public_key}");
+        let query_string = format!("keys={public_key}");
 
         let uri = format!("/signTransactionHash?{query_string}");
         let sign_response = app
@@ -62,7 +62,7 @@ mod tests {
         let signature = &approvals[0].signature;
 
         let uri = format!(
-            "/verifySignature?public_key={public_key}&transaction_hash={transaction_hash}&signature={signature}&via_kms={via_kms}"
+            "/verifySignature?key={public_key}&transaction_hash={transaction_hash}&signature={signature}&via_kms={via_kms}"
         );
 
         let verify_response = app

@@ -37,7 +37,7 @@ mod tests {
 
         let query_string = public_keys
             .iter()
-            .map(|key| format!("public_keys={key}"))
+            .map(|key| format!("keys={key}"))
             .collect::<Vec<_>>()
             .join("&");
 

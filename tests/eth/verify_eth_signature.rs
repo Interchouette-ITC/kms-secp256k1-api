@@ -39,7 +39,7 @@ async fn run_verify_eth_signature_test(via_kms: bool) {
     let public_key = created.public_key;
     let transaction_hash = ETH_TRANSACTION_HASH;
 
-    let sign_url = format!("{base_url}/signTransactionHash?public_keys={public_key}");
+    let sign_url = format!("{base_url}/signTransactionHash?keys={public_key}");
 
     let sign_resp = client
         .post(&sign_url)
@@ -61,7 +61,7 @@ async fn run_verify_eth_signature_test(via_kms: bool) {
     let signature = &approvals[0].signature;
 
     let verify_url = format!(
-        "{base_url}/verifySignature?public_key={public_key}&transaction_hash={transaction_hash}&signature={signature}&via_kms={via_kms}"
+        "{base_url}/verifySignature?key={public_key}&transaction_hash={transaction_hash}&signature={signature}&via_kms={via_kms}"
     );
 
     let verify_resp = client

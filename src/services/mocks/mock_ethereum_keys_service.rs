@@ -66,9 +66,9 @@ impl KeysServiceTrait for MockEthereumKeysService {
         })
     }
 
-    /// Signs a given transaction hash using the specified public key.
+    /// Signs a given transaction hash using the specified key.
     ///
-    /// Takes the transaction hash, public key, and configuration.
+    /// Takes the transaction hash, key, and configuration.
     /// Returns the signature as a hexadecimal string if successful.
     /// Returns an error string if signing fails.
     async fn sign_transaction_hash(

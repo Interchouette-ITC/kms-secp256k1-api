@@ -54,7 +54,7 @@ async fn test_sign_casper_transaction_returns_200_integration() {
 
     let query_string = public_keys
         .iter()
-        .map(|k| format!("public_keys={k}"))
+        .map(|k| format!("keys={k}"))
         .collect::<Vec<_>>()
         .join("&");
 
