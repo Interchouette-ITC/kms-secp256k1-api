@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::config::ConfigBuilder;
     use crate::constants::ETH_TRANSACTION;
     use crate::create_app;
     use crate::routes::CreateKeyResponse;
+    use crate::{config::ConfigBuilder, constants::SIGNATURE_RSV_LEN};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -92,7 +92,7 @@ mod tests {
 
             assert_eq!(
                 signature.strip_prefix("0x").unwrap_or(signature).len(),
-                130,
+                SIGNATURE_RSV_LEN,
                 "Signature length incorrect for signer {signer}: {}",
                 signature.len()
             );

@@ -1,6 +1,6 @@
 use kms_secp256k1_api::{
     config::ConfigBuilder,
-    constants::ETH_TRANSACTION_HASH,
+    constants::{ETH_TRANSACTION_HASH, SIGNATURE_RSV_LEN},
     routes::{Approval, CreateKeyResponse},
     run_server,
 };
@@ -78,8 +78,9 @@ async fn test_sign_eth_transaction_hash_returns_200_integration() {
 
         assert_eq!(
             approval.signature.len(),
-            130,
-            "Expected 65-byte signature (130 hex chars), got {}",
+            SIGNATURE_RSV_LEN,
+            "Expected 65-byte signature ({} hex chars), got {}",
+            SIGNATURE_RSV_LEN,
             approval.signature.len()
         );
     }

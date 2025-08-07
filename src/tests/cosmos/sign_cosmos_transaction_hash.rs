@@ -1,9 +1,9 @@
 #[cfg(test)]
 mod tests {
-    use crate::constants::TRANSACTION_HASH;
+    use crate::constants::COSMOS_TRANSACTION_HASH;
     use crate::create_app;
     use crate::routes::CreateKeyResponse;
-    use crate::{config::ConfigBuilder, constants::SIGNATURE_RSV_LEN};
+    use crate::{config::ConfigBuilder, constants::SIGNATURE_RS_LEN};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
@@ -12,11 +12,12 @@ mod tests {
     use tower::ServiceExt;
 
     #[tokio::test]
-    async fn test_casper_transaction_hash_returns_200() {
-        let config = ConfigBuilder::new().with_casper_mode().build();
+    async fn test_eth_transaction_hash_returns_200() {
+        let config = ConfigBuilder::new().with_cosmos_mode().build();
+
         let app = create_app(config).await;
 
-        let transaction_hash = TRANSACTION_HASH;
+        let transaction_hash = COSMOS_TRANSACTION_HASH;
 
         let mut public_keys = Vec::new();
         for _ in 0..2 {
@@ -77,7 +78,7 @@ mod tests {
 
             assert_eq!(
                 signature.len(),
-                SIGNATURE_RSV_LEN,
+                SIGNATURE_RS_LEN,
                 "Signature length incorrect for address {address}: {}",
                 signature.len()
             );
