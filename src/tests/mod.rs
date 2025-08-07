@@ -1,6 +1,8 @@
 #[cfg(test)]
 pub mod casper;
 #[cfg(test)]
+pub mod cosmos;
+#[cfg(test)]
 pub mod create_keypair;
 #[cfg(test)]
 pub mod delete_key;

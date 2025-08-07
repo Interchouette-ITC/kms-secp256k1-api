@@ -3,7 +3,8 @@ use crate::{
     constants::{COSMOS_SECP_LEN, DEFAULT_COSMOS_HRP},
     services::{
         cosmos_keys_service::{
-            BodyHelper, build_auth_info, fee_amount_json, fetch_account_info, signature_to_json,
+            BodyHelper, append_signature_to_transaction, build_auth_info, fee_amount_json,
+            fetch_account_info, signature_to_json,
         },
         crypto_service::CryptoService,
         keys_service::{KeyEntry, KeysServiceTrait, SigEntry},
@@ -132,6 +133,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
     ///
     /// Returns the signed transaction as a JSON string on success.
     /// Returns an error string if parsing the transaction or signing fails.
+    #[allow(clippy::too_many_lines)]
     async fn sign_transaction(
         &mut self,
         config: &Config,
@@ -153,8 +155,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
                 .ok_or_else(|| "Public key not found".to_string())?
                 .clone()
         };
-
-        let address = key_pair.address;
+        let key = key_pair.address;
 
         // Deserialize TxBody
         let helper: BodyHelper = serde_json::from_value(tx_json["body"].clone())
@@ -178,7 +179,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
         let pubkey_base64 = STANDARD.encode(public_key_bytes);
 
         // Fetch account_number and sequence
-        let mut account = fetch_account_info(&address, &pubkey_base64, config)
+        let mut account = fetch_account_info(&key, &pubkey_base64, config)
             .await
             .map_err(|e| format!("Failed to fetch account info: {e}"))?;
 
@@ -192,7 +193,6 @@ impl KeysServiceTrait for MockCosmosKeysService {
                 fetched_pub_key.key
             ));
         }
-
         let auth_info = build_auth_info(&public_key_bytes, account.sequence, &fee)?;
 
         // Build SignDoc
@@ -206,7 +206,6 @@ impl KeysServiceTrait for MockCosmosKeysService {
         // Hash and sign
         let transaction_hash = Sha256::digest(&sign_doc_bytes);
         let signature: Signature = signing_key.sign(&transaction_hash);
-
         let transaction_hash = hex::encode(transaction_hash);
 
         // Verify signature
@@ -238,13 +237,15 @@ impl KeysServiceTrait for MockCosmosKeysService {
             .map_err(|e| format!("Failed to encode TxRaw: {e}"))?;
 
         let base64_tx = STANDARD.encode(tx_raw_bytes);
-
         let broadcast_request = json!({
             "tx_bytes": base64_tx,
             "mode": "BROADCAST_MODE_SYNC"  // or "BLOCK" or "ASYNC"
         });
-
         let fee_amount_json = fee_amount_json(&fee);
+
+        // Existing signatures from the original transaction (if any)
+        let new_signature = signature_to_json(&key, &public_key, &signature, &transaction_hash);
+        let signatures_array = append_signature_to_transaction(&tx_json, new_signature);
 
         // Prepare final JSON response
         let result = json!({
@@ -270,7 +271,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
                 }
             },
             "broadcast_request": broadcast_request,
-            "signatures": [signature_to_json(&address, &public_key, &signature, &transaction_hash)]
+            "signatures": signatures_array
         });
 
         // Return the wrapped transaction + signatures JSON

@@ -156,7 +156,6 @@ impl KeysServiceTrait for CosmosKeysService {
         key: &str,
     ) -> Result<String, String> {
         Self::ensure_cosmos_mode(config)?;
-
         let tx_json: serde_json::Value = serde_json::from_str(transaction_str)
             .map_err(|e| format!("Failed to parse JSON: {e}"))?;
 
@@ -207,7 +206,6 @@ impl KeysServiceTrait for CosmosKeysService {
                 fetched_pub_key.key
             ));
         }
-
         let auth_info = build_auth_info(&public_key_bytes, account.sequence, &fee)?;
 
         // Build SignDoc
@@ -258,6 +256,10 @@ impl KeysServiceTrait for CosmosKeysService {
 
         let fee_amount_json = fee_amount_json(&fee);
 
+        // Existing signatures from the original transaction (if any)
+        let new_signature = signature_to_json(&key, &public_key, &signature, &transaction_hash);
+        let signatures_array = append_signature_to_transaction(&tx_json, new_signature);
+
         // Prepare final JSON response
         let result = json!({
             "chain_id": chain_id,
@@ -282,7 +284,7 @@ impl KeysServiceTrait for CosmosKeysService {
                 }
             },
             "broadcast_request": broadcast_request,
-            "signatures": [signature_to_json(&key, &public_key, &signature, &transaction_hash)]
+            "signatures": signatures_array
         });
 
         // Return the wrapped transaction + signatures JSON
@@ -678,6 +680,21 @@ pub fn build_auth_info(
         signer_infos: vec![signer_info],
         fee: fee.clone(),
     })
+}
+
+#[must_use]
+pub fn append_signature_to_transaction(
+    tx_json: &serde_json::Value,
+    new_signature: serde_json::Value,
+) -> Vec<serde_json::Value> {
+    match tx_json.get("signatures") {
+        Some(serde_json::Value::Array(existing)) => {
+            let mut updated = existing.clone();
+            updated.push(new_signature);
+            updated
+        }
+        _ => vec![new_signature],
+    }
 }
 
 #[cfg(test)]

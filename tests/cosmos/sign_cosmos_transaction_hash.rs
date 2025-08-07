@@ -1,6 +1,6 @@
 use kms_secp256k1_api::{
     config::ConfigBuilder,
-    constants::{SIGNATURE_RSV_LEN, TRANSACTION_HASH},
+    constants::{COSMOS_TRANSACTION_HASH, SIGNATURE_RS_LEN},
     routes::{Approval, CreateKeyResponse},
     run_server,
 };
@@ -9,7 +9,7 @@ use std::time::Duration;
 use tokio::task;
 
 async fn start_server() -> task::JoinHandle<()> {
-    let config = ConfigBuilder::new().build();
+    let config = ConfigBuilder::new().with_cosmos_mode().build();
 
     task::spawn(async move {
         let _ = run_server(config).await;
@@ -18,13 +18,13 @@ async fn start_server() -> task::JoinHandle<()> {
 
 #[tokio::test]
 #[serial]
-async fn test_sign_casper_transaction_hash_returns_200_integration() {
+async fn test_sign_eth_transaction_hash_returns_200_integration() {
     let server_handle = start_server().await;
     tokio::time::sleep(Duration::from_secs(1)).await;
 
     let client = reqwest::Client::new();
     let base_url = "http://127.0.0.1:4000";
-    let transaction_hash = TRANSACTION_HASH;
+    let transaction_hash = COSMOS_TRANSACTION_HASH;
 
     let mut public_keys = Vec::new();
     for _ in 0..2 {
@@ -78,8 +78,9 @@ async fn test_sign_casper_transaction_hash_returns_200_integration() {
 
         assert_eq!(
             approval.signature.len(),
-            SIGNATURE_RSV_LEN,
-            "Expected 65-byte signature (130 hex chars), got {}",
+            SIGNATURE_RS_LEN,
+            "Expected 65-byte signature ({} hex chars), got {}",
+            SIGNATURE_RS_LEN,
             approval.signature.len()
         );
     }

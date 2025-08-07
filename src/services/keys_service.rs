@@ -452,7 +452,7 @@ mod tests {
         config::ConfigBuilder,
         constants::{
             CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, ETH_PUBLIC_KEY, ETH_SIGNATURE,
-            ETH_TRANSACTION_HASH, TRANSACTION_HASH, WASM_PATH,
+            ETH_TRANSACTION_HASH, SIGNATURE_RS_LEN, TRANSACTION_HASH, WASM_PATH,
         },
         services::crypto_service::CryptoService,
         wasm_loader::WasmLoader,
@@ -490,7 +490,7 @@ mod tests {
         );
         assert_eq!(
             signature.len(),
-            CASPER_SECP_PREFIX.len() + 128,
+            CASPER_SECP_PREFIX.len() + SIGNATURE_RS_LEN,
             "Signature length invalid"
         );
 
@@ -499,7 +499,11 @@ mod tests {
         assert!(result.is_ok(), "sign failed: {result:?}");
         let signature = result.unwrap();
 
-        assert_eq!(signature.len(), 128, "Signature length invalid");
+        assert_eq!(
+            signature.len(),
+            SIGNATURE_RS_LEN,
+            "Signature length invalid"
+        );
     }
 
     // #[tokio::test]

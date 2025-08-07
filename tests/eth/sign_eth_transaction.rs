@@ -1,5 +1,8 @@
 use kms_secp256k1_api::{
-    config::ConfigBuilder, constants::ETH_TRANSACTION, routes::CreateKeyResponse, run_server,
+    config::ConfigBuilder,
+    constants::{ETH_TRANSACTION, SIGNATURE_RSV_LEN},
+    routes::CreateKeyResponse,
+    run_server,
 };
 use serde_json::Value;
 use serial_test::serial;
@@ -89,7 +92,7 @@ async fn test_sign_eth_transaction_returns_200_integration() {
 
         assert_eq!(
             signature.strip_prefix("0x").unwrap_or(signature).len(),
-            130,
+            SIGNATURE_RSV_LEN,
             "Signature length incorrect for signer {signer}: {}",
             signature.len()
         );

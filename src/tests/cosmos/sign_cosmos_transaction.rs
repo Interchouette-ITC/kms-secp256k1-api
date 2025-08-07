@@ -1,23 +1,22 @@
 #[cfg(test)]
 mod tests {
-    use crate::constants::ETH_TRANSACTION_HASH;
+    use crate::constants::COSMOS_TRANSACTION;
     use crate::create_app;
     use crate::routes::CreateKeyResponse;
-    use crate::{config::ConfigBuilder, constants::SIGNATURE_RSV_LEN};
+    use crate::{config::ConfigBuilder, constants::SIGNATURE_RS_LEN};
     use axum::{
         body::Body,
         http::{Request, StatusCode},
     };
     use http_body_util::BodyExt;
+    use serde_json::Value;
     use tower::ServiceExt;
 
     #[tokio::test]
     async fn test_eth_transaction_hash_returns_200() {
-        let config = ConfigBuilder::new().with_ethereum_mode().build();
+        let config = ConfigBuilder::new().with_cosmos_mode().build();
 
         let app = create_app(config).await;
-
-        let transaction_hash = ETH_TRANSACTION_HASH;
 
         let mut public_keys = Vec::new();
         for _ in 0..2 {
@@ -33,7 +32,7 @@ mod tests {
             let body_str = String::from_utf8(body.to_vec()).unwrap();
             let parsed: CreateKeyResponse = serde_json::from_str(&body_str).unwrap();
 
-            public_keys.push(parsed.address);
+            public_keys.push(parsed.public_key);
         }
 
         let query_string = public_keys
@@ -42,12 +41,12 @@ mod tests {
             .collect::<Vec<_>>()
             .join("&");
 
-        let uri = format!("/signTransactionHash?{query_string}");
+        let uri = format!("/signTransaction?{query_string}");
         let response = app
             .oneshot(
                 Request::post(&uri)
-                    .header("content-type", "text/plain")
-                    .body(Body::from(transaction_hash))
+                    .header("content-type", "application/json")
+                    .body(Body::from(COSMOS_TRANSACTION))
                     .unwrap(),
             )
             .await
@@ -58,28 +57,43 @@ mod tests {
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8(body.to_vec()).unwrap();
 
-        let parsed_json: serde_json::Value = serde_json::from_str(&body_str).unwrap();
-        let approvals = parsed_json.as_array().expect("Expected JSON array");
+        let parsed: Value = serde_json::from_str(&body_str).expect("Invalid response JSON");
 
-        for approval in approvals {
-            let address = approval
-                .get("address")
+        // Check if all keys are present in the response
+        for key in &public_keys {
+            assert!(
+                body_str.contains(key),
+                "Response does not contain key: {key}"
+            );
+        }
+
+        let signatures = parsed
+            .get("signatures")
+            .and_then(|v| v.as_array())
+            .expect("Missing or invalid 'signatures' array");
+
+        assert_eq!(signatures.len(), public_keys.len());
+
+        for sig in signatures {
+            let signer = sig
+                .get("signer")
                 .and_then(|v| v.as_str())
-                .expect("Missing address field");
-            let signature = approval
+                .expect("Missing 'signer' in signature");
+
+            let signature = sig
                 .get("signature")
                 .and_then(|v| v.as_str())
-                .expect("Missing signature field");
+                .expect("Missing 'signature' in signature");
 
             assert!(
-                public_keys.contains(&address.to_string()),
-                "Unexpected address: {address}"
+                public_keys.contains(&signer.to_string()),
+                "Unexpected signer: {signer}"
             );
 
             assert_eq!(
-                signature.len(),
-                SIGNATURE_RSV_LEN,
-                "Signature length incorrect for address {address}: {}",
+                signature.strip_prefix("0x").unwrap_or(signature).len(),
+                SIGNATURE_RS_LEN,
+                "Signature length incorrect for signer {signer}: {}",
                 signature.len()
             );
         }

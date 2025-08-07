@@ -292,7 +292,8 @@ mod tests {
     use crate::{
         config::ConfigBuilder,
         constants::{
-            CASPER_PUBLIC_KEY_PREFIXED, SIGNATURE, SIGNATURE_PREFIXED, TRANSACTION_HASH, WASM_PATH,
+            CASPER_PUBLIC_KEY_PREFIXED, SIGNATURE, SIGNATURE_PREFIXED, SIGNATURE_RSV_LEN,
+            TRANSACTION_HASH, WASM_PATH,
         },
         services::{crypto_service::CryptoService, keys_service::KeyEntry},
         wasm_loader::WasmLoader,
@@ -595,7 +596,7 @@ mod tests {
 
             assert_eq!(
                 signature.len(),
-                130,
+                SIGNATURE_RSV_LEN,
                 "Signature length incorrect for signer {}: {}",
                 signer,
                 signature.len()
