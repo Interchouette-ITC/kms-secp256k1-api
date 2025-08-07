@@ -1,18 +1,31 @@
 use crate::config::Config;
 use crate::constants::{ETH_SECP_LEN, SIGNATURE_RS_LEN};
 use crate::services::crypto_service::CryptoService;
-use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait};
+use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait, SigEntry};
 use ethers::types::{H256, Signature, TransactionRequest};
 use k256::PublicKey;
 use serde_json::json;
 use std::str::FromStr;
-use tracing::error;
+use tracing::{error, info};
 
 pub struct EthereumKeysService {
     keys_service: KeysService,
 }
 
 impl EthereumKeysService {
+    /// Creates a new instance of the service.
+    ///
+    /// # Parameters
+    /// - `config`: The configuration settings for the service.
+    /// - `crypto_service`: The cryptographic service used for key management.
+    ///
+    /// # Returns
+    /// Returns `Ok(Self)` if the service is successfully created, or
+    /// an `Err(String)` containing an error message if initialization fails.
+    ///
+    /// # Errors
+    /// This function returns an error if the underlying `KeysService::new`
+    /// call fails, propagating its error as a string.
     pub async fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
         let keys_service = KeysService::new(config, crypto_service).await?;
         Ok(Self { keys_service })
@@ -53,7 +66,7 @@ impl KeysServiceTrait for EthereumKeysService {
                 msg
             })?;
 
-        let address = self.resolve_key(&public_key)?;
+        let key = self.resolve_key(&public_key)?;
 
         if public_key.is_empty() {
             let msg = "No public key generated".to_string();
@@ -64,7 +77,7 @@ impl KeysServiceTrait for EthereumKeysService {
         // Create alias for the key
         self.keys_service
             .kms_client_service
-            .create_alias(&key_id, &address)
+            .create_alias(&key_id, &key)
             .await
             .map_err(|e| {
                 let msg = format!("Error creating alias: {e:?}");
@@ -72,9 +85,11 @@ impl KeysServiceTrait for EthereumKeysService {
                 msg
             })?;
 
+        info!("{}", &public_key_base64);
+
         Ok(KeyEntry {
             public_key: Some(public_key.clone()).into(),
-            address: address.into(),
+            address: key.into(),
             public_key_base64: public_key_base64.into(),
             key_id: key_id.into(),
         })
@@ -98,7 +113,7 @@ impl KeysServiceTrait for EthereumKeysService {
         config: &Config,
         transaction_hash: &str,
         key: &str,
-    ) -> Result<String, String> {
+    ) -> Result<SigEntry, String> {
         Self::ensure_ethereum_mode(config)?;
 
         Self::validate_transaction_hash(transaction_hash)?;
@@ -109,11 +124,15 @@ impl KeysServiceTrait for EthereumKeysService {
         Self::validate_public_key(&public_key, "sign_transaction_hash")?;
 
         // Perform signing
-        let signature_hex = self
+        let signature = self
             .sign_with_recovery_id(transaction_hash, &key, &public_key, config)
             .await?;
 
-        Ok(signature_hex)
+        Ok(SigEntry {
+            address: key.into(),
+            public_key: public_key.into(),
+            signature: signature.into(),
+        })
     }
 
     /// Signs a serialized Ethereum transaction using the provided public key.
@@ -144,12 +163,11 @@ impl KeysServiceTrait for EthereumKeysService {
     ) -> Result<String, String> {
         Self::ensure_ethereum_mode(config)?;
 
-        // Parse the input JSON (support wrapped or plain)
-        let parsed: serde_json::Value = serde_json::from_str(transaction_str)
+        let tx_json: serde_json::Value = serde_json::from_str(transaction_str)
             .map_err(|e| format!("Failed to parse input JSON: {e}"))?;
 
         // Extract transaction and existing signatures if wrapped
-        let (transaction_value, mut signatures) = match parsed {
+        let (transaction_value, mut signatures) = match tx_json {
             serde_json::Value::Object(mut map) => {
                 if let Some(tx) = map.remove("transaction") {
                     let sigs = map
@@ -188,6 +206,7 @@ impl KeysServiceTrait for EthereumKeysService {
 
         // Append new signature to signatures array
         signatures.push(Self::signature_to_json(
+            &key,
             &signature,
             &public_key,
             &transaction_hash,
@@ -337,6 +356,11 @@ impl EthereumKeysService {
     /// # Returns
     /// - `Ok(String)`: The resolved public key as a hex string.
     /// - `Err(String)`: An error message if resolution or conversion fails.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The public key cannot be retrieved from the KMS for the given alias.
+    /// - Conversion from raw public key bytes to the expected hex format fails.
     pub async fn resolve_public_key(&mut self, key: &str) -> Result<String, String> {
         if key.len() == ETH_SECP_LEN {
             Ok(key.to_string())
@@ -351,7 +375,6 @@ impl EthereumKeysService {
                     error!("{}", msg);
                     msg
                 })?;
-
             self.keys_service
                 .crypto_service
                 .public_key(&public_key)
@@ -396,16 +419,22 @@ impl EthereumKeysService {
         }
     }
 
-    fn validate_transaction_hash(hash: &str) -> Result<H256, String> {
-        hash.parse::<H256>().map_err(|e| {
+    fn validate_transaction_hash(transaction_hash: &str) -> Result<H256, String> {
+        transaction_hash.parse::<H256>().map_err(|e| {
             let msg = format!("Invalid transaction hash: {e:?}");
             error!("{}", msg);
             msg
         })
     }
 
-    fn signature_to_json(sig: &Signature, public_key: &str, hash: &str) -> serde_json::Value {
+    fn signature_to_json(
+        address: &str,
+        sig: &Signature,
+        public_key: &str,
+        hash: &str,
+    ) -> serde_json::Value {
         json!({
+            "address": address,
             "signer": public_key,
             "v": format!("{:x}", sig.v),
             "r": format!("{:x}", sig.r),
@@ -640,7 +669,8 @@ mod tests {
         let signed = result.unwrap();
 
         assert_eq!(
-            signed, ETH_SIGNATURE,
+            signed.signature.to_string(),
+            ETH_SIGNATURE,
             "Expected signature to match expected format"
         );
     }
@@ -673,7 +703,8 @@ mod tests {
         let signed = result.unwrap();
 
         assert_eq!(
-            signed, ETH_SIGNATURE,
+            signed.signature.to_string(),
+            ETH_SIGNATURE,
             "Expected signature to match expected format"
         );
     }

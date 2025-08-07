@@ -4,6 +4,8 @@ use crate::{
 };
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
+use k256::PublicKey;
+use k256::pkcs8::EncodePublicKey;
 use std::{collections::HashMap, sync::Arc};
 use tokio::{
     sync::Mutex,
@@ -13,7 +15,7 @@ use tracing::error;
 
 #[derive(Debug, Clone)]
 pub struct KeyPair {
-    pub secret_key: String,
+    pub private_key: String,
     pub public_key: String,
     pub address: String,
 }
@@ -31,7 +33,8 @@ impl MockKeysService {
     /// # Panics
     ///
     /// This function will panic if creating the underlying `CasperKeysService` fails.
-    pub async fn new(_config: Config, crypto_service: CryptoService) -> Self {
+    #[must_use]
+    pub fn new(_config: Config, crypto_service: CryptoService) -> Self {
         Self {
             keys: Arc::new(Mutex::new(HashMap::new())),
             crypto_service,
@@ -107,6 +110,26 @@ impl MockKeysService {
         self.verify(transaction_hash_hex, signature_hex, key)
     }
 
+    /// Verifies an EIP-155 signature against the given transaction hash and key,
+    /// introducing a small delay to simulate or throttle KMS behavior.
+    ///
+    /// This method is functionally equivalent to [`verify_eip155`] but includes a
+    /// `50ms` sleep before performing the verification. This is useful when simulating
+    /// KMS latency or reducing load on dependent services in testing environments.
+    ///
+    /// # Parameters
+    /// - `transaction_hash_hex`: The hex-encoded transaction hash that was signed.
+    /// - `signature_hex`: The hex-encoded EIP-155 signature to verify.
+    /// - `key`: A compressed secp256k1 public key or a KMS alias used to resolve the key.
+    ///
+    /// # Returns
+    /// - `Ok(true)`: If the signature is valid.
+    /// - `Ok(false)`: If the signature is invalid (cryptographic check fails).
+    /// - `Err(String)`: If key resolution or verification fails due to internal errors or invalid input.
+    ///
+    /// # Errors
+    /// Returns an error if the key is invalid, the signature is malformed,
+    /// or the cryptographic operation fails internally.
     pub async fn verify_via_kms_eip155(
         &mut self,
         transaction_hash_hex: &str,
@@ -126,18 +149,27 @@ impl MockKeysService {
 
     /// Lists all stored keys with mock metadata.
     ///
-    /// Returns a vector of KeyEntry representing all keys.
+    /// Returns a vector of `KeyEntry` representing all keys.
     pub async fn list_keys(&self) -> Vec<KeyEntry> {
         self.keys
             .lock()
             .await
             .values()
             .enumerate()
-            .map(|(i, keypair)| KeyEntry {
-                address: keypair.address.clone().into(),
-                public_key_base64: STANDARD.encode(keypair.public_key.clone()).into(),
-                public_key: Some(keypair.public_key.clone()).into(),
-                key_id: format!("mock-key-{}", i + 1).into(),
+            .map(|(i, keypair)| {
+                let public_key_base64 = hex::decode(&keypair.public_key)
+                    .ok()
+                    .and_then(|bytes| PublicKey::from_sec1_bytes(&bytes).ok())
+                    .and_then(|pk| pk.to_public_key_der().ok())
+                    .map(|der| STANDARD.encode(der))
+                    .unwrap_or_default();
+
+                KeyEntry {
+                    address: keypair.address.clone().into(),
+                    public_key_base64: public_key_base64.into(),
+                    public_key: Some(keypair.public_key.clone()).into(),
+                    key_id: format!("mock-key-{}", i + 1).into(),
+                }
             })
             .collect()
     }

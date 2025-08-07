@@ -1,4 +1,7 @@
-use crate::constants::{DEFAULT_COSMOS_UDENOM, DEFAULT_ETH_CHAIN_ID, DEFAULT_PORT};
+use crate::constants::{
+    DEFAULT_COSMOS_CHAIN_ID, DEFAULT_COSMOS_HRP, DEFAULT_COSMOS_REST_URL, DEFAULT_ETH_CHAIN_ID,
+    DEFAULT_PORT,
+};
 use std::env;
 use tracing::{error, info};
 
@@ -46,7 +49,9 @@ pub struct Config {
     delete_mode: bool,
     list_mode: bool,
     eth_chain_id: u8,
-    cosmos_udenom: String,
+    cosmos_hrp: String,
+    cosmos_rest_url: String,
+    cosmos_chain_id: String,
 }
 
 impl Default for Config {
@@ -60,7 +65,9 @@ impl Default for Config {
             delete_mode: false,
             list_mode: false,
             eth_chain_id: DEFAULT_ETH_CHAIN_ID,
-            cosmos_udenom: DEFAULT_COSMOS_UDENOM.to_string(),
+            cosmos_hrp: DEFAULT_COSMOS_HRP.to_string(),
+            cosmos_rest_url: DEFAULT_COSMOS_REST_URL.to_string(),
+            cosmos_chain_id: DEFAULT_COSMOS_CHAIN_ID.to_string(),
         }
     }
 }
@@ -97,9 +104,8 @@ impl Config {
         };
 
         let hash_type = match blockchain_mode {
-            BlockchainMode::Casper => HashType::Sha256,
+            BlockchainMode::Casper | BlockchainMode::Cosmos => HashType::Sha256,
             BlockchainMode::Ethereum => HashType::Keccak256,
-            BlockchainMode::Cosmos => HashType::Sha256,
         };
 
         log_modes(&Modes {
@@ -133,55 +139,84 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(DEFAULT_ETH_CHAIN_ID),
-            cosmos_udenom: env::var("COSMOS_UDENOM")
+            cosmos_hrp: env::var("COSMOS_HRP")
                 .ok()
                 .and_then(|v| v.parse().ok())
-                .unwrap_or(DEFAULT_COSMOS_UDENOM.to_string()),
+                .unwrap_or_else(|| DEFAULT_COSMOS_HRP.to_string()),
+            cosmos_rest_url: env::var("COSMOS_REST_URL")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or_else(|| DEFAULT_COSMOS_REST_URL.to_string()),
+            cosmos_chain_id: env::var("COSMOS_CHAIN_ID")
+                .ok()
+                .and_then(|v| v.parse().ok())
+                .unwrap_or_else(|| DEFAULT_COSMOS_CHAIN_ID.to_string()),
         }
     }
 
-    pub fn is_testing_mode(&self) -> bool {
+    #[must_use]
+    pub const fn is_testing_mode(&self) -> bool {
         self.testing_mode
     }
 
+    #[must_use]
     pub fn is_ethereum_mode(&self) -> bool {
         self.blockchain_mode == BlockchainMode::Ethereum
     }
 
+    #[must_use]
     pub fn is_casper_mode(&self) -> bool {
         self.blockchain_mode == BlockchainMode::Casper
     }
 
+    #[must_use]
     pub fn is_cosmos_mode(&self) -> bool {
         self.blockchain_mode == BlockchainMode::Cosmos
     }
 
-    pub fn is_delete_mode(&self) -> bool {
+    #[must_use]
+    pub const fn is_delete_mode(&self) -> bool {
         self.delete_mode
     }
 
-    pub fn is_list_mode(&self) -> bool {
+    #[must_use]
+    pub const fn is_list_mode(&self) -> bool {
         self.list_mode
     }
 
-    pub fn is_aws_mode(&self) -> bool {
+    #[must_use]
+    pub const fn is_aws_mode(&self) -> bool {
         self.aws_mode
     }
 
+    #[must_use]
     pub fn get_aws_config(&self) -> AwsConfig {
         self.aws.clone()
     }
 
-    pub fn get_port(&self) -> u16 {
+    #[must_use]
+    pub const fn get_port(&self) -> u16 {
         self.port
     }
 
-    pub fn get_eth_chain_id(&self) -> u8 {
+    #[must_use]
+    pub const fn get_eth_chain_id(&self) -> u8 {
         self.eth_chain_id
     }
 
-    pub fn get_cosmos_udenom(&self) -> String {
-        self.cosmos_udenom.clone()
+    #[must_use]
+    pub fn get_cosmos_hrp(&self) -> String {
+        self.cosmos_hrp.clone()
+    }
+
+    #[must_use]
+    pub fn get_cosmos_rest_url(&self) -> String {
+        self.cosmos_rest_url.clone()
+    }
+
+    #[must_use]
+    pub fn get_cosmos_chain_id(&self) -> String {
+        self.cosmos_chain_id.clone()
     }
 }
 
@@ -228,65 +263,78 @@ pub struct ConfigBuilder {
 }
 
 impl ConfigBuilder {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn with_blockchain_mode(mut self, mode: BlockchainMode) -> Self {
+    #[must_use]
+    pub const fn with_blockchain_mode(mut self, mode: BlockchainMode) -> Self {
         self.config.blockchain_mode = mode;
         self
     }
 
-    pub fn with_casper_mode(mut self) -> Self {
+    #[must_use]
+    pub const fn with_casper_mode(mut self) -> Self {
         self.config.blockchain_mode = BlockchainMode::Casper;
         self
     }
 
-    pub fn with_ethereum_mode(mut self) -> Self {
+    #[must_use]
+    pub const fn with_ethereum_mode(mut self) -> Self {
         self.config.blockchain_mode = BlockchainMode::Ethereum;
         self
     }
 
-    pub fn with_cosmos_mode(mut self) -> Self {
+    #[must_use]
+    pub const fn with_cosmos_mode(mut self) -> Self {
         self.config.blockchain_mode = BlockchainMode::Cosmos;
         self
     }
 
-    pub fn with_testing_mode(mut self, enabled: bool) -> Self {
+    #[must_use]
+    pub const fn with_testing_mode(mut self, enabled: bool) -> Self {
         self.config.testing_mode = enabled;
         self
     }
 
-    pub fn with_delete_mode(mut self, enabled: bool) -> Self {
+    #[must_use]
+    pub const fn with_delete_mode(mut self, enabled: bool) -> Self {
         self.config.delete_mode = enabled;
         self
     }
 
-    pub fn with_list_mode(mut self, enabled: bool) -> Self {
+    #[must_use]
+    pub const fn with_list_mode(mut self, enabled: bool) -> Self {
         self.config.list_mode = enabled;
         self
     }
 
-    pub fn with_aws_mode(mut self, enabled: bool) -> Self {
+    #[must_use]
+    pub const fn with_aws_mode(mut self, enabled: bool) -> Self {
         self.config.aws_mode = enabled;
         self
     }
 
-    pub fn with_port(mut self, port: u16) -> Self {
+    #[must_use]
+    pub const fn with_port(mut self, port: u16) -> Self {
         self.config.port = port;
         self
     }
 
-    pub fn with_eth_chain_id(mut self, id: u8) -> Self {
+    #[must_use]
+    pub const fn with_eth_chain_id(mut self, id: u8) -> Self {
         self.config.eth_chain_id = id;
         self
     }
 
+    #[must_use]
     pub fn with_aws_config(mut self, aws: AwsConfig) -> Self {
         self.config.aws = aws;
         self
     }
 
+    #[must_use]
     pub fn build(self) -> Config {
         self.config
     }

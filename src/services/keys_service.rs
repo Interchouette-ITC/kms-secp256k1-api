@@ -17,6 +17,13 @@ pub struct KeyEntry {
     pub key_id: Arc<String>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+pub struct SigEntry {
+    pub address: Arc<String>,
+    pub public_key: Arc<String>,
+    pub signature: Arc<String>,
+}
+
 #[async_trait::async_trait]
 pub trait KeysServiceTrait: Send + Sync {
     /// Creates a new cryptographic key based on the provided configuration.
@@ -39,7 +46,7 @@ pub trait KeysServiceTrait: Send + Sync {
         config: &Config,
         transaction_hash: &str,
         key: &str,
-    ) -> Result<String, String>;
+    ) -> Result<SigEntry, String>;
 
     /// Signs the raw transaction data using the specified public key.
     ///
@@ -149,6 +156,25 @@ impl KeysService {
         unimplemented!("Mock KMS Client is only available in tests")
     }
 
+    /// Signs a given transaction hash using the specified key.
+    ///
+    /// This function delegates signing to the underlying KMS client service, then converts the
+    /// resulting signature into the expected format. An optional prefix can be prepended to
+    /// the final signature string.
+    ///
+    /// # Parameters
+    /// - `transaction_hash_hex`: The transaction hash to sign, as a hex-encoded string.
+    /// - `key`: The key or alias to use for signing.
+    /// - `prefix`: An optional string slice to prepend to the signature (e.g., a format or type prefix).
+    ///
+    /// # Returns
+    /// - `Ok(String)`: The formatted signature string, optionally prefixed.
+    /// - `Err(String)`: An error message if signing or signature conversion fails.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The KMS client service fails to produce a signature for the given hash and key.
+    /// - Conversion of the raw signature bytes into the desired format fails.
     pub async fn sign(
         &mut self,
         transaction_hash_hex: &str,
@@ -269,9 +295,24 @@ impl KeysService {
 
     /// Verifies an EIP-155 signature and then confirms it via KMS.
     ///
-    /// Returns `Ok(true)` if both the cryptographic and KMS verifications succeed.
-    /// Returns `Ok(false)` if the cryptographic verification fails.
-    /// Returns `Err` if any part of the process encounters an error.
+    /// This method first performs a cryptographic verification of the signature according to EIP-155.
+    /// If that succeeds, it proceeds to verify the signature via the KMS service.
+    ///
+    /// # Parameters
+    /// - `transaction_hash_hex`: The transaction hash to verify, as a hex-encoded string.
+    /// - `signature_hex`: The signature to verify, as a hex-encoded string.
+    /// - `public_key`: The public key corresponding to the signer, as a hex string.
+    ///
+    /// # Returns
+    /// - `Ok(true)` if both cryptographic and KMS verifications succeed.
+    /// - `Ok(false)` if the cryptographic verification fails.
+    /// - `Err(String)` if any error occurs during verification.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The inputs cannot be parsed or decoded correctly.
+    /// - The cryptographic verification process encounters an unexpected error.
+    /// - The KMS verification call fails or returns an error.
     pub async fn verify_via_kms_eip155(
         &mut self,
         transaction_hash_hex: &str,
@@ -372,7 +413,7 @@ impl KeysService {
     ///
     /// # Returns
     ///
-    /// `Ok` with a vector of KeyEntry
+    /// `Ok` with a vector of `KeyEntry`
     pub async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
         let entries = self.kms_client_service.list_keys().await.map_err(|e| {
             let msg = format!("Listing keys failed: {e}");
@@ -396,11 +437,8 @@ impl KeysService {
                         })?;
 
                 entry.public_key = Some(public_key).into();
-
-                result.push(entry);
-            } else {
-                result.push(entry);
             }
+            result.push(entry);
         }
 
         Ok(result)

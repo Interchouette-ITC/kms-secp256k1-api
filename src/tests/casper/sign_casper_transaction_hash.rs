@@ -61,24 +61,24 @@ mod tests {
         let approvals = parsed_json.as_array().expect("Expected JSON array");
 
         for approval in approvals {
-            let signer = approval
-                .get("signer")
+            let address = approval
+                .get("address")
                 .and_then(|v| v.as_str())
-                .expect("Missing signer field");
+                .expect("Missing address field");
             let signature = approval
                 .get("signature")
                 .and_then(|v| v.as_str())
                 .expect("Missing signature field");
 
             assert!(
-                public_keys.contains(&signer.to_string()),
-                "Unexpected signer: {signer}"
+                public_keys.contains(&address.to_string()),
+                "Unexpected address: {address}"
             );
 
             assert_eq!(
                 signature.len(),
                 130,
-                "Signature length incorrect for signer {signer}: {}",
+                "Signature length incorrect for address {address}: {}",
                 signature.len()
             );
         }

@@ -1,7 +1,7 @@
 use crate::config::Config;
 use crate::constants::{CASPER_SECP_LEN, CASPER_SECP_PREFIX};
 use crate::services::crypto_service::CryptoService;
-use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait};
+use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait, SigEntry};
 use casper_rust_wasm_sdk::types::hash::transaction_hash::TransactionHash;
 use casper_rust_wasm_sdk::types::public_key::PublicKey;
 use casper_rust_wasm_sdk::types::transaction::Transaction;
@@ -12,6 +12,11 @@ pub struct CasperKeysService {
 }
 
 impl CasperKeysService {
+    /// Creates a new `CasperKeysService` instance.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `KeysService` initialization fails.
     pub async fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
         let keys_service = KeysService::new(config, crypto_service).await?;
         Ok(Self { keys_service })
@@ -20,7 +25,7 @@ impl CasperKeysService {
 
 #[async_trait::async_trait]
 impl KeysServiceTrait for CasperKeysService {
-    /// Creates a new KMS key, derives its public key with an optional prefix keys_serviced on config,
+    /// Creates a new KMS key, derives its public key with an optional prefix `keys_serviced` on config,
     /// registers an alias for it, and returns the formatted public key.
     ///
     /// # Arguments
@@ -52,7 +57,7 @@ impl KeysServiceTrait for CasperKeysService {
                 msg
             })?; // generated key contains does not contain prefix
 
-        let address = self.resolve_key(&public_key)?; // address == prefix + public_key
+        let address = Self::resolve_key(&public_key); // address == prefix + public_key
 
         if public_key.is_empty() {
             let msg = "No public key generated".to_string();
@@ -71,6 +76,8 @@ impl KeysServiceTrait for CasperKeysService {
                 msg
             })?;
 
+        // info!("{}", &public_key_base64);
+
         Ok(KeyEntry {
             public_key: Some(public_key).into(),
             address: address.into(),
@@ -81,7 +88,7 @@ impl KeysServiceTrait for CasperKeysService {
 
     /// Signs a transaction hash using the provided public key and configuration mode.
     ///
-    /// Selects a prefix keys_serviced on the active mode (Casper or Ethereum),
+    /// Selects a prefix `keys_serviced` on the active mode (Casper or Ethereum),
     /// and delegates signing to the internal `sign` method.
     ///
     /// # Arguments
@@ -98,7 +105,7 @@ impl KeysServiceTrait for CasperKeysService {
         config: &Config,
         transaction_hash: &str,
         key: &str,
-    ) -> Result<String, String> {
+    ) -> Result<SigEntry, String> {
         if !config.is_casper_mode() {
             return Err("Only Casper mode is supported".to_string());
         }
@@ -112,7 +119,7 @@ impl KeysServiceTrait for CasperKeysService {
             return Err(format!("Error reading transaction parameters: {e}"));
         }
 
-        let public_key = self.resolve_key(key)?;
+        let public_key = Self::resolve_key(key);
 
         if let Err(e) = PublicKey::new(&public_key) {
             error!(
@@ -136,7 +143,11 @@ impl KeysServiceTrait for CasperKeysService {
             return Err("Signature verification failed after signing".to_string());
         }
 
-        Ok(signature)
+        Ok(SigEntry {
+            address: public_key.clone().into(),
+            public_key: public_key.replacen(CASPER_SECP_PREFIX, "", 1).into(),
+            signature: signature.into(),
+        })
     }
 
     /// Signs a serialized Casper transaction using the provided public key.
@@ -179,7 +190,7 @@ impl KeysServiceTrait for CasperKeysService {
             "Invalid transaction hash".to_string()
         })?;
 
-        let public_key = self.resolve_key(key)?;
+        let public_key = Self::resolve_key(key);
 
         PublicKey::new(&public_key).map_err(|e| {
             error!("Invalid public key: {:?}", e);
@@ -213,7 +224,7 @@ impl KeysServiceTrait for CasperKeysService {
         signature_hex: &str,
         key: &str,
     ) -> Result<bool, String> {
-        let key = self.resolve_key(key)?;
+        let key = Self::resolve_key(key);
         self.keys_service
             .verify(transaction_hash_hex, signature_hex, &key)
     }
@@ -224,14 +235,14 @@ impl KeysServiceTrait for CasperKeysService {
         signature_hex: &str,
         key: &str,
     ) -> Result<bool, String> {
-        let key = self.resolve_key(key)?;
+        let key = Self::resolve_key(key);
         self.keys_service
             .verify_via_kms(transaction_hash_hex, signature_hex, &key)
             .await
     }
 
     async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
-        let key = self.resolve_key(key)?;
+        let key = Self::resolve_key(key);
         self.keys_service.delete_key(&key).await
     }
 
@@ -258,11 +269,11 @@ impl CasperKeysService {
     /// # Behavior
     /// - If `key.len() == CASPER_SECP_LEN`, the input is returned directly.
     /// - Otherwise, the key is prefixed with `CASPER_SECP_PREFIX` and returned.
-    fn resolve_key(&mut self, key: &str) -> Result<String, String> {
+    fn resolve_key(key: &str) -> String {
         if key.len() == CASPER_SECP_LEN {
-            Ok(key.to_string())
+            key.to_string()
         } else {
-            Ok(format!("{CASPER_SECP_PREFIX}{key}"))
+            format!("{CASPER_SECP_PREFIX}{key}")
         }
     }
 }
@@ -515,7 +526,8 @@ mod tests {
         let expected_prefixed = format!("{CASPER_SECP_PREFIX}{expected_sig_hex}");
 
         assert_eq!(
-            signed, expected_prefixed,
+            signed.signature.to_string(),
+            expected_prefixed,
             "Expected signature to match expected format"
         );
     }

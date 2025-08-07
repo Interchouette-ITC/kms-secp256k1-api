@@ -80,19 +80,16 @@ pub async fn create_app(config: Config) -> Router {
         if config.is_ethereum_mode() {
             Box::new(
                 MockEthereumKeysService::new(config.clone(), crypto_service)
-                    .await
                     .expect("Failed to initialize MockEthereumKeysService"),
             )
         } else if config.is_casper_mode() {
             Box::new(
                 MockCasperKeysService::new(config.clone(), crypto_service)
-                    .await
                     .expect("Failed to initialize MockCasperKeysService"),
             )
         } else if config.is_cosmos_mode() {
             Box::new(
                 MockCosmosKeysService::new(config.clone(), crypto_service)
-                    .await
                     .expect("Failed to initialize MockCasperKeysService"),
             )
         } else {
