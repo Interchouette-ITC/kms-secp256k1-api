@@ -1,7 +1,9 @@
 #[cfg(test)]
 use crate::constants::{
-    CASPER_PUBLIC_KEY_BASE64, CASPER_PUBLIC_KEY_PREFIXED, ETH_ADDRESS, ETH_PUBLIC_KEY_BASE64,
-    ETH_SIGNATURE_BASE64, ETH_TRANSACTION_HASH, SIGNATURE_BASE64, TRANSACTION_HASH,
+    CASPER_PUBLIC_KEY_BASE64, CASPER_PUBLIC_KEY_PREFIXED, COSMOS_ADDRESS, COSMOS_PUBLIC_KEY,
+    COSMOS_PUBLIC_KEY_BASE64, COSMOS_SIGNATURE_BASE64, COSMOS_TRANSACTION_HASH, ETH_ADDRESS,
+    ETH_PUBLIC_KEY_BASE64, ETH_SIGNATURE_BASE64, ETH_TRANSACTION_HASH, RANDOM_PUBLIC_KEY_BASE64,
+    SIGNATURE_BASE64, TRANSACTION_HASH,
 };
 #[cfg(test)]
 use crate::services::keys_service::KeyEntry;
@@ -51,6 +53,8 @@ impl KmsClientService for MockKmsClientService {
             Ok(SIGNATURE_BASE64.to_string())
         } else if address.eq(ETH_ADDRESS) {
             Ok(ETH_SIGNATURE_BASE64.to_string())
+        } else if address.eq(COSMOS_ADDRESS) {
+            Ok(COSMOS_SIGNATURE_BASE64.to_string())
         } else {
             unimplemented!("Mock KMS Client signature type unimplemented for sign")
         }
@@ -62,17 +66,32 @@ impl KmsClientService for MockKmsClientService {
         signature_base64: &str,
         key: &str,
     ) -> Result<bool, String> {
-        if (transaction_hash_hex.contains(TRANSACTION_HASH)
-            && signature_base64.eq(SIGNATURE_BASE64)
-            && key.contains(CASPER_PUBLIC_KEY_PREFIXED))
-            || (transaction_hash_hex.contains(ETH_TRANSACTION_HASH)
-                && signature_base64.eq(ETH_SIGNATURE_BASE64)
-                && key.eq(ETH_ADDRESS))
-        {
-            Ok(true)
-        } else {
-            Ok(false)
-        }
+        let expected_cases = [
+            ExpectedMatch {
+                tx_hash: TRANSACTION_HASH,
+                signature: SIGNATURE_BASE64,
+                key: CASPER_PUBLIC_KEY_PREFIXED,
+            },
+            ExpectedMatch {
+                tx_hash: ETH_TRANSACTION_HASH,
+                signature: ETH_SIGNATURE_BASE64,
+                key: ETH_ADDRESS,
+            },
+            ExpectedMatch {
+                tx_hash: COSMOS_TRANSACTION_HASH,
+                signature: COSMOS_SIGNATURE_BASE64,
+                key: COSMOS_PUBLIC_KEY,
+            },
+        ];
+
+        let matches = expected_cases.iter().any(|case| {
+            transaction_hash_hex.contains(case.tx_hash)
+                && signature_base64 == case.signature
+                && key.contains(case.key)
+                || key == case.key
+        });
+
+        Ok(matches)
     }
 
     async fn delete_key(&self, key: &str) -> Result<bool, String> {
@@ -105,13 +124,21 @@ impl KmsClientService for MockKmsClientService {
             Ok(CASPER_PUBLIC_KEY_BASE64.to_string())
         } else if alias.eq(ETH_ADDRESS) {
             Ok(ETH_PUBLIC_KEY_BASE64.to_string())
+        } else if alias.eq(COSMOS_ADDRESS) {
+            Ok(COSMOS_PUBLIC_KEY_BASE64.to_string())
         } else if alias.eq("bad_key") {
             Ok(
-                "MDYwEAYHKoZIzj0CAQYFK4EEAAoDIgAD97Il35cIXVY5dQimWRuWH9IYZ83coSENdDeaK3MjCIY="
-                    .to_string(), // random key
+                RANDOM_PUBLIC_KEY_BASE64.to_string(), // random key
             )
         } else {
             unimplemented!("Mock KMS Client signature type unimplemented for get_public_key")
         }
     }
+}
+
+#[allow(dead_code)]
+struct ExpectedMatch<'a> {
+    tx_hash: &'a str,
+    signature: &'a str,
+    key: &'a str,
 }

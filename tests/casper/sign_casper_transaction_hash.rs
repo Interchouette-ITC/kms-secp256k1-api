@@ -71,9 +71,9 @@ async fn test_sign_casper_transaction_hash_returns_200_integration() {
 
     for approval in approvals {
         assert!(
-            public_keys.contains(&approval.signer),
+            public_keys.contains(&approval.address),
             "Unexpected signer: {}",
-            approval.signer
+            approval.address
         );
 
         assert_eq!(

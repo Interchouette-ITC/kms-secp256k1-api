@@ -89,6 +89,7 @@ pub async fn create_keypair(Extension(state): Extension<AppState>) -> impl IntoR
 
 #[derive(Serialize, ToSchema, Deserialize, Debug)]
 pub struct Approval {
+    pub address: String,
     pub signer: String,
     pub r: String,
     pub s: String,
@@ -139,8 +140,11 @@ pub async fn sign_transaction_hash(
             .sign_transaction_hash(&state.config, &transaction_hash, &key)
             .await
         {
-            Ok(sig) => {
-                let sig_clean = sig.strip_prefix("0x").unwrap_or(&sig);
+            Ok(key_entry) => {
+                let sig_clean = key_entry
+                    .signature
+                    .strip_prefix("0x")
+                    .unwrap_or(&key_entry.signature);
                 let mut sig_bytes = match hex::decode(sig_clean) {
                     Ok(bytes) if bytes.len() == 64 || bytes.len() == 65 => bytes,
                     _ => {
@@ -165,12 +169,13 @@ pub async fn sign_transaction_hash(
                 };
 
                 approvals.push(Approval {
-                    signer: key,
+                    address: key_entry.address.to_string(),
+                    signer: key_entry.public_key.to_string(),
                     v: format!("{v:02x}"),
                     r: hex::encode(r),
                     s: hex::encode(s),
                     hash: transaction_hash.clone(),
-                    signature: sig.clone(),
+                    signature: key_entry.signature.to_string().clone(),
                 });
             }
             Err(err) => {
@@ -419,7 +424,7 @@ mod tests_routes {
         AppState,
         config::{Config, ConfigBuilder},
         constants::{CASPER_PUBLIC_KEY_PREFIXED, SIGNATURE_PREFIXED, TRANSACTION_HASH},
-        services::keys_service::{KeyEntry, KeysServiceTrait},
+        services::keys_service::{KeyEntry, KeysServiceTrait, SigEntry},
     };
     use async_trait::async_trait;
     use base64::Engine;
@@ -499,9 +504,13 @@ mod tests_routes {
             &mut self,
             _config: &crate::config::Config,
             _transaction_hash: &str,
-            _public_key: &str,
-        ) -> Result<String, String> {
-            Ok(SIGNATURE_PREFIXED.to_string())
+            public_key: &str,
+        ) -> Result<SigEntry, String> {
+            Ok(SigEntry {
+                address: public_key.to_string().into(),
+                public_key: public_key.to_string().into(),
+                signature: SIGNATURE_PREFIXED.to_string().into(),
+            })
         }
 
         async fn verify(

@@ -3,7 +3,7 @@ use crate::{
     constants::ETH_SECP_LEN,
     services::{
         crypto_service::CryptoService,
-        keys_service::{KeyEntry, KeysServiceTrait},
+        keys_service::{KeyEntry, KeysServiceTrait, SigEntry},
         mocks::mock_keys_service::{KeyPair, MockKeysService},
     },
 };
@@ -13,11 +13,7 @@ use ethers::{
     signers::{LocalWallet, Signer},
     types::{H256, TransactionRequest, TxHash},
 };
-use k256::{
-    Secp256k1,
-    ecdsa::SigningKey,
-    elliptic_curve::{PublicKey, rand_core::OsRng, sec1::FromEncodedPoint},
-};
+use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use serde_json::json;
 use std::str::FromStr;
 use tracing::error;
@@ -37,21 +33,18 @@ impl KeysServiceTrait for MockEthereumKeysService {
         let verifying_key = signing_key.verifying_key();
         let encoded_point = verifying_key.to_encoded_point(true);
 
-        let public_key = PublicKey::<Secp256k1>::from_encoded_point(&encoded_point)
-            .into_option()
-            .ok_or_else(|| "Failed to create PublicKey from encoded point".to_string())?;
+        let private_key_bytes = signing_key.to_bytes();
+        let private_key = hex::encode(private_key_bytes);
 
-        let public_key = hex::encode(public_key.to_sec1_bytes());
-
-        let secret_key_bytes = signing_key.to_bytes();
-        let secret_key_hex = hex::encode(secret_key_bytes);
+        let pubkey_bytes = encoded_point.as_bytes();
+        let public_key = hex::encode(pubkey_bytes);
 
         let address = self.resolve_key(&public_key)?;
 
         {
             let key_pair = KeyPair {
                 public_key: public_key.clone(),
-                secret_key: secret_key_hex,
+                private_key,
                 address: address.clone(),
             };
             let mut keys = self.inner.keys.lock().await;
@@ -76,7 +69,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
         _config: &Config,
         transaction_hash: &str,
         key: &str,
-    ) -> Result<String, String> {
+    ) -> Result<SigEntry, String> {
         let key = self.resolve_key(key)?;
 
         let key_pair = {
@@ -96,7 +89,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
         let tx_hash = H256::from_slice(&tx_hash_bytes);
 
         let wallet: LocalWallet = key_pair
-            .secret_key
+            .private_key
             .parse()
             .map_err(|e| format!("Failed to parse secret key into wallet: {e}"))?;
 
@@ -117,7 +110,12 @@ impl KeysServiceTrait for MockEthereumKeysService {
             return Err("Signature verification failed".to_string());
         }
 
-        Ok(hex::encode(signature.to_vec()))
+        let signature = hex::encode(signature.to_vec());
+        Ok(SigEntry {
+            address: key.into(),
+            public_key: key_pair.public_key.into(),
+            signature: signature.into(),
+        })
     }
 
     /// Signs a transaction represented as a JSON string with the given public key.
@@ -173,7 +171,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
         };
 
         let wallet: LocalWallet = key_pair
-            .secret_key
+            .private_key
             .parse()
             .map_err(|e| format!("Failed to parse secret key into wallet: {e}"))?;
 
@@ -195,6 +193,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
 
         // Append signature info
         signatures.push(json!({
+            "address": key,
             "signer": &key_pair.public_key,
             "v": format!("{:x}", signature.v),
             "r": format!("{:x}", signature.r),
@@ -272,7 +271,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
 
     /// Lists all stored keys along with their associated metadata.
     ///
-    /// Returns a vector of KeyEntry on success.
+    /// Returns a vector of `KeyEntry` on success.
     /// Returns an error string on failure.
     async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
         Ok(self.inner.list_keys().await)
@@ -291,9 +290,9 @@ impl MockEthereumKeysService {
     ///
     /// This function currently does not return an error, but it returns a `Result`
     /// to match a common interface and allow future fallibility.
-    pub async fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
+    pub fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
         Ok(Self {
-            inner: MockKeysService::new(config, crypto_service).await,
+            inner: MockKeysService::new(config, crypto_service),
         })
     }
 

@@ -119,7 +119,7 @@ impl CryptoService {
     /// # Arguments
     ///
     /// * `public_key` - The compressed secp256k1 public key as a hex string (33 bytes, starts with 0x02 or 0x03).
-    /// * `udenom` - The desired Bech32 HRP prefix (e.g., "cosmos", "osmo"). If empty or invalid, defaults to `"cosmos"`.
+    /// * `hrp` - The desired Bech32 HRP prefix (e.g., "cosmos", "osmo"). If empty or invalid, defaults to `"cosmos"`.
     ///
     /// # Returns
     ///
@@ -133,7 +133,7 @@ impl CryptoService {
     pub fn address_cosmos(
         &mut self,
         public_key: &str,
-        udenom: &str,
+        hrp: &str,
     ) -> Result<String, Box<dyn std::error::Error>> {
         let alloc_func = self.alloc.typed::<i32, i32>(&self.store)?;
         let free_func = self.free.typed::<(i32, i32), ()>(&self.store)?;
@@ -152,9 +152,9 @@ impl CryptoService {
             Ok((ptr_i32, len))
         };
 
-        // Write the public key and udenom into WASM memory
+        // Write the public key and hrp into WASM memory
         let (pk_ptr, pk_len) = alloc_and_write(public_key)?;
-        let (ud_ptr, ud_len) = alloc_and_write(udenom)?;
+        let (ud_ptr, ud_len) = alloc_and_write(hrp)?;
 
         // Call the WASM function
         let ret_ptr = func.call(&mut self.store, (pk_ptr, pk_len, ud_ptr, ud_len))?;
@@ -170,15 +170,20 @@ impl CryptoService {
 
         // Read null-terminated string from WASM memory
         let mem = self.memory.data(&self.store);
-        let mut end = ret_ptr as usize;
+        let mut end = usize::try_from(ret_ptr)
+            .map_err(|_| "address_cosmos pointer cannot be negative".to_string())?;
         while end < mem.len() && mem[end] != 0 {
             end += 1;
         }
-        let result_bytes = &mem[ret_ptr as usize..end];
+        let start =
+            usize::try_from(ret_ptr).map_err(|_| "ret_ptr cannot be negative".to_string())?;
+        let result_bytes = &mem[start..end];
         let result_str = std::str::from_utf8(result_bytes)?.to_string();
 
         // Free result string in WASM memory
-        free_func.call(&mut self.store, (ret_ptr, result_str.len() as i32))?;
+        let len_i32 = i32::try_from(result_str.len())
+            .map_err(|_| "result_str length exceeds i32::MAX".to_string())?;
+        free_func.call(&mut self.store, (ret_ptr, len_i32))?;
 
         Ok(result_str)
     }
@@ -319,7 +324,7 @@ impl CryptoService {
         let (sig_ptr, sig_len) = alloc_and_write(signature)?;
         let (pk_ptr, pk_len) = alloc_and_write(public_key)?;
 
-        let chain_id = eth_chain_id.unwrap_or(DEFAULT_ETH_CHAIN_ID) as i32;
+        let chain_id = i32::from(eth_chain_id.unwrap_or(DEFAULT_ETH_CHAIN_ID));
 
         let ret_ptr = func.call(
             &mut self.store,
@@ -335,14 +340,20 @@ impl CryptoService {
         }
 
         let mem_data = self.memory.data(&self.store);
-        let mut end = ret_ptr as usize;
+
+        let mut end =
+            usize::try_from(ret_ptr).map_err(|_| "ret_ptr cannot be negative".to_string())?;
         while end < mem_data.len() && mem_data[end] != 0 {
             end += 1;
         }
-        let cstr_bytes = &mem_data[ret_ptr as usize..end];
+        let start =
+            usize::try_from(ret_ptr).map_err(|_| "ret_ptr cannot be negative".to_string())?;
+        let cstr_bytes = &mem_data[start..end];
         let result_str = std::str::from_utf8(cstr_bytes)?.to_string();
 
-        free_func.call(&mut self.store, (ret_ptr, result_str.len() as i32))?;
+        let len_i32 = i32::try_from(result_str.len())
+            .map_err(|_| "result_str length exceeds i32::MAX".to_string())?;
+        free_func.call(&mut self.store, (ret_ptr, len_i32))?;
 
         Ok(result_str)
     }
@@ -409,10 +420,9 @@ impl CryptoService {
 mod tests {
     use crate::{
         constants::{
-            CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, COSMOS_PUBLIC_KEY,
-            DEFAULT_COSMOS_UDENOM, ETH_PUBLIC_KEY, ETH_SIGNATURE, ETH_SIGNATURE_V,
-            ETH_TRANSACTION_HASH, SIGNATURE, SIGNATURE_PREFIXED, SIGNATURE_RS_LEN,
-            TRANSACTION_HASH, WASM_PATH,
+            CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, COSMOS_PUBLIC_KEY, DEFAULT_COSMOS_HRP,
+            ETH_PUBLIC_KEY, ETH_SIGNATURE, ETH_SIGNATURE_V, ETH_TRANSACTION_HASH, SIGNATURE,
+            SIGNATURE_PREFIXED, SIGNATURE_RS_LEN, TRANSACTION_HASH, WASM_PATH,
         },
         services::crypto_service::CryptoService,
         wasm_loader::WasmLoader,
@@ -789,11 +799,11 @@ mod tests {
         let public_key = COSMOS_PUBLIC_KEY;
 
         let address = crypto_service
-            .address_cosmos(public_key, DEFAULT_COSMOS_UDENOM)
+            .address_cosmos(public_key, DEFAULT_COSMOS_HRP)
             .expect("Failed to derive Cosmos address");
 
         // Use the constant for prefix dynamically
-        let expected_prefix = format!("{DEFAULT_COSMOS_UDENOM}1");
+        let expected_prefix = format!("{DEFAULT_COSMOS_HRP}1");
 
         assert!(
             address.starts_with(&expected_prefix),

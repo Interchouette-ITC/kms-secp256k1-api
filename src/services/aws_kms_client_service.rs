@@ -214,7 +214,7 @@ impl KmsClientService for AWSKmsClientService {
 
         // Log signature
         // let signature_hex = hex::encode(signature);
-        // info!("signature: {}", signature_hex);
+        // info!("signature hex: {}", signature_hex);
         let signature = STANDARD.encode(signature);
         // info!("signature: {}", signature);
 
@@ -422,10 +422,11 @@ impl AWSKmsClientService {
             error!("{}", msg);
             msg
         })?;
+
         Ok(STANDARD.encode(pubkey.as_ref()))
     }
 
-    /// Retrieves KeyMetadata for a given key key by calling AWS KMS `DescribeKey`.
+    /// Retrieves `KeyMetadata` for a given key key by calling AWS KMS `DescribeKey`.
     ///
     /// # Arguments
     /// * `key` - The key name without the `alias/` prefix.
