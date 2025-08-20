@@ -106,6 +106,85 @@ curl -X POST http://localhost:4000/signTransactionHash \
 - Use key aliases or tags in your application
 - Maintain key registry in your own database
 
+### **🧪 TESTING_MODE - Mock API for Development & CI/CD**
+
+#### **What is TESTING_MODE?**
+`TESTING_MODE=true` enables a **completely mocked API** that simulates all KMS operations without requiring any connection to AWS KMS services. This allows you to test your blockchain applications against a realistic API interface without incurring AWS costs or requiring production credentials.
+
+#### **How TESTING_MODE Works**
+- **Mock Services**: Uses `MockCasperKeysService`, `MockEthereumKeysService`, or `MockCosmosKeysService`
+- **No AWS Connection**: Completely isolated from AWS KMS - no network calls, no credentials needed
+- **Deterministic Responses**: Generates predictable, testable responses for consistent testing
+- **Full API Coverage**: All endpoints work exactly as they would in production
+- **Local Development**: Perfect for development machines without AWS access
+
+#### **Use Cases for TESTING_MODE**
+
+##### **1. Local Development**
+```bash
+export TESTING_MODE=true
+export BLOCKCHAIN_MODE=casper
+cargo run
+# API runs locally with mock services - no AWS needed
+```
+
+##### **2. CI/CD Pipeline Testing**
+```bash
+# In your CI/CD pipeline
+export TESTING_MODE=true
+export BLOCKCHAIN_MODE=ethereum
+cargo test
+# Run integration tests without AWS credentials
+```
+
+##### **3. Test Environment Deployment**
+```bash
+# Deploy to test/staging environment
+export TESTING_MODE=true
+export BLOCKCHAIN_MODE=cosmos
+docker run -e TESTING_MODE=true -e BLOCKCHAIN_MODE=cosmos kms-secp256k1-api
+```
+
+##### **4. Offline Development**
+- **No internet required** - works completely offline
+- **No AWS account needed** - perfect for open source contributors
+- **No costs incurred** - free testing and development
+
+#### **Testing_MODE vs Production**
+| Aspect | TESTING_MODE=true | TESTING_MODE=false |
+|--------|-------------------|-------------------|
+| **AWS KMS** | ❌ No connection | ✅ Full integration |
+| **Credentials** | ❌ Not required | ✅ Required |
+| **Costs** | ❌ Free | ✅ AWS charges apply |
+| **Network** | ❌ Offline capable | ✅ Internet required |
+| **Security** | ⚠️ Mock data | ✅ Real cryptographic operations |
+| **Use Case** | 🧪 Development/Testing | 🚀 Production |
+
+#### **Implementation in Code**
+```rust
+// From lib.rs - service selection based on TESTING_MODE
+let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
+    if config.is_ethereum_mode() {
+        Box::new(MockEthereumKeysService::new(config.clone(), crypto_service))
+    } else if config.is_casper_mode() {
+        Box::new(MockCasperKeysService::new(config.clone(), crypto_service))
+    } else if config.is_cosmos_mode() {
+        Box::new(MockCosmosKeysService::new(config.clone(), crypto_service))
+    }
+} else {
+    // Production services with real AWS KMS integration
+    // ...
+};
+```
+
+#### **Benefits for Development Teams**
+- **Faster iteration**: No need to wait for AWS operations
+- **Cost control**: No charges during development
+- **Offline work**: Develop without internet connection
+- **CI/CD friendly**: Automated testing without AWS setup
+- **Team onboarding**: New developers can start immediately
+- **Open source**: Contribute without AWS account
+
 ### **🚨 CRITICAL NETWORK SECURITY WARNING**
 
 #### **⚠️ NEVER EXPOSE THIS API ON PUBLIC NETWORKS**
@@ -233,7 +312,7 @@ The API can be configured using environment variables. You can find an example c
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `APP_PORT` | `4000` | Server port |
-| `TESTING_MODE` | `true` | Enable testing mode with mock services |
+| `TESTING_MODE` | `true` | Enable testing mode with mock services (see Testing Mode section below) |
 | `BLOCKCHAIN_MODE` | `casper` | Blockchain network (casper, ethereum, cosmos) |
 
 ### 🔐 **Security-Critical Configuration**
@@ -292,7 +371,121 @@ The API can be configured using environment variables. You can find an example c
 |----------|---------|-------------|
 | `COSMOS_CHAIN_ID` | `cosmoshub-4` | Cosmos chain ID |
 | `COSMOS_HRP` | `cosmos` | Cosmos human-readable prefix |
-| `COSMOS_REST_URL` | `https://rest.cosmos.network` | Cosmos REST endpoint |
+| `COSMOS_REST_URL` | `http://localhost:1317/cosmos/auth/v1beta1/accounts/` | Cosmos REST endpoint |
+
+### **🌌 Cosmos-Specific Configuration & Requirements**
+
+#### **Why Cosmos Needs Additional Configuration**
+
+Unlike Ethereum and Casper, **Cosmos requires external blockchain data** to properly sign transactions. This is because Cosmos transactions need:
+
+- **`account_number`**: Unique identifier for the account on the Cosmos chain
+- **`sequence`**: Transaction counter that prevents replay attacks
+- **`chain_id`**: Specific Cosmos network identifier
+
+#### **Critical Cosmos Configuration Variables**
+
+##### **`COSMOS_REST_URL` - Blockchain Data Source**
+- **Purpose**: REST endpoint to fetch account information (`account_number` and `sequence`)
+- **Default**: `http://localhost:1317/cosmos/auth/v1beta1/accounts/` (⚠️ **Local Development Only**)
+- **Why it's needed**: 
+  - Cosmos transactions require `account_number` and `sequence` for signing
+  - These values change with each transaction and must be fetched from the blockchain
+  - Without this, transaction signing will fail
+
+**⚠️ IMPORTANT**: The default REST URL points to `localhost:1317` which is only suitable for local development. **You MUST customize this in your `.env` file for production use** to point to the actual Cosmos network's REST endpoint.
+
+##### **`COSMOS_CHAIN_ID` - Network Identifier**
+- **Purpose**: Identifies which Cosmos network to use (e.g., `cosmoshub-4`, `osmosis-1`)
+- **Default**: `cosmoshub-4`
+- **Why it's needed**:
+  - Prevents cross-chain replay attacks
+  - Ensures transactions are signed for the correct network
+  - Required for transaction validation
+
+##### **`COSMOS_HRP` - Address Prefix**
+- **Purpose**: Human-readable prefix for Cosmos addresses (e.g., `cosmos`, `osmo`, `atom`)
+- **Default**: `cosmos`
+- **Why it's needed**:
+  - Converts public keys to proper Cosmos addresses
+  - Different Cosmos networks use different prefixes
+  - Ensures address compatibility with the target network
+
+#### **How Cosmos Transaction Signing Works**
+
+```rust
+// From cosmos_keys_service.rs - the signing process requires:
+
+// 1. Fetch account info from REST endpoint
+let account = fetch_account_info(&key, &pubkey_base64, config).await?;
+
+// 2. Extract account_number and sequence
+let account_number = account.account_number;
+let sequence = account.sequence;
+
+// 3. Build AuthInfo with these values
+let auth_info = build_auth_info(&public_key_bytes, sequence, &fee)?;
+
+// 4. Create SignDoc with chain_id and sequence
+let sign_doc = SignDoc::new(&tx_body, &auth_info, &chain_id, account.sequence)?;
+```
+
+#### **Cosmos vs Other Blockchains**
+
+| Aspect | Ethereum | Casper | **Cosmos** |
+|--------|----------|---------|------------|
+| **Account Info** | ❌ Not required | ❌ Not required | **✅ Required** |
+| **REST Endpoint** | ❌ Not needed | ❌ Not needed | **✅ Must be configured** |
+| **Chain ID** | ✅ Required | ✅ Required | **✅ Required** |
+| **Address Prefix** | ❌ Fixed format | ❌ Fixed format | **✅ Configurable (HRP)** |
+| **Transaction Structure** | Simple | Simple | **Complex (requires account data)** |
+
+#### **Cosmos Configuration Examples**
+
+##### **Cosmos Hub (Mainnet)**
+```bash
+export COSMOS_CHAIN_ID="cosmoshub-4"
+export COSMOS_HRP="cosmos"
+export COSMOS_REST_URL="https://api.cosmos.network/cosmos/auth/v1beta1/accounts/"
+```
+
+##### **Osmosis Network**
+```bash
+export COSMOS_CHAIN_ID="osmosis-1"
+export COSMOS_HRP="osmo"
+export COSMOS_REST_URL="https://lcd.osmosis.zone/cosmos/auth/v1beta1/accounts/"
+```
+
+##### **Local Testnet**
+```bash
+export COSMOS_CHAIN_ID="testing"
+export COSMOS_HRP="cosmos"
+export COSMOS_REST_URL="http://localhost:1317/cosmos/auth/v1beta1/accounts/"
+```
+
+**⚠️ Production Warning**: Never use `localhost:1317` in production! Always configure `COSMOS_REST_URL` to point to the actual network's REST endpoint.
+
+#### **Common Cosmos Issues & Solutions**
+
+##### **Issue: "Failed to fetch account info"**
+- **Cause**: `COSMOS_REST_URL` is incorrect or unreachable
+- **Solution**: Verify the REST endpoint and network connectivity
+
+##### **Issue: "Invalid chain_id"**
+- **Cause**: `COSMOS_CHAIN_ID` doesn't match the target network
+- **Solution**: Use the correct chain ID for your target network
+
+##### **Issue: "Account not found"**
+- **Cause**: Account doesn't exist on the blockchain yet
+- **Solution**: The API handles this gracefully by creating a default account with `sequence: 0`
+
+#### **Cosmos Transaction Flow**
+1. **Parse Transaction**: JSON transaction with messages and fee
+2. **Fetch Account Info**: Get `account_number` and `sequence` from REST endpoint
+3. **Build SignDoc**: Create signing document with chain ID and sequence
+4. **Sign Hash**: Sign the transaction hash using AWS KMS
+5. **Construct TxRaw**: Build the final signed transaction
+6. **Return Result**: JSON with signed transaction and broadcast request
 
 ## 🚀 Quick Start
 
