@@ -4,6 +4,10 @@ A high-performance **custodial software wallet** built in Rust that serves as mi
 
 Native support for Casper, Ethereum, or Cosmos networks
 
+## Swagger UI
+
+![KMS secp256k1 API](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/Swagger-UI.png)
+
 ## 🏦 What This Custodial KMS API Does
 
 ### **Blockchain Perspective**
@@ -14,6 +18,10 @@ This software acts as a **custodial wallet service** that:
 - **Signs transactions, deploys, and messages** without exposing private keys
 - **Manages key lifecycle** (creation, deletion, listing) through secure KMS providers
 - **Supports multiple blockchain networks** (Casper, Ethereum, Cosmos) with their specific cryptographic requirements
+
+## Tutorial / Doc
+
+[KMS secp256k1 API Tutorial/Doc](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/Tutorial.md)
 
 ### **Middleware Architecture**
 
