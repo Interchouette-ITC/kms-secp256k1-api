@@ -4,12 +4,6 @@ build:
 test:
 	cargo test -- --nocapture
 
-lint:
-	cargo clippy --bins -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery
-
-check-lint:
-	cargo clippy --fix --allow-dirty --allow-staged -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery
-
 APP_NAME=kms-secp256k1-api
 TAG=latest
 
@@ -31,3 +25,17 @@ docker-stop:
 doc:
 	cargo doc --package kms-secp256k1-api --no-deps
 	cp -r target/doc/* docs/api-rust/
+
+format:
+	cargo fmt
+
+clippy:
+	cargo clippy --bins -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery
+
+lint: format clippy
+
+check-lint: format
+	cargo clippy --fix --allow-dirty --allow-staged -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery
+
+check:
+	cargo check --all --locked
