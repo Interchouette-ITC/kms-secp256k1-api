@@ -17,7 +17,7 @@ docker-build:
 	docker build --network=host -t $(APP_NAME):$(TAG) .
 
 docker-build-no-cache:
-	docker build --network=host --no-cache -t $(APP_NAME):$(TAG) ./docker
+	docker build --network=host --no-cache -t $(APP_NAME):$(TAG) -f docker/Dockerfile .
 
 docker-run-test:
 	docker compose -f ./docker/docker-compose.test.yml up --no-build --force-recreate
