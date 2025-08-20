@@ -7,20 +7,26 @@ Supports multiple blockchains including **Ethereum**, **Cosmos**, and **Casper**
 
 This service is designed to run securely inside Docker and can connect to cloud KMS providers like AWS KMS.
 
-## Overview
+<details>
+  <summary><strong><code>Overview</code></strong></summary>
 
 A fast and secure Rust-based API service that acts as a custodial wallet for blockchain apps.
 It enables cryptographic transactions (generation, signing, listing, deletion) via AWS KMS using the secp256k1 elliptic curve, while keeping private keys secure.
 
-## Key Features
+</details>
+
+<details>
+  <summary><strong><code>Key Features</code></strong></summary>
 
 - Multi-chain support: Works with Casper, Ethereum, and Cosmos networks.
 - Secure key management: All signing and key operations are handled within AWS KMS — private keys never leave the AWS infrastructure.
 - Robust API: Exposes endpoints for key life cycle and signing — `/createKey`, `/deleteKey`, `/listKeys`, `/signTransaction`, `/signTransactionHash`, `/verifySignature`.
 - Selective endpoints: Security-sensitive routes like deletion and listing can be disabled at runtime.
 - Auditable and secure: Fine-grained access control, logging, and no local key storage.
+</details>
 
-## Features
+<details>
+  <summary><strong><code>Features</code></strong></summary>
 
 - ✅ Generate secp256k1 keys
 - ✅ Sign and verify messages and transactions
@@ -31,14 +37,19 @@ It enables cryptographic transactions (generation, signing, listing, deletion) v
 - ✅ AWS KMS integration for production-ready security
 - ✅ Easy containerized deployment
 - ✅ Easy Testing or CI/CD deployment
+</details>
 
-## Architecture Overview
+<details>
+  <summary><strong><code>Architecture Overview</code></strong></summary>
 
 [Your App] → [API Layer (this service)] → [AWS KMS (HSM secp256k1)] → [Signed Transactions] → [Blockchain Network]
 
 The API abstracts cryptographic details, presenting your app with a secure and simple interface.
 
-## Highlights
+</details>
+
+<details>
+  <summary><strong><code>Highlights & Endpoints</code></strong></summary>
 
 - Endpoints:
 
@@ -60,8 +71,10 @@ The API abstracts cryptographic details, presenting your app with a secure and s
 
 - Port:
   - Controlled by APP_PORT (e.g., 4001 for test, 4000 for prod)
+  </details>
 
-## Usage Scenarios
+<details>
+  <summary><strong><code>Usage Scenarios</code></strong></summary>
 
 Ideal for:
 
@@ -70,16 +83,18 @@ Ideal for:
 - NFT marketplaces with regulatory requirements
 - Multi-chain applications
 - Regulatory-compliant solutions with auditability
+</details>
 
-## Security-First Design
+<details>
+  <summary><strong><code>Security-First Design</code></strong></summary>
 
 - Private keys remain protected in the AWS KMS (Customer keys)
 - No local key storage, reducing risk of compromise
 - Critical endpoints (`/deleteKey`, `/listKeys`) can be disabled at runtime for extra safety
+</details>
 
----
-
-## API Overview
+<details>
+  <summary><strong><code>API Overview</code></strong></summary>
 
 ### Health Check
 
@@ -127,9 +142,12 @@ curl -X GET http://localhost:4000/listKeys
 curl -X DELETE "http://localhost:4000/deleteKey?key=<address_or_pubkey>"
 ```
 
+</details>
+
 ---
 
-## Quick Setup
+<details>
+  <summary><strong><code>Quick Setup</code></strong></summary>
 
 ### Build Docker Image
 
@@ -184,9 +202,10 @@ docker run --rm -it \
  gregoshop/kms-secp256k1-api:latest
 ```
 
----
+</details>
 
-## Docker Compose (examples)
+<details>
+  <summary><strong><code>Docker Compose (examples)</code></strong></summary>
 
 **Test compose** (maps 4001:4001 and loads `.env.test`):
 
@@ -210,9 +229,10 @@ kms-secp256k1-api:
   ports: - "4000:4000"
 ```
 
----
+</details>
 
-## Environment Variables
+<details>
+  <summary><strong><code>Environment Variables</code></strong></summary>
 
 Environment variables can be set in .env file
 
@@ -246,8 +266,6 @@ KMS key routing (used by your backend/KMS integration):
 - KMS_DELETE_ID, KMS_DELETE_KEY — routing for deletion
 - KMS_LIST_ID, KMS_LIST_KEY — routing for listing
 
----
-
 **Example of `.env` (production) file:**
 
 ```
@@ -270,9 +288,10 @@ KMS_LIST_ID=your_IAM_User
 KMS_LIST_KEY=your_IAM_Key
 ```
 
----
+</details>
 
-## Development
+<details>
+  <summary><strong><code>Development</code></strong></summary>
 
 ### Clone and Build Locally
 
@@ -288,9 +307,10 @@ cargo build
 cargo test -- --nocapture
 ```
 
----
+</details>
 
-## Make Commands
+<details>
+  <summary><strong><code>Make Commands</code></strong></summary>
 
 You can use the provided `Makefile` for common tasks:
 
@@ -306,8 +326,6 @@ You can use the provided `Makefile` for common tasks:
 | `make docker-run`            | Run Docker Compose production environment (maps port 4000) |
 | `make docker-stop`           | Stop the production container                              |
 
----
-
 ### Example
 
 Build and run locally:
@@ -318,6 +336,8 @@ make test
 make docker-build
 make docker-run-test
 ```
+
+</details>
 
 ## License
 
