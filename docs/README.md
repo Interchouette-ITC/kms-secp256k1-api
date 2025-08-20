@@ -1,14 +1,19 @@
 # KMS secp256k1 API
 
+# KMS secp256k1 API
+
 A high-performance **custodial software wallet** built in Rust that serves as middleware between your blockchain applications and secure key storage on KMS providers. This API provides cryptographic operations for multiple blockchain networks using secp256k1 elliptic curve cryptography while keeping private keys secure in cloud-based key management systems.
 
 Native support for Casper, Ethereum, or Cosmos networks
+
+⚠ Only supporting **AWS** as KMS storage for now, some more KMS provider **secp256k1** will be integrated (TODO)
 
 ## Swagger UI
 
 ![KMS secp256k1 API](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/Swagger-UI.png)
 
-## 🏦 What This Custodial KMS API Does
+<details>
+  <summary><strong><code>What This Custodial KMS API Does</code></strong></summary>
 
 ### **Blockchain Perspective**
 
@@ -18,12 +23,17 @@ This software acts as a **custodial wallet service** that:
 - **Signs transactions, deploys, and messages** without exposing private keys
 - **Manages key lifecycle** (creation, deletion, listing) through secure KMS providers
 - **Supports multiple blockchain networks** (Casper, Ethereum, Cosmos) with their specific cryptographic requirements
+</details>
 
-## Tutorial / Doc
+<details>
+  <summary><strong><code>Tutorial / Doc</code></strong></summary>
 
 [KMS secp256k1 API Tutorial/Doc](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/Tutorial.md)
 
-### **Middleware Architecture**
+</details>
+
+<details>
+  <summary><strong><code>Middleware Architecture</code></strong></summary>
 
 The API serves as a **secure bridge** between your applications and cloud-based key storage:
 
@@ -31,16 +41,20 @@ The API serves as a **secure bridge** between your applications and cloud-based 
 - **API Layer**: This service handles the cryptographic operations
 - **KMS Layer**: Private keys are securely stored in AWS KMS (currently supporting secp256k1)
 - **Blockchain Layer**: Signed transactions are returned to your application
+</details>
 
-### **Key Security Benefits**
+<details>
+  <summary><strong><code>Key Security Benefits</code></strong></summary>
 
 - **Private keys never leave the KMS**: All signing operations happen within AWS KMS
 - **No local key storage**: Eliminates risk of local key compromise
 - **Audit trails**: All key operations are logged and traceable
 - **Access control**: Fine-grained permissions for different operations (sign, create, delete, list)
 - **Hardware security**: Leverages AWS KMS hardware security modules (HSMs)
+</details>
 
-### **How It Works**
+<details>
+  <summary><strong><code>How It Works</code></strong></summary>
 
 1. **Key Generation**: Creates keypairs in AWS KMS with secp256k1 curve
 2. **Signing Process**:
@@ -49,16 +63,20 @@ The API serves as a **secure bridge** between your applications and cloud-based 
    - AWS KMS performs the cryptographic operation internally
    - Signed result is returned to your application
 3. **Key Management**: Keys can be listed, deleted, and managed through the API
+</details>
 
-### **Use Cases**
+<details>
+  <summary><strong><code>Use Cases</code></strong></summary>
 
 - **DeFi Applications**: Secure transaction signing for decentralized finance
 - **NFT Marketplaces**: Safe key management for digital asset transactions
 - **Enterprise Blockchain**: Corporate blockchain solutions requiring key custody
 - **Multi-chain Applications**: Single API for multiple blockchain networks
 - **Compliance Requirements**: Meeting regulatory requirements for key custody
+</details>
 
-### **Route Security Implementation**
+<details>
+  <summary><strong><code>Route Security Implementation</code></strong></summary>
 
 The API implements conditional route loading based on security configuration:
 
@@ -79,8 +97,10 @@ if config.is_list_mode() {
 - **LIST_MODE disabled**: `/listKeys` endpoint is completely unavailable
 - **Defense in depth**: Even if authentication is bypassed, dangerous endpoints don't exist
 - **Runtime security**: Routes are not compiled into the binary when disabled
+</details>
 
-### **🔐 Best Practices for Key Management**
+<details>
+  <summary><strong><code>Best Practices for Key Management</code></strong></summary>
 
 #### **Store Public Keys Locally After Generation**
 
@@ -127,8 +147,10 @@ curl -X POST http://localhost:4000/signTransactionHash \
 - Implement key rotation without listing
 - Use key aliases or tags in your application
 - Maintain key registry in your own database
+</details>
 
-### **🧪 TESTING_MODE - Mock API for Development & CI/CD**
+<details>
+  <summary><strong><code>TESTING_MODE - Mock API for Development & CI/CD</code></strong></summary>
 
 #### **What is TESTING_MODE?**
 
@@ -215,8 +237,10 @@ let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
 - **CI/CD friendly**: Automated testing without AWS setup
 - **Team onboarding**: New developers can start immediately
 - **Open source**: Contribute without AWS account
+</details>
 
-### **🚨 CRITICAL NETWORK SECURITY WARNING**
+<details>
+  <summary><strong><code>CRITICAL NETWORK SECURITY WARNING</code></strong></summary>
 
 #### **⚠️ NEVER EXPOSE THIS API ON PUBLIC NETWORKS**
 
@@ -230,7 +254,7 @@ let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
 - **Financial risk**: Unauthorized transactions can result in loss of funds/assets
 - **Compliance violations**: Public exposure may violate security and regulatory requirements
 
-#### **🔐 MANDATORY AUTHENTICATION REQUIREMENTS**
+#### **MANDATORY AUTHENTICATION REQUIREMENTS**
 
 **You SHALL/MUST implement an authentication guard before deploying this API on publci interfaces, any among those follwing are recommended:**
 
@@ -241,7 +265,7 @@ let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
 - **Rate limiting**: Prevent brute force attacks
 - **Request signing**: HMAC-based request validation
 
-#### **🌐 NETWORK DEPLOYMENT RECOMMENDATIONS**
+#### **NETWORK DEPLOYMENT RECOMMENDATIONS**
 
 **Preferred deployment scenarios:**
 
@@ -268,8 +292,10 @@ let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
 - ✅ **Implement proper access controls**
 - ✅ **Regular security audits and penetration testing**
 - ✅ **Monitor and log all API access**
+</details>
 
-## 🚀 Features
+<details>
+  <summary><strong><code>Features</code></strong></summary>
 
 - **Multi-Blockchain Support**: Native support for Casper, Ethereum, and Cosmos networks
 - **AWS KMS Integration**: Secure key management through AWS Key Management Service
@@ -278,8 +304,10 @@ let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
 - **WASM Support**: WebAssembly integration for cross-platform compatibility (cryptographic operations)
 - **Testing Mode**: Mock services for development and testing
 - **Comprehensive Logging**: Structured logging with configurable levels
+</details>
 
-## 🏗️ Architecture
+<details>
+  <summary><strong><code>Architecture</code></strong></summary>
 
 The API is built with a modular architecture:
 
@@ -288,8 +316,10 @@ The API is built with a modular architecture:
 - **Crypto Layer**: Core cryptographic operations using secp256k1
 - **AWS Integration**: Secure key storage and management
 - **WASM Loader**: Cross-platform cryptographic operations
+</details>
 
-## 🔐 WASM Cryptographic Operations
+<details>
+  <summary><strong><code>WASM Cryptographic Operations</code></strong></summary>
 
 This API includes WebAssembly (WASM) integration for enhanced cryptographic operations. The WASM module is loaded from the `WASM_PATH` and provides additional cryptographic functionality beyond the native Rust implementations.
 
@@ -301,14 +331,18 @@ This API includes WebAssembly (WASM) integration for enhanced cryptographic oper
 - Cross-platform compatibility
 - Optimized performance for specific algorithms
 - Proprietary cryptographic implementations
+</details>
 
-## 📋 Prerequisites
+<details>
+  <summary><strong><code>Prerequisites</code></strong></summary>
 
 - Rust 1.70+ with Cargo
 - Docker (optional, for containerized deployment)
 - AWS credentials (for production use)
+</details>
 
-## 🛠️ Installation
+<details>
+  <summary><strong><code>Installation</code></strong></summary>
 
 ### From Source
 
@@ -334,7 +368,10 @@ docker build -t kms-secp256k1-api .
 docker run -p 4000:4000 kms-secp256k1-api
 ```
 
-## ⚙️ Configuration
+</details>
+
+<details>
+  <summary><strong><code>Configuration</code></strong></summary>
 
 The API can be configured using environment variables. You can find an example configuration file in `.env.test` for testing purposes.
 
@@ -412,7 +449,10 @@ The API can be configured using environment variables. You can find an example c
 | `COSMOS_HRP`      | `cosmos`                                              | Cosmos human-readable prefix |
 | `COSMOS_REST_URL` | `http://localhost:1317/cosmos/auth/v1beta1/accounts/` | Cosmos REST endpoint         |
 
-### **🌌 Cosmos-Specific Configuration & Requirements**
+</details>
+
+<details>
+  <summary><strong><code>Cosmos-Specific Configuration & Requirements</code></strong></summary>
 
 #### **Why Cosmos Needs Additional Configuration**
 
@@ -535,8 +575,10 @@ export COSMOS_REST_URL="http://localhost:1317/cosmos/auth/v1beta1/accounts/"
 4. **Sign Hash**: Sign the transaction hash using AWS KMS
 5. **Construct TxRaw**: Build the final signed transaction
 6. **Return Result**: JSON with signed transaction and broadcast request
+</details>
 
-## 🚀 Quick Start
+<details>
+  <summary><strong><code>Quick Start</code></strong></summary>
 
 1. **Set up environment variables**:
 
@@ -557,8 +599,10 @@ cargo run
 - API: http://localhost:4000
 - Swagger UI: http://localhost:4000/api
 - OpenAPI JSON: http://localhost:4000/api-doc/openapi.json
+</details>
 
-## 📚 API Endpoints
+<details>
+  <summary><strong><code>API Endpoints</code></strong></summary>
 
 ### Health Check
 
@@ -575,16 +619,20 @@ cargo run
 - `POST /signTransactionHash` - Sign a transaction hash
 - `POST /signTransaction` - Sign a complete transaction
 - `POST /verifySignature` - Verify a signature
+</details>
 
-## 🔐 Authentication
+<details>
+  <summary><strong><code>Authentication</code></strong></summary>
 
 The API supports multiple authentication modes:
 
 - **Testing Mode**: No authentication required (default)
 - **AWS Mode**: AWS credentials for KMS operations
 - **Production Mode**: Full AWS KMS integration
+</details>
 
-## 📖 Usage Examples
+<details>
+  <summary><strong><code>Usage Examples</code></strong></summary>
 
 ### Create a Keypair
 
@@ -625,7 +673,10 @@ curl -X POST http://localhost:4000/verifySignature \
   }'
 ```
 
-## 🧪 Testing
+</details>
+
+<details>
+  <summary><strong><code>Testing</code></strong></summary>
 
 The API includes comprehensive testing capabilities:
 
@@ -658,8 +709,10 @@ Based on your Makefile and test structure:
 - **`make test`** - Run all tests with output (equivalent to `cargo test -- --nocapture`)
 - **`make lint`** - Run clippy linting with strict rules
 - **`make check-lint`** - Auto-fix linting issues where possible
+</details>
 
-## 🔧 Development
+<details>
+  <summary><strong><code>Development</code></strong></summary>
 
 ### Project Structure
 
@@ -687,8 +740,10 @@ src/
 2. Add configuration options in `config.rs`
 3. Update the service factory in `lib.rs`
 4. Add tests for the new implementation
+</details>
 
-## 🚀 Deployment
+<details>
+  <summary><strong><code>Deployment</code></strong></summary>
 
 ### Production Deployment
 
@@ -713,7 +768,10 @@ docker run -d \
   kms-secp256k1-api:latest
 ```
 
-## 📊 Monitoring and Logging
+</details>
+
+<details>
+  <summary><strong><code>Monitoring and Logging</code></strong></summary>
 
 The API uses structured logging with configurable levels:
 
@@ -724,15 +782,20 @@ export RUST_LOG=info
 # Available levels: error, warn, info, debug, trace
 ```
 
-## 🤝 Contributing
+</details>
+
+<details>
+  <summary><strong><code>Contributing</code></strong></summary>
 
 1. Fork the repository
 2. Create a feature branch
 3. Make your changes
 4. Add tests for new functionality
 5. Submit a pull request
+</details>
 
-## 📄 License
+<details>
+  <summary><strong><code>License</code></strong></summary>
 
 This project is licensed under the MIT License - see below for details:
 
@@ -760,23 +823,29 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## 🆘 Support
+</details>
+
+<details>
+  <summary><strong><code>Support</code></strong></summary>
 
 For support and questions:
 
 - Create an issue on GitHub
 - Check the API documentation at `/api/`
 - Review the test examples in the `tests/` directory
+</details>
 
-## 🔗 Related Projects
+<details>
+  <summary><strong><code>Related Projects</code></strong></summary>
 
 - [Axum](https://github.com/tokio-rs/axum) - Web framework
 - [k256](https://github.com/RustCrypto/elliptic-curves) - secp256k1 implementation
 - [AWS SDK for Rust](https://github.com/awslabs/aws-sdk-rust) - AWS integration
+</details>
 
 ---
 
-## ⚠️ **IMPORTANT WARNING**
+IMPORTANT WARNING
 
 **This software is currently Work-In-Progress (WIP) and is provided for educational and development purposes only.**
 
