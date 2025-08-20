@@ -1,5 +1,4 @@
 #![allow(clippy::needless_for_each)]
-use crate::config::Config;
 use crate::{AppState, VERSION};
 use axum::Json;
 use axum::{Extension, response::IntoResponse};
@@ -41,9 +40,9 @@ struct HelloResponse {
 )]
 pub async fn hello(
     Query(params): Query<HelloParams>,
-    Extension(config): Extension<Config>,
+    Extension(state): Extension<AppState>,
 ) -> impl IntoResponse {
-    let message = if config.is_testing_mode() {
+    let message = if state.config.is_testing_mode() {
         params.message.map_or_else(
             || "KMS TESTING_MODE".to_string(),
             |message| format!("KMS TESTING_MODE {message}"),
@@ -546,12 +545,14 @@ mod tests_routes {
         let params = HelloParams {
             message: Some("World".to_string()),
         };
-
+        let mock_service = MockKeysService::default();
         let config = ConfigBuilder::new().with_testing_mode(false).build();
+        let state = AppState {
+            keys_service: Arc::new(Mutex::new(Box::new(mock_service))),
+            config,
+        };
 
-        let response = hello(Query(params), Extension(config))
-            .await
-            .into_response();
+        let response = hello(Query(params), Extension(state)).await.into_response();
 
         let status = response.status();
         let body = response.into_body().collect().await.unwrap().to_bytes();
@@ -566,11 +567,14 @@ mod tests_routes {
     async fn test_hello_with_mock_mode() {
         let params = HelloParams { message: None };
 
+        let mock_service = MockKeysService::default();
         let config = ConfigBuilder::new().with_testing_mode(true).build();
+        let state = AppState {
+            keys_service: Arc::new(Mutex::new(Box::new(mock_service))),
+            config,
+        };
 
-        let response = hello(Query(params), Extension(config))
-            .await
-            .into_response();
+        let response = hello(Query(params), Extension(state)).await.into_response();
 
         let status = response.status();
         let body = response.into_body().collect().await.unwrap().to_bytes();

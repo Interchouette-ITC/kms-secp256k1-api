@@ -7,16 +7,17 @@ static TRACING_INIT: OnceCell<()> = OnceCell::new();
 fn init_tracing() {
     TRACING_INIT.get_or_init(|| {
         let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-        fmt().with_env_filter(filter).init();
+        fmt()
+            .with_env_filter(filter)
+            .with_writer(std::io::stdout)
+            .init();
     });
 }
 
 #[tokio::main]
 async fn main() {
     init_tracing();
-
     let config = Config::from_env();
-
     if let Err(e) = run_server(config).await {
         eprintln!("Server error: {e}");
         std::process::exit(1);

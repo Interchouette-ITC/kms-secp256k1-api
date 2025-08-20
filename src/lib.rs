@@ -138,9 +138,8 @@ pub async fn create_app(config: Config) -> Router {
     }
 
     app = app.layer(Extension(shared_state));
-    app = app.layer(Extension(config.clone()));
 
-    let swagger_ui = SwaggerUi::new("/docs").url("/api-doc/openapi.json", ApiDoc::openapi());
+    let swagger_ui = SwaggerUi::new("/api").url("/api-doc/openapi.json", ApiDoc::openapi());
 
     app.merge(swagger_ui)
 }

@@ -1,6 +1,6 @@
 use crate::constants::{
-    DEFAULT_COSMOS_CHAIN_ID, DEFAULT_COSMOS_HRP, DEFAULT_COSMOS_REST_URL, DEFAULT_ETH_CHAIN_ID,
-    DEFAULT_PORT,
+    DEFAULT_APP_PORT, DEFAULT_COSMOS_CHAIN_ID, DEFAULT_COSMOS_HRP, DEFAULT_COSMOS_REST_URL,
+    DEFAULT_ETH_CHAIN_ID,
 };
 use std::env;
 use tracing::{error, info};
@@ -58,7 +58,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             blockchain_mode: BlockchainMode::default(), // CASPER MODE by default
-            port: DEFAULT_PORT,
+            port: DEFAULT_APP_PORT,
             aws: AwsConfig::default(),
             testing_mode: true, // TESTING_MODE true by default
             aws_mode: false,
@@ -119,10 +119,10 @@ impl Config {
 
         Self {
             blockchain_mode,
-            port: env::var("PORT")
+            port: env::var("APP_PORT")
                 .ok()
                 .and_then(|v| v.parse().ok())
-                .unwrap_or(DEFAULT_PORT),
+                .unwrap_or(DEFAULT_APP_PORT),
             aws: AwsConfig {
                 region: env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".into()),
                 sign,
