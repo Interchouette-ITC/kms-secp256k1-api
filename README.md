@@ -7,20 +7,25 @@ Native support for Casper, Ethereum, or Cosmos networks
 ## 🏦 What This Custodial KMS API Does
 
 ### **Blockchain Perspective**
+
 This software acts as a **custodial wallet service** that:
+
 - **Generates cryptographic keypairs** for blockchain operations
 - **Signs transactions, deploys, and messages** without exposing private keys
 - **Manages key lifecycle** (creation, deletion, listing) through secure KMS providers
 - **Supports multiple blockchain networks** (Casper, Ethereum, Cosmos) with their specific cryptographic requirements
 
 ### **Middleware Architecture**
+
 The API serves as a **secure bridge** between your applications and cloud-based key storage:
+
 - **Application Layer**: Your blockchain apps make HTTP requests to sign transactions
 - **API Layer**: This service handles the cryptographic operations
 - **KMS Layer**: Private keys are securely stored in AWS KMS (currently supporting secp256k1)
 - **Blockchain Layer**: Signed transactions are returned to your application
 
 ### **Key Security Benefits**
+
 - **Private keys never leave the KMS**: All signing operations happen within AWS KMS
 - **No local key storage**: Eliminates risk of local key compromise
 - **Audit trails**: All key operations are logged and traceable
@@ -28,8 +33,9 @@ The API serves as a **secure bridge** between your applications and cloud-based 
 - **Hardware security**: Leverages AWS KMS hardware security modules (HSMs)
 
 ### **How It Works**
+
 1. **Key Generation**: Creates keypairs in AWS KMS with secp256k1 curve
-2. **Signing Process**: 
+2. **Signing Process**:
    - Your app sends transaction hash/message to the API
    - API requests AWS KMS to sign using the stored private key
    - AWS KMS performs the cryptographic operation internally
@@ -37,6 +43,7 @@ The API serves as a **secure bridge** between your applications and cloud-based 
 3. **Key Management**: Keys can be listed, deleted, and managed through the API
 
 ### **Use Cases**
+
 - **DeFi Applications**: Secure transaction signing for decentralized finance
 - **NFT Marketplaces**: Safe key management for digital asset transactions
 - **Enterprise Blockchain**: Corporate blockchain solutions requiring key custody
@@ -59,6 +66,7 @@ if config.is_list_mode() {
 ```
 
 **Security Benefits**:
+
 - **DELETE_MODE disabled**: `/deleteKey` endpoint is completely unavailable
 - **LIST_MODE disabled**: `/listKeys` endpoint is completely unavailable
 - **Defense in depth**: Even if authentication is bypassed, dangerous endpoints don't exist
@@ -67,15 +75,18 @@ if config.is_list_mode() {
 ### **🔐 Best Practices for Key Management**
 
 #### **Store Public Keys Locally After Generation**
+
 **⚠️ CRITICAL RECOMMENDATION**: After generating a keypair with `/createKey`, immediately store the returned `public_key` and `address` in your application's local database or configuration.
 
 **Why this is essential**:
+
 - **Eliminates need for LIST_MODE**: You don't need to query the API for keys you already have
 - **Reduces attack surface**: No need to expose the `/listKeys` endpoint
 - **Better performance**: No network calls to retrieve key information
 - **Enhanced security**: Keys are only exposed during initial generation
 
 #### **Implementation Pattern**
+
 ```bash
 # 1. Generate keypair
 curl -X POST http://localhost:4000/createKey
@@ -92,15 +103,18 @@ curl -X POST http://localhost:4000/signTransactionHash \
 ```
 
 #### **Avoid LIST_MODE - Security Best Practice**
+
 **🚫 NEVER enable LIST_MODE in production unless absolutely necessary**
 
 **Reasons to avoid listing keys**:
+
 - **Information disclosure**: Reveals all keys in your system
 - **Attack vector**: Public keys can be used to attempt signing operations
 - **Audit complexity**: Harder to track who accessed which keys
 - **Compliance issues**: May violate data minimization principles
 
 **Alternative approach**:
+
 - Generate keys and store metadata locally
 - Implement key rotation without listing
 - Use key aliases or tags in your application
@@ -109,9 +123,11 @@ curl -X POST http://localhost:4000/signTransactionHash \
 ### **🧪 TESTING_MODE - Mock API for Development & CI/CD**
 
 #### **What is TESTING_MODE?**
+
 `TESTING_MODE=true` enables a **completely mocked API** that simulates all KMS operations without requiring any connection to AWS KMS services. This allows you to test your blockchain applications against a realistic API interface without incurring AWS costs or requiring production credentials.
 
 #### **How TESTING_MODE Works**
+
 - **Mock Services**: Uses `MockCasperKeysService`, `MockEthereumKeysService`, or `MockCosmosKeysService`
 - **No AWS Connection**: Completely isolated from AWS KMS - no network calls, no credentials needed
 - **Deterministic Responses**: Generates predictable, testable responses for consistent testing
@@ -121,6 +137,7 @@ curl -X POST http://localhost:4000/signTransactionHash \
 #### **Use Cases for TESTING_MODE**
 
 ##### **1. Local Development**
+
 ```bash
 export TESTING_MODE=true
 export BLOCKCHAIN_MODE=casper
@@ -129,6 +146,7 @@ cargo run
 ```
 
 ##### **2. CI/CD Pipeline Testing**
+
 ```bash
 # In your CI/CD pipeline
 export TESTING_MODE=true
@@ -138,6 +156,7 @@ cargo test
 ```
 
 ##### **3. Test Environment Deployment**
+
 ```bash
 # Deploy to test/staging environment
 export TESTING_MODE=true
@@ -146,21 +165,24 @@ docker run -e TESTING_MODE=true -e BLOCKCHAIN_MODE=cosmos kms-secp256k1-api
 ```
 
 ##### **4. Offline Development**
+
 - **No internet required** - works completely offline
 - **No AWS account needed** - perfect for open source contributors
 - **No costs incurred** - free testing and development
 
 #### **Testing_MODE vs Production**
-| Aspect | TESTING_MODE=true | TESTING_MODE=false |
-|--------|-------------------|-------------------|
-| **AWS KMS** | ❌ No connection | ✅ Full integration |
-| **Credentials** | ❌ Not required | ✅ Required |
-| **Costs** | ❌ Free | ✅ AWS charges apply |
-| **Network** | ❌ Offline capable | ✅ Internet required |
-| **Security** | ⚠️ Mock data | ✅ Real cryptographic operations |
-| **Use Case** | 🧪 Development/Testing | 🚀 Production |
+
+| Aspect          | TESTING_MODE=true      | TESTING_MODE=false               |
+| --------------- | ---------------------- | -------------------------------- |
+| **AWS KMS**     | ❌ No connection       | ✅ Full integration              |
+| **Credentials** | ❌ Not required        | ✅ Required                      |
+| **Costs**       | ❌ Free                | ✅ AWS charges apply             |
+| **Network**     | ❌ Offline capable     | ✅ Internet required             |
+| **Security**    | ⚠️ Mock data           | ✅ Real cryptographic operations |
+| **Use Case**    | 🧪 Development/Testing | 🚀 Production                    |
 
 #### **Implementation in Code**
+
 ```rust
 // From lib.rs - service selection based on TESTING_MODE
 let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
@@ -178,6 +200,7 @@ let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
 ```
 
 #### **Benefits for Development Teams**
+
 - **Faster iteration**: No need to wait for AWS operations
 - **Cost control**: No charges during development
 - **Offline work**: Develop without internet connection
@@ -192,6 +215,7 @@ let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
 **This API software was designed for PRIVATE INFRASTRUCTURE ONLY and should NEVER be exposed to the public internet.**
 
 #### **Why Public Exposure is Extremely Dangerous**
+
 - **Anyone can sign with known public keys**: If an attacker discovers a public key, they can attempt to sign transactions
 - **No built-in authentication**: The API has no authentication layer by default
 - **Direct access to KMS operations**: Attackers can potentially access your AWS KMS keys
@@ -221,6 +245,7 @@ let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
 6. **Zero Trust Network**: Implement zero-trust security model
 
 #### **🚫 What NOT to Do**
+
 - ❌ **Never expose on public IP addresses**
 - ❌ **Never deploy without authentication**
 - ❌ **Never use in public cloud without proper network isolation**
@@ -228,6 +253,7 @@ let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
 - ❌ **Never skip security testing before production deployment**
 
 #### **✅ What You SHALL/MUST Do**
+
 - ✅ **Implement strong authentication (JWT, API keys, OAuth)**
 - ✅ **Deploy in private networks only**
 - ✅ **Use HTTPS/TLS encryption**
@@ -262,6 +288,7 @@ This API includes WebAssembly (WASM) integration for enhanced cryptographic oper
 **Important Note**: The WASM binary file (`./wasm/wasm.wasm`) IS included in the repository, but the **source code that generates this WASM file is NOT open source** and is **NOT publicly available**. The proprietary source code contains specialized cryptographic algorithms and implementations that are not shared.
 
 ### WASM Features
+
 - Enhanced cryptographic operations
 - Cross-platform compatibility
 - Optimized performance for specific algorithms
@@ -309,31 +336,33 @@ The API can be configured using environment variables. You can find an example c
 
 ### Core Configuration
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `APP_PORT` | `4000` | Server port |
-| `TESTING_MODE` | `true` | Enable testing mode with mock services (see Testing Mode section below) |
-| `BLOCKCHAIN_MODE` | `casper` | Blockchain network (casper, ethereum, cosmos) |
+| Variable          | Default  | Description                                                             |
+| ----------------- | -------- | ----------------------------------------------------------------------- |
+| `APP_PORT`        | `4000`   | Server port                                                             |
+| `TESTING_MODE`    | `true`   | Enable testing mode with mock services (see Testing Mode section below) |
+| `BLOCKCHAIN_MODE` | `casper` | Blockchain network (casper, ethereum, cosmos)                           |
 
 ### 🔐 **Security-Critical Configuration**
 
-| Variable | Default | Description | **Security Risk** |
-|----------|---------|-------------|-------------------|
+| Variable      | Default | Description                   | **Security Risk**                      |
+| ------------- | ------- | ----------------------------- | -------------------------------------- |
 | `DELETE_MODE` | `false` | Enable key deletion endpoints | **HIGH** - Can permanently delete keys |
-| `LIST_MODE` | `false` | Enable key listing endpoints | **HIGH** - Exposes all available keys |
+| `LIST_MODE`   | `false` | Enable key listing endpoints  | **HIGH** - Exposes all available keys  |
 
 #### **DELETE_MODE - High Risk**
+
 - **What it does**: Enables the `/deleteKey` endpoint for key deletion
-- **Security implications**: 
+- **Security implications**:
   - Anyone with access can permanently delete cryptographic keys
   - **Loss of access to funds/assets** if keys are deleted
   - **Irreversible operation** - deleted keys cannot be recovered
-- **Recommendation**: 
+- **Recommendation**:
   - **Keep disabled** for regular API users
   - **Enable only for AWS administrators** with proper access controls
   - Use AWS IAM policies to restrict deletion permissions
 
 #### **LIST_MODE - High Risk**
+
 - **What it does**: Enables the `/listKeys` endpoint to enumerate all available keys
 - **Security implications**:
   - **Exposes all public keys** in the system
@@ -346,32 +375,34 @@ The API can be configured using environment variables. You can find an example c
 
 ### AWS KMS Configuration
 
-| Variable | Description |
-|----------|-------------|
-| `AWS_MODE` | Enable AWS KMS integration |
-| `AWS_REGION` | AWS region for KMS operations |
-| `KMS_SIGN_ID` | AWS access key for signing operations |
-| `KMS_SIGN_KEY` | AWS secret key for signing operations |
-| `KMS_CREATE_ID` | AWS access key for key creation |
-| `KMS_CREATE_KEY` | AWS secret key for key creation |
-| `KMS_DELETE_ID` | AWS access key for key deletion (optional) |
+| Variable         | Description                                |
+| ---------------- | ------------------------------------------ |
+| `AWS_MODE`       | Enable AWS KMS integration                 |
+| `AWS_REGION`     | AWS region for KMS operations              |
+| `KMS_SIGN_ID`    | AWS access key for signing operations      |
+| `KMS_SIGN_KEY`   | AWS secret key for signing operations      |
+| `KMS_CREATE_ID`  | AWS access key for key creation            |
+| `KMS_CREATE_KEY` | AWS secret key for key creation            |
+| `KMS_DELETE_ID`  | AWS access key for key deletion (optional) |
 | `KMS_DELETE_KEY` | AWS secret key for key deletion (optional) |
-| `KMS_LIST_ID` | AWS access key for key listing (optional) |
-| `KMS_LIST_KEY` | AWS secret key for key listing (optional) |
+| `KMS_LIST_ID`    | AWS access key for key listing (optional)  |
+| `KMS_LIST_KEY`   | AWS secret key for key listing (optional)  |
 
 ### Blockchain-Specific Configuration
 
 #### Ethereum
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `ETH_CHAIN_ID` | `1` | Ethereum chain ID |
+
+| Variable       | Default | Description       |
+| -------------- | ------- | ----------------- |
+| `ETH_CHAIN_ID` | `1`     | Ethereum chain ID |
 
 #### Cosmos
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `COSMOS_CHAIN_ID` | `cosmoshub-4` | Cosmos chain ID |
-| `COSMOS_HRP` | `cosmos` | Cosmos human-readable prefix |
-| `COSMOS_REST_URL` | `http://localhost:1317/cosmos/auth/v1beta1/accounts/` | Cosmos REST endpoint |
+
+| Variable          | Default                                               | Description                  |
+| ----------------- | ----------------------------------------------------- | ---------------------------- |
+| `COSMOS_CHAIN_ID` | `cosmoshub-4`                                         | Cosmos chain ID              |
+| `COSMOS_HRP`      | `cosmos`                                              | Cosmos human-readable prefix |
+| `COSMOS_REST_URL` | `http://localhost:1317/cosmos/auth/v1beta1/accounts/` | Cosmos REST endpoint         |
 
 ### **🌌 Cosmos-Specific Configuration & Requirements**
 
@@ -386,9 +417,10 @@ Unlike Ethereum and Casper, **Cosmos requires external blockchain data** to prop
 #### **Critical Cosmos Configuration Variables**
 
 ##### **`COSMOS_REST_URL` - Blockchain Data Source**
+
 - **Purpose**: REST endpoint to fetch account information (`account_number` and `sequence`)
 - **Default**: `http://localhost:1317/cosmos/auth/v1beta1/accounts/` (⚠️ **Local Development Only**)
-- **Why it's needed**: 
+- **Why it's needed**:
   - Cosmos transactions require `account_number` and `sequence` for signing
   - These values change with each transaction and must be fetched from the blockchain
   - Without this, transaction signing will fail
@@ -396,6 +428,7 @@ Unlike Ethereum and Casper, **Cosmos requires external blockchain data** to prop
 **⚠️ IMPORTANT**: The default REST URL points to `localhost:1317` which is only suitable for local development. **You MUST customize this in your `.env` file for production use** to point to the actual Cosmos network's REST endpoint.
 
 ##### **`COSMOS_CHAIN_ID` - Network Identifier**
+
 - **Purpose**: Identifies which Cosmos network to use (e.g., `cosmoshub-4`, `osmosis-1`)
 - **Default**: `cosmoshub-4`
 - **Why it's needed**:
@@ -404,6 +437,7 @@ Unlike Ethereum and Casper, **Cosmos requires external blockchain data** to prop
   - Required for transaction validation
 
 ##### **`COSMOS_HRP` - Address Prefix**
+
 - **Purpose**: Human-readable prefix for Cosmos addresses (e.g., `cosmos`, `osmo`, `atom`)
 - **Default**: `cosmos`
 - **Why it's needed**:
@@ -432,17 +466,18 @@ let sign_doc = SignDoc::new(&tx_body, &auth_info, &chain_id, account.sequence)?;
 
 #### **Cosmos vs Other Blockchains**
 
-| Aspect | Ethereum | Casper | **Cosmos** |
-|--------|----------|---------|------------|
-| **Account Info** | ❌ Not required | ❌ Not required | **✅ Required** |
-| **REST Endpoint** | ❌ Not needed | ❌ Not needed | **✅ Must be configured** |
-| **Chain ID** | ✅ Required | ✅ Required | **✅ Required** |
-| **Address Prefix** | ❌ Fixed format | ❌ Fixed format | **✅ Configurable (HRP)** |
-| **Transaction Structure** | Simple | Simple | **Complex (requires account data)** |
+| Aspect                    | Ethereum        | Casper          | **Cosmos**                          |
+| ------------------------- | --------------- | --------------- | ----------------------------------- |
+| **Account Info**          | ❌ Not required | ❌ Not required | **✅ Required**                     |
+| **REST Endpoint**         | ❌ Not needed   | ❌ Not needed   | **✅ Must be configured**           |
+| **Chain ID**              | ✅ Required     | ✅ Required     | **✅ Required**                     |
+| **Address Prefix**        | ❌ Fixed format | ❌ Fixed format | **✅ Configurable (HRP)**           |
+| **Transaction Structure** | Simple          | Simple          | **Complex (requires account data)** |
 
 #### **Cosmos Configuration Examples**
 
 ##### **Cosmos Hub (Mainnet)**
+
 ```bash
 export COSMOS_CHAIN_ID="cosmoshub-4"
 export COSMOS_HRP="cosmos"
@@ -450,6 +485,7 @@ export COSMOS_REST_URL="https://api.cosmos.network/cosmos/auth/v1beta1/accounts/
 ```
 
 ##### **Osmosis Network**
+
 ```bash
 export COSMOS_CHAIN_ID="osmosis-1"
 export COSMOS_HRP="osmo"
@@ -457,6 +493,7 @@ export COSMOS_REST_URL="https://lcd.osmosis.zone/cosmos/auth/v1beta1/accounts/"
 ```
 
 ##### **Local Testnet**
+
 ```bash
 export COSMOS_CHAIN_ID="testing"
 export COSMOS_HRP="cosmos"
@@ -468,18 +505,22 @@ export COSMOS_REST_URL="http://localhost:1317/cosmos/auth/v1beta1/accounts/"
 #### **Common Cosmos Issues & Solutions**
 
 ##### **Issue: "Failed to fetch account info"**
+
 - **Cause**: `COSMOS_REST_URL` is incorrect or unreachable
 - **Solution**: Verify the REST endpoint and network connectivity
 
 ##### **Issue: "Invalid chain_id"**
+
 - **Cause**: `COSMOS_CHAIN_ID` doesn't match the target network
 - **Solution**: Use the correct chain ID for your target network
 
 ##### **Issue: "Account not found"**
+
 - **Cause**: Account doesn't exist on the blockchain yet
 - **Solution**: The API handles this gracefully by creating a default account with `sequence: 0`
 
 #### **Cosmos Transaction Flow**
+
 1. **Parse Transaction**: JSON transaction with messages and fee
 2. **Fetch Account Info**: Get `account_number` and `sequence` from REST endpoint
 3. **Build SignDoc**: Create signing document with chain ID and sequence
@@ -490,6 +531,7 @@ export COSMOS_REST_URL="http://localhost:1317/cosmos/auth/v1beta1/accounts/"
 ## 🚀 Quick Start
 
 1. **Set up environment variables**:
+
 ```bash
 export TESTING_MODE=true
 export BLOCKCHAIN_MODE=casper
@@ -497,11 +539,13 @@ export APP_PORT=4000
 ```
 
 2. **Start the server**:
+
 ```bash
 cargo run
 ```
 
 3. **Access the API**:
+
 - API: http://localhost:4000
 - Swagger UI: http://localhost:4000/api
 - OpenAPI JSON: http://localhost:4000/api-doc/openapi.json
@@ -509,14 +553,17 @@ cargo run
 ## 📚 API Endpoints
 
 ### Health Check
+
 - `GET /` - Hello endpoint with version information
 
 ### Key Management
+
 - `POST /createKey` - Create a new keypair
 - `DELETE /deleteKey/{key_id}` - Delete a key
 - `GET /listKeys` - List all available keys
 
 ### Cryptographic Operations
+
 - `POST /signTransactionHash` - Sign a transaction hash
 - `POST /signTransaction` - Sign a complete transaction
 - `POST /verifySignature` - Verify a signature
@@ -539,6 +586,7 @@ curl -X POST http://localhost:4000/createKey \
 ```
 
 Response:
+
 ```json
 {
   "public_key": "04a1b2c3...",
@@ -598,6 +646,7 @@ cargo test --test cosmos
 ### Available Test Targets
 
 Based on your Makefile and test structure:
+
 - **`make test`** - Run all tests with output (equivalent to `cargo test -- --nocapture`)
 - **`make lint`** - Run clippy linting with strict rules
 - **`make check-lint`** - Auto-fix linting issues where possible
@@ -706,8 +755,9 @@ SOFTWARE.
 ## 🆘 Support
 
 For support and questions:
+
 - Create an issue on GitHub
-- Check the API documentation at `/swagger-ui/`
+- Check the API documentation at `/api/`
 - Review the test examples in the `tests/` directory
 
 ## 🔗 Related Projects
