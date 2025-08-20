@@ -362,7 +362,7 @@ impl CryptoService {
     /// # Arguments
     ///
     /// * `message_hash` - The 32-byte hex-encoded hash of the original message.
-    /// * `signature` - The 65-byte signature (r[32] + s[32] + v[1]), hex-encoded.
+    /// * `signature` - The 65-byte signature (r\[32\] + s\[32\] + v\[1\]), hex-encoded.
     /// * `public_key` - The compressed 33-byte public key, hex-encoded.
     ///
     /// # Returns
