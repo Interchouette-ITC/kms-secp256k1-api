@@ -27,3 +27,7 @@ docker-run:
 
 docker-stop:
 	docker compose -f ./docker/docker-compose.prod.yml stop
+
+doc:
+	cargo doc --package kms-secp256k1-api --no-deps
+	cp -r target/doc/* docs/api-rust/
