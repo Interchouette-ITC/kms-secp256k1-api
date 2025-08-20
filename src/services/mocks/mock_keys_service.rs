@@ -99,7 +99,7 @@ impl MockKeysService {
     /// Returns an error if signature verification fails. The error string provides
     /// details about the verification failure.
     ///
-    /// [`verify`]: crate::MockKeysService::verify
+    /// [`verify`]: MockKeysService::verify
     pub async fn verify_via_kms(
         &mut self,
         transaction_hash_hex: &str,
@@ -113,7 +113,7 @@ impl MockKeysService {
     /// Verifies an EIP-155 signature against the given transaction hash and key,
     /// introducing a small delay to simulate or throttle KMS behavior.
     ///
-    /// This method is functionally equivalent to [`verify_eip155`] but includes a
+    /// This method is functionally equivalent to [`MockKeysService::verify_eip155`] but includes a
     /// `50ms` sleep before performing the verification. This is useful when simulating
     /// KMS latency or reducing load on dependent services in testing environments.
     ///
