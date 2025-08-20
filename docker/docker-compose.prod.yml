@@ -1,6 +1,6 @@
 services:
   kms-secp256k1-api:
-    container_name: kms-secp256k1-api-test
+    container_name: kms-secp256k1-api
     image: gregoshop/kms-secp256k1-api:latest
     env_file:
       - ../.env
