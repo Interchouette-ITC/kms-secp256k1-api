@@ -1,0 +1,8 @@
+services:
+  kms-secp256k1-api:
+    container_name: kms-secp256k1-api-test
+    image: gregoshop/kms-secp256k1-api:latest
+    env_file:
+      - ../.env
+    ports:
+      - '4000:4000'

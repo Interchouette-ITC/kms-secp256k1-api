@@ -9,3 +9,21 @@ lint:
 
 check-lint:
 	cargo clippy --fix --allow-dirty --allow-staged -- -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery
+
+APP_NAME=kms-secp256k1-api
+TAG=latest
+
+docker-build:
+	docker build --network=host -t $(APP_NAME):$(TAG) .
+
+docker-build-no-cache:
+	docker build --network=host --no-cache -t $(APP_NAME):$(TAG) ./docker
+
+docker-run-test:
+	docker compose -f ./docker/docker-compose.test.yml up --no-build --force-recreate
+
+docker-run:
+	docker compose -f ./docker/docker-compose.prod.yml up -d --force-recreate
+
+docker-stop:
+	docker compose -f ./docker/docker-compose.prod.yml stop
