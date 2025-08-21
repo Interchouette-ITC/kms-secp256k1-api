@@ -149,29 +149,6 @@ curl -X POST http://localhost:4000/signTransactionHash \
 - Maintain key registry in your own database
 </details>
 
-<details open>
-  <summary><strong><code>AWS IAM Users Configuration</code></strong></summary>
-
-To use this API securely with AWS KMS, you must configure IAM users in your AWS account. The screenshots below show the recommended setup for IAM users and permissions required for key creation, signing, listing, and deletion. Follow these visual guides to ensure your IAM users have the correct access for each operation.
-
-| `KMS_CREATE_ID` | AWS access key for key creation |
-
-![Create Key](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/create_key.png)
-
-| `KMS_SIGN_ID` | AWS secret key for signing operations |
-
-![Signature](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/signature.png)
-
-| `KMS_LIST_ID` | AWS access key for key listing (optional) |
-
-![List Keys](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/list_keys.png)
-
-| `KMS_DELETE_ID` | AWS access key for key deletion (optional) |
-
-![Delete Key](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/delete.png)
-
-</details>
-
 <details>
   <summary><strong><code>TESTING_MODE - Mock API for Development & CI/CD</code></strong></summary>
 
@@ -393,7 +370,7 @@ docker run -p 4000:4000 kms-secp256k1-api
 
 </details>
 
-<details>
+<details open>
   <summary><strong><code>Configuration</code></strong></summary>
 
 The API can be configured using environment variables. You can find an example configuration file in `.env.test` for testing purposes.
@@ -445,7 +422,7 @@ The API can be configured using environment variables. You can find an example c
 
 | Variable         | Description                                |
 | ---------------- | ------------------------------------------ |
-| `AWS_MODE`       | Enable AWS KMS integration                 |
+| `AWS_MODE`       | Enable AWS KMS integration (defaults true) |
 | `AWS_REGION`     | AWS region for KMS operations              |
 | `KMS_SIGN_ID`    | AWS access key for signing operations      |
 | `KMS_SIGN_KEY`   | AWS secret key for signing operations      |
@@ -471,6 +448,43 @@ The API can be configured using environment variables. You can find an example c
 | `COSMOS_CHAIN_ID` | `cosmoshub-4`                                         | Cosmos chain ID              |
 | `COSMOS_HRP`      | `cosmos`                                              | Cosmos human-readable prefix |
 | `COSMOS_REST_URL` | `http://localhost:1317/cosmos/auth/v1beta1/accounts/` | Cosmos REST endpoint         |
+
+</details>
+
+<details open>
+  <summary><strong><code>AWS IAM Users Configuration</code></strong></summary>
+
+To use this API securely with AWS KMS, you must configure IAM users in your AWS account. The screenshots below show the recommended setup for IAM users and permissions required for key creation, signing, listing, and deletion. Follow these visual guides to ensure your IAM users have the correct access for each operation.
+
+| `KMS_CREATE_ID` | AWS access key for key creation |
+
+<details>
+  <summary>📷 Click to view image</summary>
+
+![Create Key](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/create_key.png)
+
+</details><br>
+
+| `KMS_SIGN_ID` | AWS secret key for signing operations |
+
+<details>
+  <summary>📷 Click to view image</summary>
+![Signature](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/signature.png)
+</details><br>
+
+| `KMS_LIST_ID` | AWS access key for key listing (optional) |
+
+<details>
+  <summary>📷 Click to view image</summary>
+![List Keys](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/list_keys.png)
+</details><br>
+
+| `KMS_DELETE_ID` | AWS access key for key deletion (optional) |
+
+<details>
+  <summary>📷 Click to view image</summary>
+![Delete Key](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/delete.png)
+</details><br>
 
 </details>
 
