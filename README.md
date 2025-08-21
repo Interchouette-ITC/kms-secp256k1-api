@@ -1,7 +1,5 @@
 # KMS secp256k1 API
 
-# KMS secp256k1 API
-
 A high-performance **custodial software wallet** built in Rust that serves as middleware between your blockchain applications and secure key storage on KMS providers. This API provides cryptographic operations for multiple blockchain networks using secp256k1 elliptic curve cryptography while keeping private keys secure in cloud-based key management systems.
 
 Native support for Casper, Ethereum, or Cosmos networks
