@@ -24,7 +24,7 @@ docker-stop:
 
 doc:
 	cargo doc --package kms-secp256k1-api --no-deps
-	cp -r target/doc/kms_secp256k1_api/* docs/api-rust/
+	cp -r target/doc/* docs/api-rust/
 
 format:
 	cargo fmt
