@@ -469,21 +469,27 @@ To use this API securely with AWS KMS, you must configure IAM users in your AWS 
 
 <details>
   <summary>📷 Click to view image</summary>
+
 ![Signature](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/signature.png)
+
 </details><br>
 
 | `KMS_LIST_ID` | AWS access key for key listing (optional) |
 
 <details>
   <summary>📷 Click to view image</summary>
+
 ![List Keys](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/list_keys.png)
+
 </details><br>
 
 | `KMS_DELETE_ID` | AWS access key for key deletion (optional) |
 
 <details>
   <summary>📷 Click to view image</summary>
+
 ![Delete Key](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/delete.png)
+
 </details><br>
 
 </details>
