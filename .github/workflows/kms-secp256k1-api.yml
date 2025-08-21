@@ -60,3 +60,13 @@ jobs:
         with:
           name: kms-secp256k1-api-binaries
           path: target/release/kms-secp256k1-api
+
+      - name: Doc
+        run: make doc
+
+      - name: Github pages 🚀
+        uses: JamesIves/github-pages-deploy-action@ba1486788b0490a235422264426c45848eac35c6 #v4.4.1
+        with:
+          folder: docs # The folder the action should deploy.
+          target-folder: condor
+          commit-message: 'Deploy documentation for ${{ github.ref_name }}'
