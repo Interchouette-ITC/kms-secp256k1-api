@@ -4,7 +4,7 @@ A high-performance **custodial software wallet** built in Rust that serves as mi
 
 Native support for Casper, Ethereum, or Cosmos networks
 
-⚠ Only supporting **AWS** as KMS storage for now, some more KMS provider **secp256k1** will be integrated (TODO)
+⚠ Only supporting **AWS** as KMS storage for now, some more KMS providers **secp256k1** will be integrated (TODO)
 
 ## Swagger UI
 
