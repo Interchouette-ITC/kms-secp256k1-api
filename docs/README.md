@@ -149,6 +149,29 @@ curl -X POST http://localhost:4000/signTransactionHash \
 - Maintain key registry in your own database
 </details>
 
+<details open>
+  <summary><strong><code>AWS IAM Users Configuration</code></strong></summary>
+
+To use this API securely with AWS KMS, you must configure IAM users in your AWS account. The screenshots below show the recommended setup for IAM users and permissions required for key creation, signing, listing, and deletion. Follow these visual guides to ensure your IAM users have the correct access for each operation.
+
+| `KMS_CREATE_ID` | AWS access key for key creation |
+
+![Create Key](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/create_key.png)
+
+| `KMS_SIGN_ID` | AWS secret key for signing operations |
+
+![Signature](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/signature.png)
+
+| `KMS_LIST_ID` | AWS access key for key listing (optional) |
+
+![List Keys](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/list_keys.png)
+
+| `KMS_DELETE_ID` | AWS access key for key deletion (optional) |
+
+![Delete Key](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/delete.png)
+
+</details>
+
 <details>
   <summary><strong><code>TESTING_MODE - Mock API for Development & CI/CD</code></strong></summary>
 
@@ -601,7 +624,7 @@ cargo run
 - OpenAPI JSON: http://localhost:4000/api-doc/openapi.json
 </details>
 
-<details>
+<details open>
   <summary><strong><code>API Endpoints</code></strong></summary>
 
 ### Health Check
