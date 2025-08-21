@@ -828,11 +828,18 @@ SOFTWARE.
 <details>
   <summary><strong><code>Support</code></strong></summary>
 
-For support and questions:
+For support:
 
 - Create an issue on GitHub
-- Check the API documentation at `/api/`
+
+For support and questions:
+
+- Check the Swagger API documentation at `/api/`
 - Review the test examples in the `tests/` directory
+
+For serious inquiries or enterprise support, you can reach out via email.
+Contact for Enterprise Implementation: gregory [at] interchouette [dot] net
+
 </details>
 
 <details>
@@ -842,24 +849,6 @@ For support and questions:
 - [k256](https://github.com/RustCrypto/elliptic-curves) - secp256k1 implementation
 - [AWS SDK for Rust](https://github.com/awslabs/aws-sdk-rust) - AWS integration
 </details>
-
----
-
-## Contact for Enterprise Implementation
-
-For serious inquiries or enterprise support, you can reach out via email.
-The email is obfuscated to reduce spam. Copy and paste this snippet into your browser console to reveal it:
-
-<a id="contact-email" data-encoded="Z3JlZ29yeUBpbnRlcmNob3VldHRlLm5ldA==" href="#">[email protected]</a>
-
-<script>
-  (function() {
-    const el = document.getElementById('contact-email');
-    const decoded = atob(el.getAttribute('data-encoded'));
-    el.textContent = decoded;
-    el.href = 'mailto:' + decoded;
-  })();
-</script>
 
 ---
 
