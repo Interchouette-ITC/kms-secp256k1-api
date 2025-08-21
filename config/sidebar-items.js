@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["BlockchainMode","HashType"],"struct":["AwsConfig","AwsCreds","Config","ConfigBuilder"]};

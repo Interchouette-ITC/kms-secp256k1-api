@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["append_signature_to_transaction","build_auth_info","fee_amount_json","fetch_account_info","signature_to_json"],"struct":["BaseAccount","BodyHelper","CosmosKeysService","PubKey"]};

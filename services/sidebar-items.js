@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["aws_kms_client_service","casper_keys_service","cosmos_keys_service","crypto_service","ethereum_keys_service","keys_service","kms_client_service","mocks"]};
