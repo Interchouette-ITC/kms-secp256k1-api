@@ -6,6 +6,8 @@ Native support for Casper, Ethereum, or Cosmos networks
 
 ⚠ Only supporting **AWS** as KMS storage for now, some more KMS providers **secp256k1** will be integrated (TODO)
 
+You can find here the [Rust Code documentation](https://groussac.github.io/kms-secp256k1-api/kms_secp256k1_api).
+
 ## Swagger UI
 
 ![KMS secp256k1 API](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/Swagger-UI.png)
@@ -840,6 +842,24 @@ For support and questions:
 - [k256](https://github.com/RustCrypto/elliptic-curves) - secp256k1 implementation
 - [AWS SDK for Rust](https://github.com/awslabs/aws-sdk-rust) - AWS integration
 </details>
+
+---
+
+## Contact for Enterprise Implementation
+
+For serious inquiries or enterprise support, you can reach out via email.
+The email is obfuscated to reduce spam. Copy and paste this snippet into your browser console to reveal it:
+
+<a id="contact-email" data-encoded="Z3JlZ29yeUBpbnRlcmNob3VldHRlLm5ldA==" href="#">[email protected]</a>
+
+<script>
+  (function() {
+    const el = document.getElementById('contact-email');
+    const decoded = atob(el.getAttribute('data-encoded'));
+    el.textContent = decoded;
+    el.href = 'mailto:' + decoded;
+  })();
+</script>
 
 ---
 
