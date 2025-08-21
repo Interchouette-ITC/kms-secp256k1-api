@@ -838,7 +838,7 @@ For support and questions:
 - Review the test examples in the `tests/` directory
 
 For serious inquiries or enterprise support, you can reach out via email.
-Contact for Enterprise Implementation: gregory [at] interchouette [dot] net
+Contact for Enterprise Implementation: contact [at] interchouette [dot] net
 
 </details>
 
