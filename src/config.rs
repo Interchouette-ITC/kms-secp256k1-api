@@ -1,6 +1,6 @@
 use crate::constants::{
-    DEFAULT_APP_PORT, DEFAULT_COSMOS_CHAIN_ID, DEFAULT_COSMOS_HRP, DEFAULT_COSMOS_REST_URL,
-    DEFAULT_ETH_CHAIN_ID,
+    DEFAULT_APP_ADDR, DEFAULT_APP_PORT, DEFAULT_COSMOS_CHAIN_ID, DEFAULT_COSMOS_HRP,
+    DEFAULT_COSMOS_REST_URL, DEFAULT_ETH_CHAIN_ID,
 };
 use std::env;
 use tracing::{error, info};
@@ -42,6 +42,7 @@ pub enum BlockchainMode {
 #[derive(Debug, Clone)]
 pub struct Config {
     blockchain_mode: BlockchainMode,
+    addr: String,
     port: u16,
     aws: AwsConfig,
     testing_mode: bool,
@@ -59,6 +60,7 @@ impl Default for Config {
         Self {
             blockchain_mode: BlockchainMode::default(), // CASPER MODE by default
             port: DEFAULT_APP_PORT,
+            addr: DEFAULT_APP_ADDR.to_string(),
             aws: AwsConfig::default(),
             testing_mode: true, // TESTING_MODE true by default
             aws_mode: false,
@@ -123,6 +125,9 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or(DEFAULT_APP_PORT),
+            addr: env::var("APP_ADDR")
+                .ok()
+                .unwrap_or(DEFAULT_APP_ADDR.to_string()),
             aws: AwsConfig {
                 region: env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".into()),
                 sign,
@@ -197,6 +202,11 @@ impl Config {
     #[must_use]
     pub const fn get_port(&self) -> u16 {
         self.port
+    }
+
+    #[must_use]
+    pub fn get_addr(&self) -> String {
+        self.addr.clone()
     }
 
     #[must_use]
