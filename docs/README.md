@@ -381,11 +381,12 @@ The API can be configured using environment variables. You can find an example c
 
 ### Core Configuration
 
-| Variable          | Default  | Description                                                             |
-| ----------------- | -------- | ----------------------------------------------------------------------- |
-| `APP_PORT`        | `4000`   | Server port                                                             |
-| `TESTING_MODE`    | `true`   | Enable testing mode with mock services (see Testing Mode section below) |
-| `BLOCKCHAIN_MODE` | `casper` | Blockchain network (casper, ethereum, cosmos)                           |
+| Variable          | Default   | Description                                                             |
+| ----------------- | --------- | ----------------------------------------------------------------------- |
+| `APP_ADDR`        | `0.0.0.0` | Server address                                                          |
+| `APP_PORT`        | `4000`    | Server port                                                             |
+| `TESTING_MODE`    | `true`    | Enable testing mode with mock services (see Testing Mode section below) |
+| `BLOCKCHAIN_MODE` | `casper`  | Blockchain network (casper, ethereum, cosmos)                           |
 
 ### 🔐 **Security-Critical Configuration**
 

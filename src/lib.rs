@@ -152,8 +152,8 @@ pub async fn create_app(config: Config) -> Router {
 pub async fn run_server(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let app = create_app(config.clone()).await;
 
-    let addr = format!("0.0.0.0:{}", config.get_port());
-    info!("🚀 Listening on http://{addr}");
+    let addr = format!("{}:{}", config.get_addr(), config.get_port());
+    info!("🚀 Listening on {addr}");
 
     if config.is_testing_mode() {
         warn!("TESTING_MODE ACTIVE");
