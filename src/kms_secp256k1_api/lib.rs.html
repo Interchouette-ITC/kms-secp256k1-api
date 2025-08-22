@@ -152,8 +152,8 @@
 <a href=#152 id=152 data-nosnippet>152</a></span><span class="kw">pub async fn </span>run_server(config: Config) -&gt; <span class="prelude-ty">Result</span>&lt;(), Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;&gt; {
 <a href=#153 id=153 data-nosnippet>153</a>    <span class="kw">let </span>app = create_app(config.clone()).<span class="kw">await</span>;
 <a href=#154 id=154 data-nosnippet>154</a>
-<a href=#155 id=155 data-nosnippet>155</a>    <span class="kw">let </span>addr = <span class="macro">format!</span>(<span class="string">"0.0.0.0:{}"</span>, config.get_port());
-<a href=#156 id=156 data-nosnippet>156</a>    <span class="macro">info!</span>(<span class="string">"🚀 Listening on http://{addr}"</span>);
+<a href=#155 id=155 data-nosnippet>155</a>    <span class="kw">let </span>addr = <span class="macro">format!</span>(<span class="string">"{}:{}"</span>, config.get_addr(), config.get_port());
+<a href=#156 id=156 data-nosnippet>156</a>    <span class="macro">info!</span>(<span class="string">"🚀 Listening on {addr}"</span>);
 <a href=#157 id=157 data-nosnippet>157</a>
 <a href=#158 id=158 data-nosnippet>158</a>    <span class="kw">if </span>config.is_testing_mode() {
 <a href=#159 id=159 data-nosnippet>159</a>        <span class="macro">warn!</span>(<span class="string">"TESTING_MODE ACTIVE"</span>);
