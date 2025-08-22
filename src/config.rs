@@ -127,7 +127,7 @@ impl Config {
                 .unwrap_or(DEFAULT_APP_PORT),
             addr: env::var("APP_ADDR")
                 .ok()
-                .unwrap_or(DEFAULT_APP_ADDR.to_string()),
+                .unwrap_or_else(|| DEFAULT_APP_ADDR.to_string()),
             aws: AwsConfig {
                 region: env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".into()),
                 sign,
