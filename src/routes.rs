@@ -12,7 +12,7 @@ use utoipa::{IntoParams, OpenApi, ToSchema};
 #[derive(OpenApi)]
 #[openapi(paths(
     hello,
-    create_keypair,
+    create_key,
     sign_transaction_hash,
     sign_transaction,
     verify_signature,
@@ -68,7 +68,7 @@ pub struct CreateKeyResponse {
     ),
     tag = "Key Management"
 )]
-pub async fn create_keypair(Extension(state): Extension<AppState>) -> impl IntoResponse {
+pub async fn create_key(Extension(state): Extension<AppState>) -> impl IntoResponse {
     let mut keys_service = state.keys_service.lock().await;
 
     match keys_service.create_key(&state.config).await {
@@ -585,14 +585,14 @@ mod tests_routes {
     }
 
     #[tokio::test]
-    async fn test_create_keypair_success() {
+    async fn test_create_key_success() {
         let mock_service = MockKeysService::default();
         let state = AppState {
             keys_service: Arc::new(Mutex::new(Box::new(mock_service))),
             config: Config::default(),
         };
 
-        let response = create_keypair(Extension(state)).await.into_response();
+        let response = create_key(Extension(state)).await.into_response();
 
         assert_eq!(response.status(), StatusCode::CREATED);
 

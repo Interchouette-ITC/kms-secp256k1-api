@@ -2,8 +2,8 @@ use crate::{
     config::Config,
     constants::WASM_PATH,
     routes::{
-        ApiDoc, create_keypair, delete_key, hello, list_keys, sign_transaction,
-        sign_transaction_hash, verify_signature,
+        ApiDoc, create_key, delete_key, hello, list_keys, sign_transaction, sign_transaction_hash,
+        verify_signature,
     },
     services::{
         casper_keys_service::CasperKeysService,
@@ -124,7 +124,7 @@ pub async fn create_app(config: Config) -> Router {
 
     let mut app = Router::new()
         .route("/", get(hello))
-        .route("/createKey", post(create_keypair))
+        .route("/createKey", post(create_key))
         .route("/signTransactionHash", post(sign_transaction_hash))
         .route("/signTransaction", post(sign_transaction))
         .route("/verifySignature", get(verify_signature));
