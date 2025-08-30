@@ -46,7 +46,7 @@ hex = { version = "0.4", default-features = false }
 wasmtime = { version = "*", default-features = false, features = [
   "async",
   "std",
-  "cranelift",
+  "winch",
 ] }
 async-trait = { version = "0.1.88", default-features = false }
 casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", branch = "dev", default-features = false }

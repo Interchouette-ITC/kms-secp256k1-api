@@ -38,8 +38,7 @@ impl WasmLoader {
         WASM_INSTANCE
             .get_or_try_init(|| async move {
                 let engine = Engine::default();
-                let wasm_bytes = std::fs::read(wasm_path)?;
-                let module = Module::from_binary(&engine, &wasm_bytes)?;
+                let module = Module::from_file(&engine, wasm_path)?;
                 info!("WASM module loaded from {wasm_path}");
                 Ok(Arc::new(Self { engine, module }))
             })
