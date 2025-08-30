@@ -2,8 +2,8 @@
 <a href=#2 id=2 data-nosnippet>2</a>    config::Config,
 <a href=#3 id=3 data-nosnippet>3</a>    constants::WASM_PATH,
 <a href=#4 id=4 data-nosnippet>4</a>    routes::{
-<a href=#5 id=5 data-nosnippet>5</a>        ApiDoc, create_keypair, delete_key, hello, list_keys, sign_transaction,
-<a href=#6 id=6 data-nosnippet>6</a>        sign_transaction_hash, verify_signature,
+<a href=#5 id=5 data-nosnippet>5</a>        ApiDoc, create_key, delete_key, hello, list_keys, sign_transaction, sign_transaction_hash,
+<a href=#6 id=6 data-nosnippet>6</a>        verify_signature,
 <a href=#7 id=7 data-nosnippet>7</a>    },
 <a href=#8 id=8 data-nosnippet>8</a>    services::{
 <a href=#9 id=9 data-nosnippet>9</a>        casper_keys_service::CasperKeysService,
@@ -124,7 +124,7 @@
 <a href=#124 id=124 data-nosnippet>124</a>
 <a href=#125 id=125 data-nosnippet>125</a>    <span class="kw">let </span><span class="kw-2">mut </span>app = Router::new()
 <a href=#126 id=126 data-nosnippet>126</a>        .route(<span class="string">"/"</span>, get(hello))
-<a href=#127 id=127 data-nosnippet>127</a>        .route(<span class="string">"/createKey"</span>, post(create_keypair))
+<a href=#127 id=127 data-nosnippet>127</a>        .route(<span class="string">"/createKey"</span>, post(create_key))
 <a href=#128 id=128 data-nosnippet>128</a>        .route(<span class="string">"/signTransactionHash"</span>, post(sign_transaction_hash))
 <a href=#129 id=129 data-nosnippet>129</a>        .route(<span class="string">"/signTransaction"</span>, post(sign_transaction))
 <a href=#130 id=130 data-nosnippet>130</a>        .route(<span class="string">"/verifySignature"</span>, get(verify_signature));

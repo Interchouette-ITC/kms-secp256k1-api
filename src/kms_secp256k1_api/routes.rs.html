@@ -12,7 +12,7 @@
 <a href=#12 id=12 data-nosnippet>12</a><span class="attr">#[derive(OpenApi)]
 <a href=#13 id=13 data-nosnippet>13</a>#[openapi(paths(
 <a href=#14 id=14 data-nosnippet>14</a>    hello,
-<a href=#15 id=15 data-nosnippet>15</a>    create_keypair,
+<a href=#15 id=15 data-nosnippet>15</a>    create_key,
 <a href=#16 id=16 data-nosnippet>16</a>    sign_transaction_hash,
 <a href=#17 id=17 data-nosnippet>17</a>    sign_transaction,
 <a href=#18 id=18 data-nosnippet>18</a>    verify_signature,
@@ -68,7 +68,7 @@
 <a href=#68 id=68 data-nosnippet>68</a>    ),
 <a href=#69 id=69 data-nosnippet>69</a>    tag = <span class="string">"Key Management"
 <a href=#70 id=70 data-nosnippet>70</a></span>)]
-<a href=#71 id=71 data-nosnippet>71</a></span><span class="kw">pub async fn </span>create_keypair(Extension(state): Extension&lt;AppState&gt;) -&gt; <span class="kw">impl </span>IntoResponse {
+<a href=#71 id=71 data-nosnippet>71</a></span><span class="kw">pub async fn </span>create_key(Extension(state): Extension&lt;AppState&gt;) -&gt; <span class="kw">impl </span>IntoResponse {
 <a href=#72 id=72 data-nosnippet>72</a>    <span class="kw">let </span><span class="kw-2">mut </span>keys_service = state.keys_service.lock().<span class="kw">await</span>;
 <a href=#73 id=73 data-nosnippet>73</a>
 <a href=#74 id=74 data-nosnippet>74</a>    <span class="kw">match </span>keys_service.create_key(<span class="kw-2">&amp;</span>state.config).<span class="kw">await </span>{
@@ -585,14 +585,14 @@
 <a href=#585 id=585 data-nosnippet>585</a>    }
 <a href=#586 id=586 data-nosnippet>586</a>
 <a href=#587 id=587 data-nosnippet>587</a>    <span class="attr">#[tokio::test]
-<a href=#588 id=588 data-nosnippet>588</a>    </span><span class="kw">async fn </span>test_create_keypair_success() {
+<a href=#588 id=588 data-nosnippet>588</a>    </span><span class="kw">async fn </span>test_create_key_success() {
 <a href=#589 id=589 data-nosnippet>589</a>        <span class="kw">let </span>mock_service = MockKeysService::default();
 <a href=#590 id=590 data-nosnippet>590</a>        <span class="kw">let </span>state = AppState {
 <a href=#591 id=591 data-nosnippet>591</a>            keys_service: Arc::new(Mutex::new(Box::new(mock_service))),
 <a href=#592 id=592 data-nosnippet>592</a>            config: Config::default(),
 <a href=#593 id=593 data-nosnippet>593</a>        };
 <a href=#594 id=594 data-nosnippet>594</a>
-<a href=#595 id=595 data-nosnippet>595</a>        <span class="kw">let </span>response = create_keypair(Extension(state)).<span class="kw">await</span>.into_response();
+<a href=#595 id=595 data-nosnippet>595</a>        <span class="kw">let </span>response = create_key(Extension(state)).<span class="kw">await</span>.into_response();
 <a href=#596 id=596 data-nosnippet>596</a>
 <a href=#597 id=597 data-nosnippet>597</a>        <span class="macro">assert_eq!</span>(response.status(), StatusCode::CREATED);
 <a href=#598 id=598 data-nosnippet>598</a>
