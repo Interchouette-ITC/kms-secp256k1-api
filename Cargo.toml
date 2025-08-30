@@ -6,7 +6,7 @@ authors = ["gRoussac"]
 
 [dependencies]
 axum = { version = "0.8", default-features = false, features = [
-  "http1",
+  "http2",
   "tokio",
 ] }
 k256 = { version = "0.13.4", features = ["ecdsa"], default-features = false }
