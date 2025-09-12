@@ -1,4 +1,4 @@
-FROM rust:1.89-slim-trixie AS builder
+FROM rust:slim-trixie AS builder
 
 RUN apt-get update && apt-get install -y \
   pkg-config \
