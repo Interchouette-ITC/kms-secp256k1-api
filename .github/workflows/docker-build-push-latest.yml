@@ -37,8 +37,24 @@ jobs:
         run: |
           make docker-build
           docker tag kms-secp256k1-api ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:latest
+          docker tag kms-secp256k1-api ${{ github.repository_owner }}/kms-secp256k1-api:latest
+          docker tag kms-secp256k1-api verqhealth/kms-secp256k1-api:latest
 
       # Step 6: Push the Docker image to Docker Hub
       - name: Push Docker image to Docker Hub
         run: |
           docker push ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:latest
+
+      # Step 7: # Log in to GHCR
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME }}
+          password: ${{ secrets.GHCR_PAT }}
+
+      # Step 8: Push the Docker image to GHCR
+      - name: Push Docker image to GHCR
+        run: |
+          docker push ghcr.io${{ github.repository_owner }}/kms-secp256k1-api:latest
+          docker push ghcr.io/verqhealth/kms-secp256k1-api:latest
