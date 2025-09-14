@@ -43,7 +43,7 @@ jobs:
       # Step 6: Push the Docker image to Docker Hub
       - name: Push Docker image to Docker Hub
         run: |
-          docker push {{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:latest
 
       # Step 7: # Log in to GHCR
       - name: Log in to GitHub Container Registry
