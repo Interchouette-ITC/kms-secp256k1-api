@@ -6,6 +6,12 @@ on:
       - dev
     paths-ignore:
       - '**/*.md'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker image tag'
+        required: false
+        default: 'dev'
 
 jobs:
   nightly-build-push-latest:
