@@ -33,6 +33,7 @@ impl AWSKmsClientService {
     /// Returns an error string if the SDK configuration fails.
     pub async fn new(aws_config: AwsConfig) -> Result<Self, String> {
         let region = Region::new(aws_config.region.clone());
+        let endpoint = aws_config.endpoint.clone();
 
         let create_creds = Credentials::new(
             aws_config.create.access_key_id,
@@ -50,8 +51,10 @@ impl AWSKmsClientService {
             "sign_kms_credentials",
         );
 
-        let create_sdk_config = aws_config_to_sdk_config(region.clone(), create_creds).await;
-        let sign_sdk_config = aws_config_to_sdk_config(region.clone(), sign_creds).await;
+        let create_sdk_config =
+            aws_config_to_sdk_config(region.clone(), endpoint.clone(), create_creds).await;
+        let sign_sdk_config =
+            aws_config_to_sdk_config(region.clone(), endpoint.clone(), sign_creds).await;
 
         let create = KmsClient::new(&create_sdk_config);
         let sign = KmsClient::new(&sign_sdk_config);
@@ -65,7 +68,8 @@ impl AWSKmsClientService {
                 None,
                 "delete_kms_credentials",
             );
-            let delete_sdk_config = aws_config_to_sdk_config(region.clone(), delete_creds).await;
+            let delete_sdk_config =
+                aws_config_to_sdk_config(region.clone(), endpoint.clone(), delete_creds).await;
             Some(KmsClient::new(&delete_sdk_config))
         } else {
             None
@@ -79,7 +83,8 @@ impl AWSKmsClientService {
                 None,
                 "list_kms_credentials",
             );
-            let delete_sdk_config = aws_config_to_sdk_config(region.clone(), delete_creds).await;
+            let delete_sdk_config =
+                aws_config_to_sdk_config(region.clone(), endpoint, delete_creds).await;
             Some(KmsClient::new(&delete_sdk_config))
         } else {
             None
@@ -468,10 +473,15 @@ impl AWSKmsClientService {
     }
 }
 
-async fn aws_config_to_sdk_config(region: Region, creds: Credentials) -> SdkConfig {
+async fn aws_config_to_sdk_config(
+    region: Region,
+    endpoint: String,
+    creds: Credentials,
+) -> SdkConfig {
     let config_loader = aws_config::defaults(aws_config::BehaviorVersion::latest());
     config_loader
         .region(region)
+        .endpoint_url(endpoint)
         .credentials_provider(creds)
         .load()
         .await
@@ -480,7 +490,10 @@ async fn aws_config_to_sdk_config(region: Region, creds: Credentials) -> SdkConf
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{AwsConfig, AwsCreds};
+    use crate::{
+        config::{AwsConfig, AwsCreds},
+        constants::DEFAULT_AWS_ENDPOINT,
+    };
 
     #[tokio::test]
     async fn test_aws_kms_client_service_new_success() {
@@ -522,6 +535,7 @@ mod tests {
 
         let aws_config = AwsConfig {
             region: "us-east-1".into(),
+            endpoint: DEFAULT_AWS_ENDPOINT.to_string(),
             create: dummy_creds.clone(),
             sign: dummy_creds.clone(),
             delete: Some(dummy_creds.clone()),

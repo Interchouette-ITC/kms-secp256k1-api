@@ -1,5 +1,6 @@
 pub static WASM_PATH: &str = "./wasm/wasm.wasm";
 pub static DEFAULT_APP_PORT: u16 = 4000;
+pub static DEFAULT_AWS_ENDPOINT: &str = "https://kms.eu-west-3.amazonaws.com";
 pub static DEFAULT_APP_ADDR: &str = "0.0.0.0";
 
 pub static DEFAULT_ETH_CHAIN_ID: u8 = 1;

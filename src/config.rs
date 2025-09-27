@@ -1,6 +1,6 @@
 use crate::constants::{
-    DEFAULT_APP_ADDR, DEFAULT_APP_PORT, DEFAULT_COSMOS_CHAIN_ID, DEFAULT_COSMOS_HRP,
-    DEFAULT_COSMOS_REST_URL, DEFAULT_ETH_CHAIN_ID,
+    DEFAULT_APP_ADDR, DEFAULT_APP_PORT, DEFAULT_AWS_ENDPOINT, DEFAULT_COSMOS_CHAIN_ID,
+    DEFAULT_COSMOS_HRP, DEFAULT_COSMOS_REST_URL, DEFAULT_ETH_CHAIN_ID,
 };
 use std::env;
 use tracing::{error, info};
@@ -14,6 +14,7 @@ pub struct AwsCreds {
 #[derive(Debug, Clone, Default)]
 pub struct AwsConfig {
     pub region: String,
+    pub endpoint: String,
     pub sign: AwsCreds,
     pub create: AwsCreds,
     pub delete: Option<AwsCreds>,
@@ -119,6 +120,9 @@ impl Config {
             hash_type,
         });
 
+        let region = env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".into());
+        let endpoint = env::var("AWS_ENDPOINT").unwrap_or_else(|_| DEFAULT_AWS_ENDPOINT.into());
+
         Self {
             blockchain_mode,
             port: env::var("APP_PORT")
@@ -129,7 +133,8 @@ impl Config {
                 .ok()
                 .unwrap_or_else(|| DEFAULT_APP_ADDR.to_string()),
             aws: AwsConfig {
-                region: env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".into()),
+                region,
+                endpoint,
                 sign,
                 create,
                 delete,

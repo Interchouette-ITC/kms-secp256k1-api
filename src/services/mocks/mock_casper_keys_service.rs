@@ -33,7 +33,7 @@ impl KeysServiceTrait for MockCasperKeysService {
         let address = public_key_from_secret_key(&private_key)
             .map_err(|e| format!("Failed to get public key: {e}"))?; // generated key contains prefix
 
-        let public_key = address.replacen(CASPER_SECP_PREFIX, "", 1).to_string(); // removes Casper prefix
+        let public_key = address.replacen(CASPER_SECP_PREFIX, "", 1).clone(); // removes Casper prefix
 
         let key_id = public_key.clone();
 
