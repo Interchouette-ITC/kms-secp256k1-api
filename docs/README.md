@@ -434,6 +434,17 @@ The API can be configured using environment variables. You can find an example c
 | `KMS_LIST_ID`    | AWS access key for key listing (optional)  |
 | `KMS_LIST_KEY`   | AWS secret key for key listing (optional)  |
 
+### AWS Endpoint Configuration
+
+- `AWS_ENDPOINT`: Allows you to override the default AWS KMS endpoint. Useful for local development and testing with AWS-compatible services like LocalStack.
+- `DEFAULT_AWS_ENDPOINT`: The default value is `https://kms.eu-west-3.amazonaws.com` (see `src/constants.rs`).
+
+If you want to use a local KMS emulator (such as LocalStack), set `AWS_ENDPOINT` to your local endpoint, e.g.:
+
+```env
+AWS_ENDPOINT=http://localhost:4566
+```
+
 ### Blockchain-Specific Configuration
 
 #### Ethereum

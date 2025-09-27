@@ -1,4 +1,4 @@
-APP_PORT=4001
+APP_PORT=4000
 AWS_ENDPOINT=http://localhost:4566
 AWS_REGION=eu-west-3
 KMS_CREATE_ID=test
@@ -12,12 +12,12 @@ KMS_LIST_KEY=test
 
 COSMOS_HRP=wasm
 
-TESTING_MODE=true
+TESTING_MODE=false
 
 BLOCKCHAIN_MODE=casper
 
 AWS_MODE=true
 
-DELETE_MODE=true
+DELETE_MODE=false
 
-LIST_MODE=true
+LIST_MODE=false
