@@ -12,6 +12,8 @@ WORKDIR /app
 
 COPY Cargo.toml Cargo.lock ./
 
+RUN cargo fetch
+
 # Create dummy main.rs to allow building deps
 RUN mkdir src && echo "fn main() {}" > src/main.rs
 
