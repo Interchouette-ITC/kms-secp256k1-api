@@ -62,7 +62,7 @@ The API abstracts cryptographic details, presenting your app with a secure and s
   - GET / — simple hello/health
 
   - OpenAPI / Swagger UI:
-  - Swagger UI: /api on `http://localhost:<APP_PORT>/api`
+  - Swagger UI: /docs on `http://localhost:<APP_PORT>/docs`
   - OpenAPI JSON: /api-doc/openapi.json on `http://localhost:<APP_PORT>/api-doc/openapi.json`
 
 - Feature flags via env:
