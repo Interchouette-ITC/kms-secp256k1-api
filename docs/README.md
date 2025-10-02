@@ -652,7 +652,7 @@ cargo run
 3. **Access the API**:
 
 - API: http://localhost:4000
-- Swagger UI: http://localhost:4000/api
+- Swagger UI: http://localhost:4000/docs
 - OpenAPI JSON: http://localhost:4000/api-doc/openapi.json
 </details>
 
@@ -889,7 +889,7 @@ For support:
 
 For support and questions:
 
-- Check the Swagger API documentation at `/api/`
+- Check the Swagger API documentation at `/docs/`
 - Review the test examples in the `tests/` directory
 
 For serious inquiries or enterprise support, you can reach out via email.
