@@ -139,7 +139,7 @@ pub async fn create_app(config: Config) -> Router {
 
     app = app.layer(Extension(shared_state));
 
-    let swagger_ui = SwaggerUi::new("/docs/").url("/api-doc/openapi.json", ApiDoc::openapi());
+    let swagger_ui = SwaggerUi::new("/docs/").url("/docs/openapi.json", ApiDoc::openapi());
 
     app.merge(swagger_ui)
 }
@@ -345,7 +345,7 @@ mod tests_lib {
                 .oneshot(
                     http::Request::builder()
                         .method("GET")
-                        .uri("/api-doc/openapi.json")
+                        .uri("/docs/openapi.json")
                         .body(axum::body::Body::empty())
                         .unwrap(),
                 )
@@ -354,7 +354,7 @@ mod tests_lib {
 
             assert!(
                 openapi_response.status().is_success(),
-                "Expected OpenAPI JSON /api-doc/openapi.json route to exist and respond successfully"
+                "Expected OpenAPI JSON /docs/openapi.json route to exist and respond successfully"
             );
         }
     }
