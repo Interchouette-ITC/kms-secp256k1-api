@@ -1,6 +1,9 @@
 pub static WASM_PATH: &str = "./wasm/wasm.wasm";
 pub static DEFAULT_APP_PORT: u16 = 4000;
-pub static DEFAULT_AWS_ENDPOINT: &str = "https://kms.eu-west-3.amazonaws.com";
+/// Default AWS region
+pub static DEFAULT_AWS_REGION: &str = "eu-west-3";
+/// AWS KMS endpoint pattern template - use with format! to construct region-specific endpoints
+pub const AWS_KMS_ENDPOINT_PATTERN: &str = "https://kms.{}.amazonaws.com";
 pub static DEFAULT_APP_ADDR: &str = "0.0.0.0";
 
 pub static DEFAULT_ETH_CHAIN_ID: u8 = 1;
