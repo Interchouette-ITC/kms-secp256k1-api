@@ -800,8 +800,7 @@ dependencies = [
 [[package]]
 name = "casper-client"
 version = "5.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb4938b81a6ecd44628be6b87a43cfb70bb10a5abe549a2dd22b544e980f5bc9"
+source = "git+https://github.com/casper-ecosystem/casper-client-rs?branch=dev#f8c72b3eba64a689b7e37911a637f341bb93a165"
 dependencies = [
  "base16",
  "base64 0.22.1",
@@ -3816,6 +3815,8 @@ dependencies = [
  "log",
  "percent-encoding",
  "pin-project-lite",
+ "serde",
+ "serde_json",
  "sync_wrapper 1.0.2",
  "tokio",
  "tower",

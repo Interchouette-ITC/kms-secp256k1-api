@@ -55,11 +55,11 @@ async-trait = { version = "0.1.88", default-features = false }
 casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", branch = "dev", default-features = false }
 ethers = { version = "2.0.14", default-features = false }
 rand = { version = "*", default-features = false }
-reqwest = { version = "*", default-features = false }
+reqwest = { version = "*", default-features = false, features = ["json"] }
 cosmrs = { version = "*", default-features = false, features = ["bip32"] }
 
 [patch.crates-io]
-# casper-client = { version = "5", git = "https://github.com/casper-ecosystem/casper-client-rs", branch = "dev" }
+casper-client = { version = "5", git = "https://github.com/casper-ecosystem/casper-client-rs", branch = "dev" }
 # casper-binary-port = { git = "https://github.com/casper-network/casper-node", branch = "dev" }
 casper-binary-port-access = { git = "https://github.com/gRoussac/casper-binary-port-client", branch = "casper_1.1.1" }
 
