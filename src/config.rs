@@ -1,6 +1,6 @@
 use crate::constants::{
-    DEFAULT_APP_ADDR, DEFAULT_APP_PORT, DEFAULT_AWS_ENDPOINT, DEFAULT_COSMOS_CHAIN_ID,
-    DEFAULT_COSMOS_HRP, DEFAULT_COSMOS_REST_URL, DEFAULT_ETH_CHAIN_ID,
+    AWS_KMS_ENDPOINT_PATTERN, DEFAULT_APP_ADDR, DEFAULT_APP_PORT, DEFAULT_AWS_REGION,
+    DEFAULT_COSMOS_CHAIN_ID, DEFAULT_COSMOS_HRP, DEFAULT_COSMOS_REST_URL, DEFAULT_ETH_CHAIN_ID,
 };
 use std::env;
 use tracing::{error, info};
@@ -120,8 +120,11 @@ impl Config {
             hash_type,
         });
 
-        let region = env::var("AWS_REGION").unwrap_or_else(|_| "us-east-1".into());
-        let endpoint = env::var("AWS_ENDPOINT").unwrap_or_else(|_| DEFAULT_AWS_ENDPOINT.into());
+        let region = env::var("AWS_REGION").unwrap_or_else(|_| DEFAULT_AWS_REGION.into());
+        let endpoint = env::var("AWS_ENDPOINT").unwrap_or_else(|_| {
+            // If AWS_ENDPOINT is not set, construct it from the region using the standard pattern
+            AWS_KMS_ENDPOINT_PATTERN.replace("{}", &region)
+        });
 
         Self {
             blockchain_mode,

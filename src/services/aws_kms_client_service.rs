@@ -15,7 +15,7 @@ use base64::engine::general_purpose::STANDARD;
 use k256::sha2::{Digest, Sha256};
 // use sha3::{Digest as Sha3Digest, Sha3_256};
 use std::vec;
-use tracing::error;
+use tracing::{error, info};
 
 pub struct AWSKmsClientService {
     create: KmsClient,
@@ -34,6 +34,12 @@ impl AWSKmsClientService {
     pub async fn new(aws_config: AwsConfig) -> Result<Self, String> {
         let region = Region::new(aws_config.region.clone());
         let endpoint = aws_config.endpoint.clone();
+
+        // Log AWS configuration for debugging
+        info!(
+            "Initializing AWS KMS Client - Region: {}, Endpoint: {}",
+            aws_config.region, endpoint
+        );
 
         let create_creds = Credentials::new(
             aws_config.create.access_key_id,
@@ -492,7 +498,7 @@ mod tests {
     use super::*;
     use crate::{
         config::{AwsConfig, AwsCreds},
-        constants::DEFAULT_AWS_ENDPOINT,
+        constants::{AWS_KMS_ENDPOINT_PATTERN, DEFAULT_AWS_REGION},
     };
 
     #[tokio::test]
@@ -503,7 +509,8 @@ mod tests {
         };
 
         let aws_config = AwsConfig {
-            region: "us-east-1".into(),
+            region: DEFAULT_AWS_REGION.into(),
+            endpoint: AWS_KMS_ENDPOINT_PATTERN.replace("{}", DEFAULT_AWS_REGION),
             create: dummy_creds.clone(),
             sign: dummy_creds.clone(),
             delete: None,
@@ -534,8 +541,8 @@ mod tests {
         };
 
         let aws_config = AwsConfig {
-            region: "us-east-1".into(),
-            endpoint: DEFAULT_AWS_ENDPOINT.to_string(),
+            region: DEFAULT_AWS_REGION.into(),
+            endpoint: AWS_KMS_ENDPOINT_PATTERN.replace("{}", DEFAULT_AWS_REGION),
             create: dummy_creds.clone(),
             sign: dummy_creds.clone(),
             delete: Some(dummy_creds.clone()),
