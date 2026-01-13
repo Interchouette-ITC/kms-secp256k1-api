@@ -361,6 +361,12 @@ impl KmsClientService for AWSKmsClientService {
                     continue;
                 }
 
+                // Skip symmetric keys as they don't have public keys
+                // Only process asymmetric keys (ECC, RSA, etc.)
+                if key_metadata.key_spec.as_ref() == Some(&KeySpec::SymmetricDefault) {
+                    continue;
+                }
+
                 let address = alias_name.trim_start_matches("alias/").to_string();
                 let public_key_base64 = self.get_public_key_base64(kms_client, &key_id).await?;
 
