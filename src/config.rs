@@ -80,20 +80,16 @@ impl Config {
     pub fn from_env() -> Self {
         dotenvy::dotenv().ok();
 
-        let testing_mode = env::var("TESTING_MODE")
-            .map(|v| v == "true")
-            .unwrap_or(true);
+        let testing_mode = env::var("TESTING_MODE").map_or(true, |v| v == "true");
 
-        let delete_mode = env::var("DELETE_MODE")
-            .map(|v| v == "true")
-            .unwrap_or(false);
-        let list_mode = env::var("LIST_MODE").map(|v| v == "true").unwrap_or(false);
+        let delete_mode = env::var("DELETE_MODE").is_ok_and(|v| v == "true");
+        let list_mode = env::var("LIST_MODE").is_ok_and(|v| v == "true");
 
         let sign = get_creds("KMS_SIGN_ID", "KMS_SIGN_KEY");
         let create = get_creds("KMS_CREATE_ID", "KMS_CREATE_KEY");
         let delete = delete_mode.then(|| get_creds("KMS_DELETE_ID", "KMS_DELETE_KEY"));
         let list = list_mode.then(|| get_creds("KMS_LIST_ID", "KMS_LIST_KEY"));
-        let aws_mode = env::var("AWS_MODE").map(|v| v == "true").unwrap_or(true);
+        let aws_mode = env::var("AWS_MODE").map_or(true, |v| v == "true");
 
         let blockchain_mode = match env::var("BLOCKCHAIN_MODE")
             .unwrap_or_else(|_| format!("{:?}", BlockchainMode::default()))

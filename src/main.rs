@@ -18,7 +18,7 @@ fn init_tracing() {
 async fn main() {
     init_tracing();
     let config = Config::from_env();
-    if let Err(e) = run_server(config).await {
+    if let Err(e) = Box::pin(run_server(config)).await {
         eprintln!("Server error: {e}");
         std::process::exit(1);
     }
