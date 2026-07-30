@@ -1,24 +1,20 @@
 name: CI/CD Image 2.0
 
+# Manual only — does not run on every push to `dev`.
 on:
-  push:
-    branches:
-      - dev
-    paths-ignore:
-      - "**/*.md"
   workflow_dispatch:
     inputs:
-      tag:
-        description: "Extra Docker tag to push (e.g. latest or 1.1.0). Always also pushes :dev on this workflow."
-        required: false
-        default: ""
+      tags:
+        description: "Space-separated image tags to push (e.g. 'dev' or 'latest 1.1.0')"
+        required: true
+        default: "dev"
 
 permissions:
   contents: read
   packages: write
 
 jobs:
-  nightly-build-push-latest:
+  build-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
 
@@ -32,17 +28,18 @@ jobs:
       - name: Set up Make
         run: sudo apt-get install -y make
 
-      - name: Collect image tags
+      - name: Normalize tags
         id: tags
         run: |
-          # Dev-branch builds publish :dev. Version/:latest only on explicit dispatch.
-          TAGS="dev"
-          EXTRA="${{ github.event.inputs.tag }}"
-          if [ -n "$EXTRA" ] && [ "$EXTRA" != "dev" ]; then
-            TAGS="$TAGS $EXTRA"
+          TAGS=$(echo "${{ github.event.inputs.tags }}" | xargs)
+          if [ -z "$TAGS" ]; then
+            echo "No tags provided"
+            exit 1
           fi
+          PRIMARY=$(echo "$TAGS" | awk '{print $1}')
           echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
-          echo "Pushing tags: $TAGS"
+          echo "primary=$PRIMARY" >> "$GITHUB_OUTPUT"
+          echo "Pushing tags: $TAGS (build tag: $PRIMARY)"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -52,14 +49,15 @@ jobs:
 
       - name: Build Docker image
         run: |
-          make docker-build TAG=dev
+          PRIMARY="${{ steps.tags.outputs.primary }}"
+          make docker-build TAG="$PRIMARY"
           for tag in ${{ steps.tags.outputs.tags }}; do
-            docker tag kms-secp256k1-api:dev kms-secp256k1-api:"$tag" 2>/dev/null || true
-            docker tag kms-secp256k1-api:dev ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:"$tag"
-            docker tag kms-secp256k1-api:dev interchouette/kms-secp256k1-api:"$tag"
-            docker tag kms-secp256k1-api:dev ghcr.io/groussac/kms-secp256k1-api:"$tag"
-            # docker tag kms-secp256k1-api:dev ghcr.io/verqhealth/kms-secp256k1-api:"$tag"
-            docker tag kms-secp256k1-api:dev ghcr.io/interchouette-itc/kms-secp256k1-api:"$tag"
+            docker tag "kms-secp256k1-api:$PRIMARY" "kms-secp256k1-api:$tag" 2>/dev/null || true
+            docker tag "kms-secp256k1-api:$PRIMARY" ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:"$tag"
+            docker tag "kms-secp256k1-api:$PRIMARY" interchouette/kms-secp256k1-api:"$tag"
+            docker tag "kms-secp256k1-api:$PRIMARY" ghcr.io/groussac/kms-secp256k1-api:"$tag"
+            # docker tag "kms-secp256k1-api:$PRIMARY" ghcr.io/verqhealth/kms-secp256k1-api:"$tag"
+            docker tag "kms-secp256k1-api:$PRIMARY" ghcr.io/interchouette-itc/kms-secp256k1-api:"$tag"
           done
 
       - name: Push Docker image to Docker Hub
