@@ -361,11 +361,14 @@ cargo run --release
 ### Using Docker
 
 ```bash
-# Build the Docker image
-docker build -t kms-secp256k1-api .
+# Build locally
+make docker-build
 
-# Run the container
-docker run -p 4000:4000 kms-secp256k1-api
+# Or pull
+docker pull interchouette/kms-secp256k1-api:latest
+
+# Run
+docker run -p 4000:4000 interchouette/kms-secp256k1-api:latest
 ```
 
 </details>
@@ -811,8 +814,12 @@ src/
 ### Docker Deployment
 
 ```bash
-# Build production image
-docker build -t kms-secp256k1-api:latest .
+# Pull
+docker pull interchouette/kms-secp256k1-api:latest
+# or: docker pull ghcr.io/interchouette-itc/kms-secp256k1-api:latest
+
+# Or build locally
+docker build -t kms-secp256k1-api:latest -f docker/Dockerfile .
 
 # Run with environment variables
 docker run -d \
@@ -820,7 +827,7 @@ docker run -d \
   -e TESTING_MODE=false \
   -e AWS_MODE=true \
   -e AWS_REGION=us-west-2 \
-  kms-secp256k1-api:latest
+  interchouette/kms-secp256k1-api:latest
 ```
 
 </details>

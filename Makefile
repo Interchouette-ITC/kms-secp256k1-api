@@ -6,12 +6,19 @@ test:
 
 APP_NAME=kms-secp256k1-api
 TAG=latest
+APP_VERSION ?= $(shell awk '/^version = /{gsub(/"/, "", $$3); print $$3; exit}' Cargo.toml)
 
 docker-build:
-	docker build --network=host -t $(APP_NAME):$(TAG) -f ./docker/Dockerfile .
+	docker build --network=host \
+		-t $(APP_NAME):$(TAG) \
+		-t $(APP_NAME):$(APP_VERSION) \
+		-f ./docker/Dockerfile .
 
 docker-build-no-cache:
-	docker build --network=host --no-cache -t $(APP_NAME):$(TAG) -f ./docker/Dockerfile .
+	docker build --network=host --no-cache \
+		-t $(APP_NAME):$(TAG) \
+		-t $(APP_NAME):$(APP_VERSION) \
+		-f ./docker/Dockerfile .
 
 docker-run-test:
 	docker compose -f ./docker/docker-compose.test.yml up --no-build --force-recreate

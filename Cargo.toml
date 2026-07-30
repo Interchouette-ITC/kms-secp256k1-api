@@ -1,6 +1,6 @@
 [package]
 name = "kms-secp256k1-api"
-version = "1.0.0"
+version = "1.1.0"
 edition = "2024"
 authors = ["gRoussac"]
 
@@ -60,8 +60,9 @@ cosmrs = { version = "*", default-features = false, features = ["bip32"] }
 
 [patch.crates-io]
 casper-client = { version = "5", git = "https://github.com/casper-ecosystem/casper-client-rs", branch = "dev" }
-# casper-binary-port = { git = "https://github.com/casper-network/casper-node", branch = "dev" }
-casper-binary-port-access = { git = "https://github.com/gRoussac/casper-binary-port-client", branch = "casper_1.1.1" }
+casper-types = { git = "https://github.com/casper-network/casper-node", branch = "dev" }
+casper-binary-port = { git = "https://github.com/casper-network/casper-node", branch = "dev" }
+casper-binary-port-access = { git = "https://github.com/gRoussac/casper-binary-port-client", branch = "casper_2.2.0" }
 
 [dev-dependencies]
 tower = "*"

@@ -5,13 +5,17 @@ on:
     branches:
       - dev
     paths-ignore:
-      - '**/*.md'
+      - "**/*.md"
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Docker image tag'
+        description: "Docker image tag"
         required: false
-        default: 'dev'
+        default: "dev"
+
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   nightly-build-push-latest:
@@ -19,48 +23,58 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Checkout the repository
       - name: Checkout code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
 
-      # Step 2: Set up Docker Buildx
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v1
+        uses: docker/setup-buildx-action@v3
 
-      # Step 3: Set up Make
       - name: Set up Make
         run: sudo apt-get install -y make
 
-      # Step 4: Log in to Docker Hub
+      - name: Read Cargo version
+        id: version
+        run: |
+          VERSION=$(awk '/^version = /{gsub(/"/, "", $3); print $3; exit}' Cargo.toml)
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
       - name: Log in to Docker Hub
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # Step 5: Build the Docker image using 'make build'
       - name: Build Docker image
         run: |
           make docker-build
-          docker tag kms-secp256k1-api ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:latest
-          docker tag kms-secp256k1-api ghcr.io/groussac/kms-secp256k1-api:latest
-          docker tag kms-secp256k1-api ghcr.io/verqhealth/kms-secp256k1-api:latest
+          VERSION="${{ steps.version.outputs.version }}"
+          for tag in latest "$VERSION"; do
+            docker tag kms-secp256k1-api:"$tag" ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:"$tag"
+            docker tag kms-secp256k1-api:"$tag" interchouette/kms-secp256k1-api:"$tag"
+            docker tag kms-secp256k1-api:"$tag" ghcr.io/groussac/kms-secp256k1-api:"$tag"
+            # docker tag kms-secp256k1-api:"$tag" ghcr.io/verqhealth/kms-secp256k1-api:"$tag"
+            docker tag kms-secp256k1-api:"$tag" ghcr.io/interchouette-itc/kms-secp256k1-api:"$tag"
+          done
 
-      # Step 6: Push the Docker image to Docker Hub
       - name: Push Docker image to Docker Hub
         run: |
+          VERSION="${{ steps.version.outputs.version }}"
           docker push ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:"$VERSION"
+          docker push interchouette/kms-secp256k1-api:latest
+          docker push interchouette/kms-secp256k1-api:"$VERSION"
 
-      # Step 7: # Log in to GHCR
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v2
+        uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ secrets.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_PAT }}
 
-      # Step 8: Push the Docker image to GHCR
       - name: Push Docker image to GHCR
         run: |
-          docker push ghcr.io/verqhealth/kms-secp256k1-api:latest
-          docker push ghcr.io/groussac/kms-secp256k1-api:latest
+          VERSION="${{ steps.version.outputs.version }}"
+          for ns in groussac interchouette-itc; do
+            docker push ghcr.io/"$ns"/kms-secp256k1-api:latest
+            docker push ghcr.io/"$ns"/kms-secp256k1-api:"$VERSION"
+          done
