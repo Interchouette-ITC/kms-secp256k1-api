@@ -12,8 +12,9 @@ This service is designed to run securely inside Docker and can connect to cloud 
 
 | Tag | Meaning |
 | --- | --- |
-| `:latest` | Latest published image |
-| `:X.Y.Z` | Release matching `Cargo.toml` version |
+| `:dev` | Latest development image (pushed from the `dev` branch) |
+| `:latest` | Stable release image (manual / release publish) |
+| `:X.Y.Z` | Versioned release matching `Cargo.toml` |
 
 Also on GHCR: `ghcr.io/interchouette-itc/kms-secp256k1-api`
 
