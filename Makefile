@@ -9,13 +9,13 @@ TAG=latest
 APP_VERSION ?= $(shell awk '/^version = /{gsub(/"/, "", $$3); print $$3; exit}' Cargo.toml)
 
 docker-build:
-	docker build --network=host \
+	docker build --pull --network=host \
 		-t $(APP_NAME):$(TAG) \
 		-t $(APP_NAME):$(APP_VERSION) \
 		-f ./docker/Dockerfile .
 
 docker-build-no-cache:
-	docker build --network=host --no-cache \
+	docker build --pull --network=host --no-cache \
 		-t $(APP_NAME):$(TAG) \
 		-t $(APP_NAME):$(APP_VERSION) \
 		-f ./docker/Dockerfile .

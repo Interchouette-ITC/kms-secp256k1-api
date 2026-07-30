@@ -8,6 +8,8 @@ Supports multiple blockchains including **Ethereum**, **Cosmos**, and **Casper**
 This service is designed to run securely inside Docker and can connect to cloud KMS providers like AWS KMS.
 
 
+Size-optimized multi-stage build → `gcr.io/distroless/cc-debian13` (Debian 13 / trixie family; no perl/apt/shell).
+
 ## Tags
 
 | Tag | Meaning |
