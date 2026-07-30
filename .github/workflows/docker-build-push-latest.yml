@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Docker image tag"
+        description: "Extra Docker tag to push (e.g. latest or 1.1.0). Always also pushes :dev on this workflow."
         required: false
-        default: "dev"
+        default: ""
 
 permissions:
   contents: read
@@ -32,11 +32,17 @@ jobs:
       - name: Set up Make
         run: sudo apt-get install -y make
 
-      - name: Read Cargo version
-        id: version
+      - name: Collect image tags
+        id: tags
         run: |
-          VERSION=$(awk '/^version = /{gsub(/"/, "", $3); print $3; exit}' Cargo.toml)
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          # Dev-branch builds publish :dev. Version/:latest only on explicit dispatch.
+          TAGS="dev"
+          EXTRA="${{ github.event.inputs.tag }}"
+          if [ -n "$EXTRA" ] && [ "$EXTRA" != "dev" ]; then
+            TAGS="$TAGS $EXTRA"
+          fi
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          echo "Pushing tags: $TAGS"
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
@@ -46,23 +52,22 @@ jobs:
 
       - name: Build Docker image
         run: |
-          make docker-build
-          VERSION="${{ steps.version.outputs.version }}"
-          for tag in latest "$VERSION"; do
-            docker tag kms-secp256k1-api:"$tag" ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:"$tag"
-            docker tag kms-secp256k1-api:"$tag" interchouette/kms-secp256k1-api:"$tag"
-            docker tag kms-secp256k1-api:"$tag" ghcr.io/groussac/kms-secp256k1-api:"$tag"
-            # docker tag kms-secp256k1-api:"$tag" ghcr.io/verqhealth/kms-secp256k1-api:"$tag"
-            docker tag kms-secp256k1-api:"$tag" ghcr.io/interchouette-itc/kms-secp256k1-api:"$tag"
+          make docker-build TAG=dev
+          for tag in ${{ steps.tags.outputs.tags }}; do
+            docker tag kms-secp256k1-api:dev kms-secp256k1-api:"$tag" 2>/dev/null || true
+            docker tag kms-secp256k1-api:dev ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:"$tag"
+            docker tag kms-secp256k1-api:dev interchouette/kms-secp256k1-api:"$tag"
+            docker tag kms-secp256k1-api:dev ghcr.io/groussac/kms-secp256k1-api:"$tag"
+            # docker tag kms-secp256k1-api:dev ghcr.io/verqhealth/kms-secp256k1-api:"$tag"
+            docker tag kms-secp256k1-api:dev ghcr.io/interchouette-itc/kms-secp256k1-api:"$tag"
           done
 
       - name: Push Docker image to Docker Hub
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          docker push ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:latest
-          docker push ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:"$VERSION"
-          docker push interchouette/kms-secp256k1-api:latest
-          docker push interchouette/kms-secp256k1-api:"$VERSION"
+          for tag in ${{ steps.tags.outputs.tags }}; do
+            docker push ${{ secrets.DOCKER_USERNAME }}/kms-secp256k1-api:"$tag"
+            docker push interchouette/kms-secp256k1-api:"$tag"
+          done
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -73,8 +78,8 @@ jobs:
 
       - name: Push Docker image to GHCR
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          for ns in groussac interchouette-itc; do
-            docker push ghcr.io/"$ns"/kms-secp256k1-api:latest
-            docker push ghcr.io/"$ns"/kms-secp256k1-api:"$VERSION"
+          for tag in ${{ steps.tags.outputs.tags }}; do
+            for ns in groussac interchouette-itc; do
+              docker push ghcr.io/"$ns"/kms-secp256k1-api:"$tag"
+            done
           done
