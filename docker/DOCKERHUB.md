@@ -12,11 +12,13 @@ This service is designed to run securely inside Docker and can connect to cloud 
 
 | Tag | Meaning |
 | --- | --- |
-| `:dev` | Latest development image (pushed from the `dev` branch) |
-| `:latest` | Stable release image (manual / release publish) |
-| `:X.Y.Z` | Versioned release matching `Cargo.toml` |
+| `:dev` | Development image (manual workflow publish) |
+| `:latest` | Stable release image (manual workflow publish) |
+| `:X.Y.Z` | Versioned release matching `Cargo.toml` (manual) |
 
 Also on GHCR: `ghcr.io/interchouette-itc/kms-secp256k1-api`
+
+Publish via GitHub Actions → **CI/CD Image 2.0** → Run workflow (enter tags, e.g. `dev` or `latest 1.1.0`).
 
 ## Overview
 
