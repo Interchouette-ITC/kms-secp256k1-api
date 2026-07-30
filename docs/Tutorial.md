@@ -52,7 +52,6 @@ The API abstracts cryptographic details, presenting your app with a secure and s
   <summary><strong><code>Highlights & Endpoints</code></strong></summary>
 
 - Endpoints:
-
   - POST /createKey — create a new keypair
   - POST /signTransactionHash — sign a hex transaction hash (query param: keys)
   - POST /signTransaction — sign a JSON transaction (query param: keys)
@@ -66,7 +65,6 @@ The API abstracts cryptographic details, presenting your app with a secure and s
   - OpenAPI JSON: /api-doc/openapi.json on `http://localhost:<APP_PORT>/api-doc/openapi.json`
 
 - Feature flags via env:
-
   - TESTING_MODE, AWS_MODE, DELETE_MODE, LIST_MODE, BLOCKCHAIN_MODE, etc.
 
 - Port:
@@ -189,7 +187,7 @@ docker run --rm -it \
 # ...
 # or add env file
  --env-file .env.test \
- gregoshop/kms-secp256k1-api:latest
+ interchouette/kms-secp256k1-api:latest
 ```
 
 Run in **production** mode (example: port 4000).
@@ -199,7 +197,7 @@ If you use AWS KMS, set AWS creds/region and set AWS_MODE=true.
 docker run --rm -it \
  -p 4000:4000 \
  --env-file .env \
- gregoshop/kms-secp256k1-api:latest
+ interchouette/kms-secp256k1-api:latest
 ```
 
 </details>
@@ -213,7 +211,7 @@ docker run --rm -it \
 services:
 kms-secp256k1-api:
   container_name: kms-secp256k1-api-test
-  image: gregoshop/kms-secp256k1-api:latest
+  image: interchouette/kms-secp256k1-api:latest
   env_file: - .env.test
   ports: - "4001:4001"
 ```
@@ -224,7 +222,7 @@ kms-secp256k1-api:
 services:
 kms-secp256k1-api:
   container_name: kms-secp256k1-api
-  image: gregoshop/kms-secp256k1-api:latest
+  image: interchouette/kms-secp256k1-api:latest
   env_file: - .env
   ports: - "4000:4000"
 ```
@@ -320,7 +318,7 @@ You can use the provided `Makefile` for common tasks:
 | `make test`                  | Run tests with output (`cargo test -- --nocapture`)        |
 | `make lint`                  | Run Clippy linter with strict rules                        |
 | `make check-lint`            | Auto-fix Clippy lints where possible                       |
-| `make docker-build`          | Build Docker image using network=host                      |
+| `make docker-build`          | Build image tagged `:latest` and `:<Cargo version>`        |
 | `make docker-build-no-cache` | Build Docker image without cache                           |
 | `make docker-run-test`       | Run Docker Compose test environment (maps port 4001)       |
 | `make docker-run`            | Run Docker Compose production environment (maps port 4000) |
