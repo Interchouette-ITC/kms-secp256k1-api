@@ -55,13 +55,13 @@
 <a href=#55 id=55 data-nosnippet>55</a>        transaction_hash_hex: <span class="kw-2">&amp;</span>str,
 <a href=#56 id=56 data-nosnippet>56</a>        signature_hex: <span class="kw-2">&amp;</span>str,
 <a href=#57 id=57 data-nosnippet>57</a>        key: <span class="kw-2">&amp;</span>str,
-<a href=#58 id=58 data-nosnippet>58</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, String&gt; {
+<a href=#58 id=58 data-nosnippet>58</a>    ) -&gt; <span class="kw">crate</span>::Result&lt;bool&gt; {
 <a href=#59 id=59 data-nosnippet>59</a>        <span class="self">self</span>.crypto_service
 <a href=#60 id=60 data-nosnippet>60</a>            .verify(transaction_hash_hex, signature_hex, key)
 <a href=#61 id=61 data-nosnippet>61</a>            .map_err(|e| {
 <a href=#62 id=62 data-nosnippet>62</a>                <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"Signature verification failed: {e}"</span>);
 <a href=#63 id=63 data-nosnippet>63</a>                <span class="macro">error!</span>(<span class="string">"{}"</span>, msg);
-<a href=#64 id=64 data-nosnippet>64</a>                msg
+<a href=#64 id=64 data-nosnippet>64</a>                <span class="kw">crate</span>::KmsError::Msg(msg)
 <a href=#65 id=65 data-nosnippet>65</a>            })
 <a href=#66 id=66 data-nosnippet>66</a>    }
 <a href=#67 id=67 data-nosnippet>67</a>
@@ -79,13 +79,13 @@
 <a href=#79 id=79 data-nosnippet>79</a>        transaction_hash_hex: <span class="kw-2">&amp;</span>str,
 <a href=#80 id=80 data-nosnippet>80</a>        signature_hex: <span class="kw-2">&amp;</span>str,
 <a href=#81 id=81 data-nosnippet>81</a>        key: <span class="kw-2">&amp;</span>str,
-<a href=#82 id=82 data-nosnippet>82</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, String&gt; {
+<a href=#82 id=82 data-nosnippet>82</a>    ) -&gt; <span class="kw">crate</span>::Result&lt;bool&gt; {
 <a href=#83 id=83 data-nosnippet>83</a>        <span class="self">self</span>.crypto_service
 <a href=#84 id=84 data-nosnippet>84</a>            .verify_eip155(transaction_hash_hex, signature_hex, key)
 <a href=#85 id=85 data-nosnippet>85</a>            .map_err(|e| {
 <a href=#86 id=86 data-nosnippet>86</a>                <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"Signature verification failed: {e}"</span>);
 <a href=#87 id=87 data-nosnippet>87</a>                <span class="macro">error!</span>(<span class="string">"{}"</span>, msg);
-<a href=#88 id=88 data-nosnippet>88</a>                msg
+<a href=#88 id=88 data-nosnippet>88</a>                <span class="kw">crate</span>::KmsError::Msg(msg)
 <a href=#89 id=89 data-nosnippet>89</a>            })
 <a href=#90 id=90 data-nosnippet>90</a>    }
 <a href=#91 id=91 data-nosnippet>91</a>
@@ -105,7 +105,7 @@
 <a href=#105 id=105 data-nosnippet>105</a>        transaction_hash_hex: <span class="kw-2">&amp;</span>str,
 <a href=#106 id=106 data-nosnippet>106</a>        signature_hex: <span class="kw-2">&amp;</span>str,
 <a href=#107 id=107 data-nosnippet>107</a>        key: <span class="kw-2">&amp;</span>str,
-<a href=#108 id=108 data-nosnippet>108</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, String&gt; {
+<a href=#108 id=108 data-nosnippet>108</a>    ) -&gt; <span class="kw">crate</span>::Result&lt;bool&gt; {
 <a href=#109 id=109 data-nosnippet>109</a>        sleep(Duration::from_millis(<span class="number">50</span>)).<span class="kw">await</span>;
 <a href=#110 id=110 data-nosnippet>110</a>        <span class="self">self</span>.verify(transaction_hash_hex, signature_hex, key)
 <a href=#111 id=111 data-nosnippet>111</a>    }
@@ -135,7 +135,7 @@
 <a href=#135 id=135 data-nosnippet>135</a>        transaction_hash_hex: <span class="kw-2">&amp;</span>str,
 <a href=#136 id=136 data-nosnippet>136</a>        signature_hex: <span class="kw-2">&amp;</span>str,
 <a href=#137 id=137 data-nosnippet>137</a>        key: <span class="kw-2">&amp;</span>str,
-<a href=#138 id=138 data-nosnippet>138</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;bool, String&gt; {
+<a href=#138 id=138 data-nosnippet>138</a>    ) -&gt; <span class="kw">crate</span>::Result&lt;bool&gt; {
 <a href=#139 id=139 data-nosnippet>139</a>        sleep(Duration::from_millis(<span class="number">50</span>)).<span class="kw">await</span>;
 <a href=#140 id=140 data-nosnippet>140</a>        <span class="self">self</span>.verify_eip155(transaction_hash_hex, signature_hex, key)
 <a href=#141 id=141 data-nosnippet>141</a>    }

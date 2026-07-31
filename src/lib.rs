@@ -33,9 +33,12 @@ use utoipa_swagger_ui::SwaggerUi;
 
 pub mod config;
 pub mod constants;
+pub mod error;
 pub mod routes;
 pub mod services;
 pub mod wasm_loader;
+
+pub use error::{KmsError, Result};
 
 #[cfg(test)]
 pub mod tests;
@@ -149,7 +152,9 @@ pub async fn create_app(config: Config) -> Router {
 /// # Errors
 /// This function returns an error if the TCP listener cannot be bound,
 /// or if the server fails to start.
-pub async fn run_server(config: Config) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+pub async fn run_server(
+    config: Config,
+) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let app = create_app(config.clone()).await;
 
     let addr = format!("{}:{}", config.get_addr(), config.get_port());

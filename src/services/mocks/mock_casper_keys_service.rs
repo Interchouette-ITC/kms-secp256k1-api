@@ -25,13 +25,15 @@ pub struct MockCasperKeysService {
 
 #[async_trait::async_trait]
 impl KeysServiceTrait for MockCasperKeysService {
-    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
+    async fn create_key(&mut self, _config: &Config) -> crate::Result<KeyEntry> {
         let private_key = secret_key_secp256k1_generate()
-            .map_err(|e| format!("Failed to generate secret key: {e}"))?;
-        let private_key = private_key.to_pem().map_err(|e| e.to_string())?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to generate secret key: {e}")))?;
+        let private_key = private_key
+            .to_pem()
+            .map_err(|e| crate::KmsError::Msg(e.to_string()))?;
 
         let address = public_key_from_secret_key(&private_key)
-            .map_err(|e| format!("Failed to get public key: {e}"))?; // generated key contains prefix
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to get public key: {e}")))?; // generated key contains prefix
 
         let public_key = address.replacen(CASPER_SECP_PREFIX, "", 1).clone(); // removes Casper prefix
 
@@ -68,12 +70,12 @@ impl KeysServiceTrait for MockCasperKeysService {
         config: &Config,
         transaction_hash: &str,
         key: &str,
-    ) -> Result<SigEntry, String> {
+    ) -> crate::Result<SigEntry> {
         let key = Self::resolve_key(key);
         let key_pair = {
             let keys = self.inner.keys.lock().await;
             keys.get(&key)
-                .ok_or_else(|| "Public key not found".to_string())?
+                .ok_or(crate::KmsError::PublicKeyNotFound)?
                 .clone()
         };
 
@@ -86,7 +88,9 @@ impl KeysServiceTrait for MockCasperKeysService {
         let sdk = SDK::new(None, None, None);
         let make_transfer = sdk
             .make_transfer_transaction(None, &public_key, "2500000000", transaction_params, None)
-            .map_err(|e| format!("Failed to create transfer transaction: {e}"))?;
+            .map_err(|e| {
+                crate::KmsError::Msg(format!("Failed to create transfer transaction: {e}"))
+            })?;
 
         let mut transaction_str = make_transfer.to_json_string().unwrap_or_default();
 
@@ -100,8 +104,9 @@ impl KeysServiceTrait for MockCasperKeysService {
             .await
             .unwrap_or_default();
 
-        let transaction: Transaction = Transaction::from_json_string(&signed_tx)
-            .map_err(|e| format!("Failed to parse transaction: {e}"))?;
+        let transaction: Transaction = Transaction::from_json_string(&signed_tx).map_err(|e| {
+            crate::KmsError::ParseTransaction(format!("Failed to parse transaction: {e}"))
+        })?;
 
         let signature = transaction
             .approvals()
@@ -122,15 +127,17 @@ impl KeysServiceTrait for MockCasperKeysService {
         _config: &Config,
         transaction_str: &str,
         key: &str,
-    ) -> Result<String, String> {
-        let mut transaction: Transaction = Transaction::from_json_string(transaction_str)
-            .map_err(|e| format!("Failed to parse transaction: {e}"))?;
+    ) -> crate::Result<String> {
+        let mut transaction: Transaction =
+            Transaction::from_json_string(transaction_str).map_err(|e| {
+                crate::KmsError::ParseTransaction(format!("Failed to parse transaction: {e}"))
+            })?;
 
         let key = Self::resolve_key(key);
         let key_pair = {
             let keys = self.inner.keys.lock().await;
             keys.get(&key)
-                .ok_or_else(|| "Public key not found".to_string())?
+                .ok_or(crate::KmsError::PublicKeyNotFound)?
                 .clone()
         };
 
@@ -144,14 +151,14 @@ impl KeysServiceTrait for MockCasperKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let key = Self::resolve_key(key);
         self.inner
             .verify(transaction_hash_hex, signature_hex, &key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })
     }
 
@@ -160,19 +167,19 @@ impl KeysServiceTrait for MockCasperKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let key = Self::resolve_key(key);
         self.inner
             .verify_via_kms(transaction_hash_hex, signature_hex, &key)
             .await
     }
 
-    async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+    async fn delete_key(&mut self, key: &str) -> crate::Result<bool> {
         let key = Self::resolve_key(key);
         Ok(self.inner.delete_key(&key).await)
     }
 
-    async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
+    async fn list_keys(&mut self) -> crate::Result<Vec<KeyEntry>> {
         Ok(self.inner.list_keys().await)
     }
 }
@@ -189,7 +196,7 @@ impl MockCasperKeysService {
     ///
     /// This function currently does not return an error, but it returns a `Result`
     /// to match a common interface and allow future fallibility.
-    pub fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
+    pub fn new(config: Config, crypto_service: CryptoService) -> crate::Result<Self> {
         Ok(Self {
             inner: MockKeysService::new(config, crypto_service),
         })

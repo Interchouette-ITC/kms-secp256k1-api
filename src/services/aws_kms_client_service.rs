@@ -30,7 +30,7 @@ impl AWSKmsClientService {
     /// # Errors
     ///
     /// Returns an error string if the SDK configuration fails.
-    pub async fn new(aws_config: AwsConfig) -> Result<Self, String> {
+    pub async fn new(aws_config: AwsConfig) -> crate::Result<Self> {
         let region = Region::new(aws_config.region.clone());
         let endpoint = aws_config.endpoint.clone();
 
@@ -121,7 +121,7 @@ impl AWSKmsClientService {
 
 #[async_trait::async_trait]
 impl KmsClientService for AWSKmsClientService {
-    async fn create_key(&self) -> Result<(String, String), String> {
+    async fn create_key(&self) -> crate::Result<(String, String)> {
         let kms_client = &self.create;
 
         let create_key_output = kms_client
@@ -135,16 +135,15 @@ impl KmsClientService for AWSKmsClientService {
             .map_err(|e| {
                 let msg = format!("Error creating key: {e:?}");
                 error!("{}", &msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         let key_id = create_key_output
             .key_metadata
             .map(|meta| meta.key_id)
             .ok_or_else(|| {
-                let msg = "No KeyId found".to_string();
-                error!("{}", &msg);
-                msg
+                error!("No KeyId found");
+                crate::KmsError::MissingKeyId
             })?;
 
         // Fetch the public key
@@ -153,7 +152,7 @@ impl KmsClientService for AWSKmsClientService {
         Ok((key_id, public_key_base64))
     }
 
-    async fn create_alias(&self, key_id: &str, alias: &str) -> Result<(), String> {
+    async fn create_alias(&self, key_id: &str, alias: &str) -> crate::Result<()> {
         let alias_name = Self::format_alias(alias);
         let kms_client = &self.create;
 
@@ -166,12 +165,12 @@ impl KmsClientService for AWSKmsClientService {
             .map_err(|e| {
                 let msg = format!("Error creating alias: {e:?}");
                 error!("{}", &msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
         Ok(())
     }
 
-    async fn sign(&self, transaction_hash_hex: &str, key: &str) -> Result<String, String> {
+    async fn sign(&self, transaction_hash_hex: &str, key: &str) -> crate::Result<String> {
         let kms_client = &self.sign;
 
         // Resolve key to key ID
@@ -181,7 +180,7 @@ impl KmsClientService for AWSKmsClientService {
         let data = hex::decode(transaction_hash_hex).map_err(|e| {
             let msg = format!("Failed to decode transaction hash hex: {e}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })?;
 
         let input_data = self.hash(&data);
@@ -198,13 +197,13 @@ impl KmsClientService for AWSKmsClientService {
             .map_err(|e| {
                 let msg = format!("Error calling sign on KMS: {e:?}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         let signature = sign_output.signature.ok_or_else(|| {
             let msg = "No signature returned from AWS KMS".to_string();
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })?;
 
         let signature = signature.as_ref();
@@ -219,7 +218,7 @@ impl KmsClientService for AWSKmsClientService {
         transaction_hash_hex: &str,
         signature_asn1_base64: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let kms_client = &self.sign;
 
         // Resolve key to key ID
@@ -230,14 +229,14 @@ impl KmsClientService for AWSKmsClientService {
         let digest_bytes = hex::decode(transaction_hash_hex).map_err(|e| {
             let msg = format!("Failed to decode transaction hash hex: {e}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })?;
 
         // Decode the signature base64 to bytes (ASN.1 DER format expected)
         let signature_bytes = STANDARD.decode(signature_asn1_base64).map_err(|e| {
             let msg = format!("Failed to decode signature base64: {e}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })?;
 
         let input_data = self.hash(&digest_bytes);
@@ -255,14 +254,14 @@ impl KmsClientService for AWSKmsClientService {
             .map_err(|e| {
                 let msg = format!("Error calling verify on KMS: {e:?}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         // The 'signature_valid' field indicates validity
         Ok(verify_output.signature_valid)
     }
 
-    async fn delete_key(&self, key: &str) -> Result<bool, String> {
+    async fn delete_key(&self, key: &str) -> crate::Result<bool> {
         let Some(kms_client) = &self.delete else {
             tracing::warn!(
                 "Attempted to delete key, but delete_kms client is not configured/enabled"
@@ -284,7 +283,7 @@ impl KmsClientService for AWSKmsClientService {
             .map_err(|e| {
                 let msg = format!("Failed to delete alias {alias_name}: {e:?}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         kms_client
@@ -296,13 +295,13 @@ impl KmsClientService for AWSKmsClientService {
             .map_err(|e| {
                 let msg = format!("Failed to schedule deletion for key {key_id}: {e:?}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         Ok(true)
     }
 
-    async fn list_keys(&self) -> Result<Vec<KeyEntry>, String> {
+    async fn list_keys(&self) -> crate::Result<Vec<KeyEntry>> {
         let Some(kms_client) = &self.list else {
             tracing::warn!("Attempted to list keys, but list_kms client is not configured/enabled");
             return Ok(vec![]);
@@ -315,7 +314,7 @@ impl KmsClientService for AWSKmsClientService {
             let page = page_result.map_err(|e| {
                 let msg = format!("Failed to list aliases: {e:?}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
             let aliases = page.aliases.unwrap_or_default();
@@ -369,7 +368,7 @@ impl KmsClientService for AWSKmsClientService {
     /// # Returns
     /// * `Ok(String)` - The base64-encoded public key.
     /// * `Err(String)` - If resolving the alias or fetching the key fails.
-    async fn get_public_key(&self, alias: &str) -> Result<String, String> {
+    async fn get_public_key(&self, alias: &str) -> crate::Result<String> {
         // Ensure alias is in the correct format
         let alias_name = if alias.starts_with("alias/") {
             alias.to_string()
@@ -400,7 +399,7 @@ impl AWSKmsClientService {
         &self,
         kms_client: &aws_sdk_kms::Client,
         key_id: &str,
-    ) -> Result<String, String> {
+    ) -> crate::Result<String> {
         let pubkey_resp = kms_client
             .get_public_key()
             .key_id(key_id)
@@ -409,13 +408,13 @@ impl AWSKmsClientService {
             .map_err(|e| {
                 let msg = format!("Could not get public key for key_id {key_id}: {e:?}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         let pubkey = pubkey_resp.public_key.ok_or_else(|| {
             let msg = format!("Missing public key for key_id {key_id}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })?;
 
         Ok(STANDARD.encode(pubkey.as_ref()))
@@ -433,7 +432,7 @@ impl AWSKmsClientService {
         &self,
         kms_client: &aws_sdk_kms::Client,
         key: &str,
-    ) -> Result<KeyMetadata, String> {
+    ) -> crate::Result<KeyMetadata> {
         let alias_name = Self::format_alias(key);
 
         let output = kms_client
@@ -444,13 +443,14 @@ impl AWSKmsClientService {
             .map_err(|e| {
                 let msg = format!("Failed to describe key for alias {alias_name}: {e:?}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         output.key_metadata.ok_or_else(|| {
-            let msg = format!("KeyMetadata not found for alias {alias_name}");
-            error!("{}", msg);
-            msg
+            error!("KeyMetadata not found for alias {alias_name}");
+            crate::KmsError::AliasNotFound {
+                alias: alias_name.clone(),
+            }
         })
     }
 

@@ -17,7 +17,7 @@ impl CasperKeysService {
     /// # Errors
     ///
     /// Returns an error if the `KeysService` initialization fails.
-    pub async fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
+    pub async fn new(config: Config, crypto_service: CryptoService) -> crate::Result<Self> {
         let keys_service = KeysService::new(config, crypto_service).await?;
         Ok(Self { keys_service })
     }
@@ -35,7 +35,7 @@ impl KeysServiceTrait for CasperKeysService {
     /// # Errors
     ///
     /// Returns an error if key creation, public key conversion, or alias creation fails.
-    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
+    async fn create_key(&mut self, _config: &Config) -> crate::Result<KeyEntry> {
         let (key_id, public_key_base64, public_key) = self.keys_service.create_kms_key().await?;
 
         let address = Self::resolve_key(&public_key); // address == prefix + public_key
@@ -69,9 +69,9 @@ impl KeysServiceTrait for CasperKeysService {
         config: &Config,
         transaction_hash: &str,
         key: &str,
-    ) -> Result<SigEntry, String> {
+    ) -> crate::Result<SigEntry> {
         if !config.is_casper_mode() {
-            return Err("Only Casper mode is supported".to_string());
+            return Err(crate::KmsError::ModeMismatch { mode: "Casper" });
         }
 
         if let Err(e) = TransactionHash::new(transaction_hash) {
@@ -80,7 +80,9 @@ impl KeysServiceTrait for CasperKeysService {
                 transaction_hash
             );
             error!("Validation error: {:?}", e);
-            return Err(format!("Error reading transaction parameters: {e}"));
+            return Err(crate::KmsError::Msg(format!(
+                "Error reading transaction parameters: {e}"
+            )));
         }
 
         let public_key = Self::resolve_key(key);
@@ -91,7 +93,9 @@ impl KeysServiceTrait for CasperKeysService {
                 public_key, transaction_hash
             );
             error!("Validation error: {:?}", e);
-            return Err(format!("Error reading transaction parameters: {e}"));
+            return Err(crate::KmsError::Msg(format!(
+                "Error reading transaction parameters: {e}"
+            )));
         }
 
         let signature = self
@@ -104,7 +108,7 @@ impl KeysServiceTrait for CasperKeysService {
             .verify(transaction_hash, &signature, &public_key)
             .await?;
         if !verified {
-            return Err("Signature verification failed after signing".to_string());
+            return Err(crate::KmsError::PostSignVerifyFailed);
         }
 
         Ok(SigEntry {
@@ -139,13 +143,15 @@ impl KeysServiceTrait for CasperKeysService {
         config: &Config,
         transaction_str: &str,
         key: &str,
-    ) -> Result<String, String> {
+    ) -> crate::Result<String> {
         if !config.is_casper_mode() {
-            return Err("Only Casper mode is supported".to_string());
+            return Err(crate::KmsError::ModeMismatch { mode: "Casper" });
         }
 
-        let transaction: Transaction = Transaction::from_json_string(transaction_str)
-            .map_err(|e| format!("Failed to parse transaction: {e}"))?;
+        let transaction: Transaction =
+            Transaction::from_json_string(transaction_str).map_err(|e| {
+                crate::KmsError::ParseTransaction(format!("Failed to parse transaction: {e}"))
+            })?;
 
         let transaction_hash_str = transaction.hash().to_string();
 
@@ -165,21 +171,21 @@ impl KeysServiceTrait for CasperKeysService {
             .keys_service
             .sign(&transaction_hash_str, &public_key, Some(CASPER_SECP_PREFIX))
             .await
-            .map_err(|e| format!("Signing failed: {e}"))?;
+            .map_err(|e| crate::KmsError::SigningFailed(e.to_string()))?;
 
         // Verify the signature immediately
         let verified = self
             .verify(&transaction_hash_str, &signature, &public_key)
             .await?;
         if !verified {
-            return Err("Signature verification failed after signing".to_string());
+            return Err(crate::KmsError::PostSignVerifyFailed);
         }
 
         let signed_transaction = transaction.add_signature(&public_key, &signature);
 
-        signed_transaction
-            .to_json_string()
-            .map_err(|e| format!("Failed to serialize signed transaction: {e}"))
+        signed_transaction.to_json_string().map_err(|e| {
+            crate::KmsError::Msg(format!("Failed to serialize signed transaction: {e}"))
+        })
     }
 
     async fn verify(
@@ -187,7 +193,7 @@ impl KeysServiceTrait for CasperKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let key = Self::resolve_key(key);
         self.keys_service
             .verify(transaction_hash_hex, signature_hex, &key)
@@ -198,20 +204,20 @@ impl KeysServiceTrait for CasperKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let key = Self::resolve_key(key);
         self.keys_service
             .verify_via_kms(transaction_hash_hex, signature_hex, &key)
             .await
     }
 
-    async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+    async fn delete_key(&mut self, key: &str) -> crate::Result<bool> {
         // Delegates to KeysService after resolving the Casper address form.
         let key = Self::resolve_key(key);
         self.keys_service.delete_key(&key).await
     }
 
-    async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
+    async fn list_keys(&mut self) -> crate::Result<Vec<KeyEntry>> {
         // Delegates to KeysService.
         self.keys_service.list_keys().await
     }
@@ -595,7 +601,7 @@ mod tests {
             .await;
 
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err = result.unwrap_err().to_string();
         assert!(
             err.contains("Failed to parse json-args")
                 || err.contains("Failed to parse transaction"),
@@ -663,7 +669,7 @@ mod tests {
             result.is_err(),
             "Expected signing to fail due to invalid input"
         );
-        let error = result.unwrap_err();
+        let error = result.unwrap_err().to_string();
         assert!(
             error.contains("Error reading transaction parameters"),
             "Unexpected error: {error}"

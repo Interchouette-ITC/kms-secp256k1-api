@@ -26,7 +26,7 @@ impl EthereumKeysService {
     /// # Errors
     /// This function returns an error if the underlying `KeysService::new`
     /// call fails, propagating its error as a string.
-    pub async fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
+    pub async fn new(config: Config, crypto_service: CryptoService) -> crate::Result<Self> {
         let keys_service = KeysService::new(config, crypto_service).await?;
         Ok(Self { keys_service })
     }
@@ -44,7 +44,7 @@ impl KeysServiceTrait for EthereumKeysService {
     /// # Errors
     ///
     /// Returns an error if key creation, public key conversion, or alias creation fails.
-    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
+    async fn create_key(&mut self, _config: &Config) -> crate::Result<KeyEntry> {
         let (key_id, public_key_base64, public_key) = self.keys_service.create_kms_key().await?;
 
         let key = self.resolve_key(&public_key)?;
@@ -77,7 +77,7 @@ impl KeysServiceTrait for EthereumKeysService {
         config: &Config,
         transaction_hash: &str,
         key: &str,
-    ) -> Result<SigEntry, String> {
+    ) -> crate::Result<SigEntry> {
         Self::ensure_ethereum_mode(config)?;
 
         Self::validate_transaction_hash(transaction_hash)?;
@@ -124,11 +124,11 @@ impl KeysServiceTrait for EthereumKeysService {
         config: &Config,
         transaction_str: &str,
         key: &str,
-    ) -> Result<String, String> {
+    ) -> crate::Result<String> {
         Self::ensure_ethereum_mode(config)?;
 
         let tx_json: serde_json::Value = serde_json::from_str(transaction_str)
-            .map_err(|e| format!("Failed to parse input JSON: {e}"))?;
+            .map_err(|e| crate::KmsError::ParseJson(e.to_string()))?;
 
         // Extract transaction and existing signatures if wrapped
         let (transaction_value, mut signatures) = match tx_json {
@@ -143,12 +143,14 @@ impl KeysServiceTrait for EthereumKeysService {
                     (serde_json::Value::Object(map), vec![])
                 }
             }
-            _ => return Err("Unsupported transaction format".to_string()),
+            _ => return Err(crate::KmsError::UnsupportedTxFormat),
         };
 
         // Deserialize transaction for sighash
         let transaction: TransactionRequest = serde_json::from_value(transaction_value.clone())
-            .map_err(|e| format!("Failed to parse transaction: {e}"))?;
+            .map_err(|e| {
+                crate::KmsError::ParseTransaction(format!("Failed to parse transaction: {e}"))
+            })?;
 
         let mut transaction_hash = format!("{:x}", transaction.sighash());
         transaction_hash = transaction_hash.trim_start_matches("0x").to_string();
@@ -166,7 +168,7 @@ impl KeysServiceTrait for EthereumKeysService {
 
         // Parse signature to get v, r, s
         let signature = Signature::from_str(&signature_hex)
-            .map_err(|e| format!("Failed to serialize signature: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to serialize signature: {e}")))?;
 
         // Append new signature to signatures array
         signatures.push(Self::signature_to_json(
@@ -182,8 +184,9 @@ impl KeysServiceTrait for EthereumKeysService {
             "signatures": signatures,
         });
 
-        serde_json::to_string(&result)
-            .map_err(|e| format!("Failed to serialize signed transaction JSON: {e}"))
+        serde_json::to_string(&result).map_err(|e| {
+            crate::KmsError::Msg(format!("Failed to serialize signed transaction JSON: {e}"))
+        })
     }
 
     async fn verify(
@@ -191,7 +194,7 @@ impl KeysServiceTrait for EthereumKeysService {
         transaction_hash: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let public_key = self.resolve_public_key(key).await?;
         self.keys_service
             .verify_eip155(transaction_hash, signature_hex, &public_key)
@@ -202,20 +205,20 @@ impl KeysServiceTrait for EthereumKeysService {
         transaction_hash: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let public_key = self.resolve_public_key(key).await?;
         self.keys_service
             .verify_via_kms_eip155(transaction_hash, signature_hex, &public_key)
             .await
     }
 
-    async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+    async fn delete_key(&mut self, key: &str) -> crate::Result<bool> {
         // Delegates to KeysService after resolving the Ethereum address.
         let key = self.resolve_key(key)?;
         self.keys_service.delete_key(&key).await
     }
 
-    async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
+    async fn list_keys(&mut self) -> crate::Result<Vec<KeyEntry>> {
         // Delegates to KeysService.
         self.keys_service.list_keys().await
     }
@@ -239,12 +242,12 @@ impl EthereumKeysService {
         key: &str,
         public_key: &str,
         config: &Config,
-    ) -> Result<String, String> {
+    ) -> crate::Result<String> {
         let mut signature_hex = self
             .keys_service
             .sign(transaction_hash, key, None)
             .await
-            .map_err(|e| format!("Signing failed: {e}"))?;
+            .map_err(|e| crate::KmsError::SigningFailed(e.to_string()))?;
 
         if signature_hex.len() == SIGNATURE_RS_LEN {
             let v_hex = match self.keys_service.crypto_service.recover_v(
@@ -272,7 +275,7 @@ impl EthereumKeysService {
             .verify(transaction_hash, &signature_hex, public_key)
             .await?;
         if !is_valid {
-            return Err("Signature verification failed".to_string());
+            return Err(crate::KmsError::VerificationFailed);
         }
 
         Ok(signature_hex)
@@ -295,7 +298,7 @@ impl EthereumKeysService {
     /// # Errors
     /// - Returns an error if the input is treated as a public key and the conversion fails.
     ///
-    fn resolve_key(&mut self, key: &str) -> Result<String, String> {
+    fn resolve_key(&mut self, key: &str) -> crate::Result<String> {
         if key.len() == ETH_SECP_LEN {
             self.keys_service
                 .crypto_service
@@ -303,7 +306,7 @@ impl EthereumKeysService {
                 .map_err(|e| {
                     let msg = format!("Failed to convert public key to address: {e:?}");
                     error!("{}", &msg);
-                    msg
+                    crate::KmsError::Msg(msg)
                 })
         } else {
             Ok(key.to_string())
@@ -327,7 +330,7 @@ impl EthereumKeysService {
     /// Returns an error if:
     /// - The public key cannot be retrieved from the KMS for the given alias.
     /// - Conversion from raw public key bytes to the expected hex format fails.
-    pub async fn resolve_public_key(&mut self, key: &str) -> Result<String, String> {
+    pub async fn resolve_public_key(&mut self, key: &str) -> crate::Result<String> {
         if key.len() == ETH_SECP_LEN {
             Ok(key.to_string())
         } else {
@@ -339,7 +342,7 @@ impl EthereumKeysService {
                 .map_err(|e| {
                     let msg = format!("Failed to get public key from alias with KMS: {e}");
                     error!("{}", msg);
-                    msg
+                    crate::KmsError::Msg(msg)
                 })?;
             self.keys_service
                 .crypto_service
@@ -347,49 +350,49 @@ impl EthereumKeysService {
                 .map_err(|e| {
                     let msg = format!("public_key conversion failed: {e:?}");
                     error!("{}", &msg);
-                    msg
+                    crate::KmsError::Msg(msg)
                 })
         }
     }
 
-    fn validate_public_key(public_key: &str, context: &str) -> Result<(), String> {
+    fn validate_public_key(public_key: &str, context: &str) -> crate::Result<()> {
         let public_key_bytes = hex::decode(public_key).map_err(|e| {
             let msg = format!("Error decoding public key in {context}: {e:?}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })?;
 
         PublicKey::from_sec1_bytes(&public_key_bytes).map_err(|e| {
             let msg = format!("Invalid public key bytes in {context}: {e:?}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })?;
 
         Ok(())
     }
 
-    fn validate_signature_length(hex: &str) -> Result<(), String> {
-        let bytes = hex::decode(hex).map_err(|_| "Invalid hex in signature".to_string())?;
+    fn validate_signature_length(hex: &str) -> crate::Result<()> {
+        let bytes = hex::decode(hex).map_err(|_| crate::KmsError::InvalidSignatureHex)?;
         if bytes.len() == 65 {
             Ok(())
         } else {
-            Err("Invalid signature length (expected 65 bytes)".to_string())
+            Err(crate::KmsError::InvalidSignatureLength { expected: 65 })
         }
     }
 
-    fn ensure_ethereum_mode(config: &Config) -> Result<(), String> {
+    fn ensure_ethereum_mode(config: &Config) -> crate::Result<()> {
         if config.is_ethereum_mode() {
             Ok(())
         } else {
-            Err("Only Ethereum mode is supported".to_string())
+            Err(crate::KmsError::ModeMismatch { mode: "Ethereum" })
         }
     }
 
-    fn validate_transaction_hash(transaction_hash: &str) -> Result<H256, String> {
+    fn validate_transaction_hash(transaction_hash: &str) -> crate::Result<H256> {
         transaction_hash.parse::<H256>().map_err(|e| {
             let msg = format!("Invalid transaction hash: {e:?}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })
     }
 
@@ -793,11 +796,11 @@ mod tests {
             .sign_transaction(&config, bad_json, ETH_PUBLIC_KEY)
             .await;
         assert!(result.is_err());
+        let err = result.unwrap_err();
         assert!(
-            result
-                .unwrap_err()
-                .starts_with("Failed to parse input JSON"),
-            "Expected JSON parsing failure"
+            matches!(err, crate::KmsError::ParseJson(_))
+                || err.to_string().starts_with("Failed to parse input JSON"),
+            "Expected JSON parsing failure, got: {err}"
         );
     }
 

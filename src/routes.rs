@@ -80,7 +80,7 @@ pub async fn create_key(Extension(state): Extension<AppState>) -> impl IntoRespo
         ),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err })),
+            Json(json!({ "error": err.to_string() })),
         ),
     }
 }
@@ -315,7 +315,7 @@ pub async fn verify_signature(
         Ok(valid) => (StatusCode::OK, Json(json!({ "valid": valid }))),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err })),
+            Json(json!({ "error": err.to_string() })),
         ),
     }
 }
@@ -357,7 +357,7 @@ pub async fn delete_key(
         Ok(result) => (StatusCode::OK, Json(json!({ "deleted": result }))),
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err })),
+            Json(json!({ "error": err.to_string() })),
         ),
     }
 }
@@ -410,7 +410,7 @@ pub async fn list_keys(Extension(state): Extension<AppState>) -> impl IntoRespon
         }
         Err(err) => (
             StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err })),
+            Json(json!({ "error": err.to_string() })),
         ),
     }
 }
@@ -438,10 +438,7 @@ mod tests_routes {
 
     #[async_trait]
     impl KeysServiceTrait for MockKeysService {
-        async fn create_key(
-            &mut self,
-            _config: &crate::config::Config,
-        ) -> Result<KeyEntry, String> {
+        async fn create_key(&mut self, _config: &crate::config::Config) -> crate::Result<KeyEntry> {
             let public_key = CASPER_PUBLIC_KEY_PREFIXED.to_string();
             Ok(KeyEntry {
                 public_key: Some(public_key).into(),
@@ -451,7 +448,7 @@ mod tests_routes {
             })
         }
 
-        async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
+        async fn list_keys(&mut self) -> crate::Result<Vec<KeyEntry>> {
             Ok(self.keys.clone())
         }
 
@@ -460,12 +457,12 @@ mod tests_routes {
             _config: &crate::config::Config,
             tx: &str,
             public_key: &str,
-        ) -> Result<String, String> {
+        ) -> crate::Result<String> {
             if public_key == "fail" {
-                return Err("Forced signature failure".to_string());
+                return Err(crate::KmsError::Msg("Forced signature failure".into()));
             }
             let mut value: serde_json::Value = serde_json::from_str(tx)
-                .map_err(|e| format!("Invalid JSON in transaction: {e}"))?;
+                .map_err(|e| crate::KmsError::Msg(format!("Invalid JSON in transaction: {e}")))?;
 
             match &mut value {
                 serde_json::Value::Object(map) => match map.get_mut("signed_by") {
@@ -492,10 +489,12 @@ mod tests_routes {
                     }
                 },
                 _ => {
-                    return Err("Transaction JSON must be an object".to_string());
+                    return Err(crate::KmsError::Msg(
+                        "Transaction JSON must be an object".into(),
+                    ));
                 }
             }
-            serde_json::to_string(&value).map_err(|e| e.to_string())
+            serde_json::to_string(&value).map_err(|e| crate::KmsError::Msg(e.to_string()))
         }
 
         async fn sign_transaction_hash(
@@ -503,7 +502,7 @@ mod tests_routes {
             _config: &crate::config::Config,
             _transaction_hash: &str,
             public_key: &str,
-        ) -> Result<SigEntry, String> {
+        ) -> crate::Result<SigEntry> {
             Ok(SigEntry {
                 address: public_key.to_string().into(),
                 public_key: public_key.to_string().into(),
@@ -516,7 +515,7 @@ mod tests_routes {
             _transaction_hash_hex: &str,
             signature_hex: &str,
             public_key: &str,
-        ) -> Result<bool, String> {
+        ) -> crate::Result<bool> {
             Ok(signature_hex == "valid" && public_key == "pubkey")
         }
 
@@ -525,11 +524,11 @@ mod tests_routes {
             _transaction_hash_hex: &str,
             signature_hex: &str,
             public_key: &str,
-        ) -> Result<bool, String> {
+        ) -> crate::Result<bool> {
             Ok(signature_hex == "kms-valid" && public_key == "pubkey")
         }
 
-        async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+        async fn delete_key(&mut self, key: &str) -> crate::Result<bool> {
             let before = self.keys.len();
             self.keys.retain(|key_entry| {
                 key != key_entry.address.as_str() && key_entry.public_key.as_deref() != Some(key)

@@ -55,13 +55,13 @@ impl MockKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         self.crypto_service
             .verify(transaction_hash_hex, signature_hex, key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })
     }
 
@@ -79,13 +79,13 @@ impl MockKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         self.crypto_service
             .verify_eip155(transaction_hash_hex, signature_hex, key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })
     }
 
@@ -105,7 +105,7 @@ impl MockKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         sleep(Duration::from_millis(50)).await;
         self.verify(transaction_hash_hex, signature_hex, key)
     }
@@ -135,7 +135,7 @@ impl MockKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         sleep(Duration::from_millis(50)).await;
         self.verify_eip155(transaction_hash_hex, signature_hex, key)
     }
