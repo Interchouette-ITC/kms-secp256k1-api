@@ -14,13 +14,13 @@ Treat every README as if it could be public tomorrow.
 
 ## Sensitive / internal (keep out of README, docs, Makefile, scripts)
 
-Do **not** put these in committed product text:
+Do **not** put these in committed product text (including `.cursor/rules` and skills):
 
 - Host-absolute paths (any `/…` machine layout)
 - Screen recipes, agent handoff tone
 - "Worker fork" / Cursor agent merge cuisine as the main contributor story
 - Cursor plan/stage IDs
-- Shared credential file paths
+- Credential filenames, env var names for tokens, or how to load them
 
 ## Plan jargon allowlist
 

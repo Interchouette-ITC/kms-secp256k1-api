@@ -67,7 +67,7 @@ gh pr ready <n> --repo Interchouette-ITC/kms-secp256k1-api
 gh pr edit <n> --repo Interchouette-ITC/kms-secp256k1-api --add-reviewer gRoussac
 ```
 
-CODEOWNERS: `* @gRoussac` in repo-root `CODEOWNERS`. Creds: `.github_credentials`. Actions: `.github/workflows/`.
+CODEOWNERS: `* @gRoussac` in repo-root `CODEOWNERS`. Actions: `.github/workflows/`.
 
 ## Workflow (every change)
 
