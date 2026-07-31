@@ -18,7 +18,7 @@ RUN mkdir src && echo "fn main() {}" > src/main.rs
 
 RUN cargo fetch
 
-RUN cargo build --release
+RUN cargo build --release --no-default-features --features all
 
 # Remove dummy sources
 RUN rm -rf src
@@ -27,7 +27,7 @@ COPY src ./src
 
 COPY wasm ./wasm
 
-RUN cargo build --release
+RUN cargo build --release --no-default-features --features all
 
 # Distroless on Debian 13 (trixie family): glibc + libgcc/libstdc++, no shell/apt/perl.
 # Binary is rustls-only (ldd: libc, libm, libgcc) - no OpenSSL .so required.

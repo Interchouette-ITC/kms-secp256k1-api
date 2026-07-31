@@ -183,6 +183,36 @@ impl Config {
     }
 
     #[must_use]
+    pub fn get_blockchain_mode(&self) -> BlockchainMode {
+        self.blockchain_mode.clone()
+    }
+
+    /// Panics if this config's blockchain mode was not compiled into the binary.
+    ///
+    /// Enable the matching Cargo feature (`casper`, `ethereum`, `cosmos`) or `--features all`.
+    #[allow(clippy::missing_const_for_fn)] // body is empty when all chain features are enabled
+    pub fn ensure_blockchain_feature(&self) {
+        #[cfg(not(feature = "casper"))]
+        if self.is_casper_mode() {
+            panic!(
+                "Blockchain mode Casper requires --features casper (or --features all); this binary was built without it"
+            );
+        }
+        #[cfg(not(feature = "ethereum"))]
+        if self.is_ethereum_mode() {
+            panic!(
+                "Blockchain mode Ethereum requires --features ethereum (or --features all); this binary was built without it"
+            );
+        }
+        #[cfg(not(feature = "cosmos"))]
+        if self.is_cosmos_mode() {
+            panic!(
+                "Blockchain mode Cosmos requires --features cosmos (or --features all); this binary was built without it"
+            );
+        }
+    }
+
+    #[must_use]
     pub const fn is_delete_mode(&self) -> bool {
         self.delete_mode
     }

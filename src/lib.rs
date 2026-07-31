@@ -1,3 +1,6 @@
+#[cfg(not(any(feature = "casper", feature = "ethereum", feature = "cosmos")))]
+compile_error!("Enable at least one chain feature: casper, ethereum, cosmos (or --features all)");
+
 use crate::{
     config::Config,
     constants::WASM_PATH,
@@ -5,18 +8,7 @@ use crate::{
         ApiDoc, create_key, delete_key, hello, list_keys, sign_transaction, sign_transaction_hash,
         verify_signature,
     },
-    services::{
-        casper_keys_service::CasperKeysService,
-        cosmos_keys_service::CosmosKeysService,
-        crypto_service::CryptoService,
-        ethereum_keys_service::EthereumKeysService,
-        keys_service::KeysServiceTrait,
-        mocks::{
-            mock_casper_keys_service::MockCasperKeysService,
-            mock_cosmos_keys_service::MockCosmosKeysService,
-            mock_ethereum_keys_service::MockEthereumKeysService,
-        },
-    },
+    services::{crypto_service::CryptoService, keys_service::KeysServiceTrait},
     wasm_loader::WasmLoader,
 };
 use axum::Router;
@@ -61,6 +53,102 @@ pub struct AppState {
     pub keys_service: Arc<Mutex<Box<dyn KeysServiceTrait + Send + Sync>>>,
 }
 
+async fn create_keys_service(
+    config: &Config,
+    crypto_service: CryptoService,
+) -> Box<dyn KeysServiceTrait + Send + Sync> {
+    config.ensure_blockchain_feature();
+
+    #[cfg(feature = "ethereum")]
+    if config.is_ethereum_mode() {
+        return Box::pin(create_ethereum_keys_service(config, crypto_service)).await;
+    }
+
+    #[cfg(feature = "casper")]
+    if config.is_casper_mode() {
+        return Box::pin(create_casper_keys_service(config, crypto_service)).await;
+    }
+
+    #[cfg(feature = "cosmos")]
+    if config.is_cosmos_mode() {
+        return Box::pin(create_cosmos_keys_service(config, crypto_service)).await;
+    }
+
+    panic!(
+        "Blockchain mode {:?} is not supported by this build. Enable the matching Cargo feature (casper, ethereum, or cosmos), or build with --features all.",
+        config.get_blockchain_mode()
+    );
+}
+
+#[cfg(feature = "ethereum")]
+async fn create_ethereum_keys_service(
+    config: &Config,
+    crypto_service: CryptoService,
+) -> Box<dyn KeysServiceTrait + Send + Sync> {
+    if config.is_testing_mode() {
+        Box::new(
+            services::mocks::mock_ethereum_keys_service::MockEthereumKeysService::new(
+                config.clone(),
+                crypto_service,
+            )
+            .expect("Failed to initialize MockEthereumKeysService"),
+        )
+    } else {
+        Box::new(
+            services::ethereum_keys_service::EthereumKeysService::new(
+                config.clone(),
+                crypto_service,
+            )
+            .await
+            .expect("Failed to initialize EthereumKeysService"),
+        )
+    }
+}
+
+#[cfg(feature = "casper")]
+async fn create_casper_keys_service(
+    config: &Config,
+    crypto_service: CryptoService,
+) -> Box<dyn KeysServiceTrait + Send + Sync> {
+    if config.is_testing_mode() {
+        Box::new(
+            services::mocks::mock_casper_keys_service::MockCasperKeysService::new(
+                config.clone(),
+                crypto_service,
+            )
+            .expect("Failed to initialize MockCasperKeysService"),
+        )
+    } else {
+        Box::new(
+            services::casper_keys_service::CasperKeysService::new(config.clone(), crypto_service)
+                .await
+                .expect("Failed to initialize CasperKeysService"),
+        )
+    }
+}
+
+#[cfg(feature = "cosmos")]
+async fn create_cosmos_keys_service(
+    config: &Config,
+    crypto_service: CryptoService,
+) -> Box<dyn KeysServiceTrait + Send + Sync> {
+    if config.is_testing_mode() {
+        Box::new(
+            services::mocks::mock_cosmos_keys_service::MockCosmosKeysService::new(
+                config.clone(),
+                crypto_service,
+            )
+            .expect("Failed to initialize MockCosmosKeysService"),
+        )
+    } else {
+        Box::new(
+            services::cosmos_keys_service::CosmosKeysService::new(config.clone(), crypto_service)
+                .await
+                .expect("Failed to initialize CosmosKeysService"),
+        )
+    }
+}
+
 /// Creates an Axum application instance with the given configuration.
 ///
 /// # Panics
@@ -68,9 +156,10 @@ pub struct AppState {
 /// This function will panic if:
 /// - Loading the WASM module fails.
 /// - Initializing the `CryptoService` fails.
-/// - Initializing the key service (`CasperKeysService`) fails.
+/// - Initializing the key service fails.
+/// - `BLOCKCHAIN_MODE` requests a chain whose Cargo feature was not enabled at compile time.
 ///
-/// These errors are propagated via calls to `expect`.
+/// These errors are propagated via calls to `expect` / `panic`.
 pub async fn create_app(config: Config) -> Router {
     let wasm_loader = WasmLoader::new(WASM_PATH)
         .await
@@ -79,46 +168,7 @@ pub async fn create_app(config: Config) -> Router {
     let crypto_service =
         CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
 
-    let keys_service: Box<dyn KeysServiceTrait> = if config.is_testing_mode() {
-        if config.is_ethereum_mode() {
-            Box::new(
-                MockEthereumKeysService::new(config.clone(), crypto_service)
-                    .expect("Failed to initialize MockEthereumKeysService"),
-            )
-        } else if config.is_casper_mode() {
-            Box::new(
-                MockCasperKeysService::new(config.clone(), crypto_service)
-                    .expect("Failed to initialize MockCasperKeysService"),
-            )
-        } else if config.is_cosmos_mode() {
-            Box::new(
-                MockCosmosKeysService::new(config.clone(), crypto_service)
-                    .expect("Failed to initialize MockCosmosKeysService"),
-            )
-        } else {
-            unimplemented!()
-        }
-    } else if config.is_ethereum_mode() {
-        Box::new(
-            EthereumKeysService::new(config.clone(), crypto_service)
-                .await
-                .expect("Failed to initialize EthereumKeysService"),
-        )
-    } else if config.is_casper_mode() {
-        Box::new(
-            CasperKeysService::new(config.clone(), crypto_service)
-                .await
-                .expect("Failed to initialize CasperKeysService"),
-        )
-    } else if config.is_cosmos_mode() {
-        Box::new(
-            CosmosKeysService::new(config.clone(), crypto_service)
-                .await
-                .expect("Failed to initialize CosmosKeysService"),
-        )
-    } else {
-        unimplemented!()
-    };
+    let keys_service = create_keys_service(&config, crypto_service).await;
 
     let shared_state = AppState {
         config: config.clone(),
@@ -155,6 +205,7 @@ pub async fn create_app(config: Config) -> Router {
 pub async fn run_server(
     config: Config,
 ) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    config.ensure_blockchain_feature();
     let app = create_app(config.clone()).await;
 
     let addr = format!("{}:{}", config.get_addr(), config.get_port());
@@ -177,6 +228,7 @@ mod tests_lib {
     use super::*;
     use tokio::task;
 
+    #[cfg(feature = "casper")]
     #[tokio::test]
     async fn test_run_server_creates_app() {
         let config = ConfigBuilder::new()
@@ -197,7 +249,7 @@ mod tests_lib {
         // If spawn didn't panic, assume success.
     }
 
-    #[cfg(test)]
+    #[cfg(all(test, feature = "casper"))]
     mod tests_create_app {
         use super::*;
         use crate::config::ConfigBuilder;

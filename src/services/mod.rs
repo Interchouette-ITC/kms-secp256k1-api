@@ -1,7 +1,10 @@
 pub mod aws_kms_client_service;
+#[cfg(feature = "casper")]
 pub mod casper_keys_service;
+#[cfg(feature = "cosmos")]
 pub mod cosmos_keys_service;
 pub mod crypto_service;
+#[cfg(feature = "ethereum")]
 pub mod ethereum_keys_service;
 pub mod keys_service;
 pub mod kms_client_service;

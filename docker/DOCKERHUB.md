@@ -298,17 +298,22 @@ KMS_LIST_KEY=your_IAM_Key
 git clone https://github.com/Interchouette-ITC/kms-secp256k1-api.git
 cd kms-secp256k1-api
 cargo build
+# default Cargo feature = casper only (faster). Full multi-chain:
+# cargo build --no-default-features --features all
 ```
 
 ### Run Tests
 
 ```bash
-# Mocks (default, no Docker)
+# Mocks (default, no Docker; --features all)
 make test
+# equivalent: cargo test --no-default-features --features all -- --nocapture
 
 # Real LocalStack KMS (builds/starts kms-localstack, then runs integration tests)
 make test-localstack
 ```
+
+Chain Cargo features: `casper`, `ethereum`, `cosmos`, or `all`. Docker images always build with `--features all` so `BLOCKCHAIN_MODE` works for every chain. Fast single-chain local builds: `make build FEATURES=casper` or plain `cargo build`.
 
 ### LocalStack image
 
@@ -329,8 +334,9 @@ You can use the provided `Makefile` for common tasks:
 
 | Command                      | Description                                                |
 | ---------------------------- | ---------------------------------------------------------- |
-| `make build`                 | Build the Rust project (`cargo build`)                     |
-| `make test`                  | Mock-backed tests (`KMS_TEST_BACKEND=mock`)                |
+| `make build`                 | Build with `FEATURES` (default `all`)                      |
+| `make build FEATURES=casper` | Fast single-chain build                                    |
+| `make test`                  | Mock-backed tests (`KMS_TEST_BACKEND=mock`, `--features all`) |
 | `make test-localstack`       | Integration tests against LocalStack KMS                   |
 | `make lint`                  | Run Clippy linter with strict rules                        |
 | `make check-lint`            | Auto-fix Clippy lints where possible                       |

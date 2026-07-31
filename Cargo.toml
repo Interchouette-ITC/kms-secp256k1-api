@@ -4,12 +4,23 @@ version = "1.1.0"
 edition = "2024"
 authors = ["gRoussac"]
 
+[features]
+default = ["casper"]
+casper = ["dep:casper-rust-wasm-sdk"]
+ethereum = ["dep:ethers"]
+cosmos = ["dep:cosmrs"]
+all = ["casper", "ethereum", "cosmos"]
+
 [dependencies]
 axum = { version = "0.8", default-features = false, features = [
   "http2",
   "tokio",
 ] }
-k256 = { version = "0.13.4", features = ["ecdsa"], default-features = false }
+k256 = { version = "0.13.4", features = [
+  "ecdsa",
+  "pkcs8",
+  "alloc",
+], default-features = false }
 axum-extra = { version = "0.10.1", features = [
   "query",
 ], default-features = false }
@@ -53,11 +64,11 @@ wasmtime = { version = "47.0.3", default-features = false, features = [
   "winch",
 ] }
 async-trait = { version = "0.1.88", default-features = false }
-casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", branch = "dev", default-features = false }
-ethers = { version = "2.0.14", default-features = false }
+casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", branch = "dev", default-features = false, optional = true }
+ethers = { version = "2.0.14", default-features = false, optional = true }
 rand = { version = "0.10.2", default-features = false }
 reqwest = { version = "0.13.4", default-features = false, features = ["json"] }
-cosmrs = { version = "0.22.0", default-features = false, features = ["bip32"] }
+cosmrs = { version = "0.22.0", default-features = false, features = ["bip32"], optional = true }
 
 [patch.crates-io]
 casper-client = { version = "5", git = "https://github.com/casper-ecosystem/casper-client-rs", branch = "dev" }

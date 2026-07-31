@@ -57,7 +57,7 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
 
       - name: Build release binary
-        run: cargo build --release --bin kms-secp256k1-api
+        run: cargo build --release --bin kms-secp256k1-api --no-default-features --features all
 
       - name: Upload binary to GitHub Release
         uses: softprops/action-gh-release@v2
