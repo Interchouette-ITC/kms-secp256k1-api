@@ -1,12 +1,11 @@
 use kms_secp256k1_api::{
-    config::ConfigBuilder,
     constants::COSMOS_TRANSACTION_HASH,
     routes::{Approval, CreateKeyResponse},
 };
 use serial_test::serial;
 
-async fn run_verify_eth_signature_test(via_kms: bool) {
-    let config = ConfigBuilder::new().with_cosmos_mode().build();
+async fn run_verify_cosmos_signature_test(via_kms: bool) {
+    let config = crate::common::config_builder().with_cosmos_mode().build();
     let (server_handle, base_url) = crate::common::start_test_server(config).await;
 
     let client = reqwest::Client::new();
@@ -75,12 +74,12 @@ async fn run_verify_eth_signature_test(via_kms: bool) {
 
 #[tokio::test]
 #[serial]
-async fn test_verify_eth_signature_returns_200_integration() {
-    Box::pin(run_verify_eth_signature_test(false)).await;
+async fn test_verify_cosmos_signature_returns_200_integration() {
+    Box::pin(run_verify_cosmos_signature_test(false)).await;
 }
 
 #[tokio::test]
 #[serial]
-async fn test_verify_eth_via_kms_signature_returns_200_integration() {
-    Box::pin(run_verify_eth_signature_test(true)).await;
+async fn test_verify_cosmos_via_kms_signature_returns_200_integration() {
+    Box::pin(run_verify_cosmos_signature_test(true)).await;
 }

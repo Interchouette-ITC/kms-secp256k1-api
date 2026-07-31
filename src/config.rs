@@ -282,6 +282,10 @@ impl ConfigBuilder {
 
     #[must_use]
     pub const fn with_blockchain_mode(mut self, mode: BlockchainMode) -> Self {
+        self.config.aws.hash_type = match mode {
+            BlockchainMode::Ethereum => HashType::Keccak256,
+            BlockchainMode::Casper | BlockchainMode::Cosmos => HashType::Sha256,
+        };
         self.config.blockchain_mode = mode;
         self
     }
@@ -289,18 +293,21 @@ impl ConfigBuilder {
     #[must_use]
     pub const fn with_casper_mode(mut self) -> Self {
         self.config.blockchain_mode = BlockchainMode::Casper;
+        self.config.aws.hash_type = HashType::Sha256;
         self
     }
 
     #[must_use]
     pub const fn with_ethereum_mode(mut self) -> Self {
         self.config.blockchain_mode = BlockchainMode::Ethereum;
+        self.config.aws.hash_type = HashType::Keccak256;
         self
     }
 
     #[must_use]
     pub const fn with_cosmos_mode(mut self) -> Self {
         self.config.blockchain_mode = BlockchainMode::Cosmos;
+        self.config.aws.hash_type = HashType::Sha256;
         self
     }
 

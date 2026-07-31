@@ -175,17 +175,40 @@ cargo run
 # API runs locally with mock services - no AWS needed
 ```
 
-##### **2. CI/CD Pipeline Testing**
+##### **2. CI/CD Pipeline Testing (mocks)**
 
 ```bash
-# In your CI/CD pipeline
-export TESTING_MODE=true
-export BLOCKCHAIN_MODE=ethereum
-cargo test
-# Run integration tests without AWS credentials
+# Default: in-process mocks (fast, no Docker)
+make test
+# equivalent: KMS_TEST_BACKEND=mock cargo test
 ```
 
-##### **3. Test Environment Deployment**
+##### **3. Integration tests against LocalStack**
+
+```bash
+# Builds kms-localstack image, starts LocalStack on :4566, runs integration tests
+make test-localstack
+# equivalent: KMS_TEST_BACKEND=localstack AWS_ENDPOINT=http://127.0.0.1:4566
+```
+
+| Backend | How | What runs |
+| ------- | --- | --------- |
+| **mock** (default) | `make test` | `TESTING_MODE=true` mock key services |
+| **localstack** | `make test-localstack` | Real AWS SDK → LocalStack KMS (`ECC_SECG_P256K1`) |
+
+Standalone LocalStack (no tests):
+
+```bash
+make docker-build-localstack
+make docker-run-localstack   # http://localhost:4566
+# API against it:
+TESTING_MODE=false AWS_MODE=true AWS_ENDPOINT=http://localhost:4566 cargo run
+```
+
+Images: `interchouette/kms-localstack`, `ghcr.io/groussac/kms-localstack`, `ghcr.io/interchouette-itc/kms-localstack`  
+(Base: `localstack/localstack:4.14.0`.)
+
+##### **4. Test Environment Deployment**
 
 ```bash
 # Deploy to test/staging environment
@@ -194,7 +217,7 @@ export BLOCKCHAIN_MODE=cosmos
 docker run -e TESTING_MODE=true -e BLOCKCHAIN_MODE=cosmos kms-secp256k1-api
 ```
 
-##### **4. Offline Development**
+##### **5. Offline Development**
 
 - **No internet required** - works completely offline
 - **No AWS account needed** - perfect for open source contributors
@@ -441,11 +464,24 @@ The API can be configured using environment variables. You can find an example c
 
 - `AWS_ENDPOINT`: Allows you to override the default AWS KMS endpoint. Useful for local development and testing with AWS-compatible services like LocalStack.
 - `DEFAULT_AWS_ENDPOINT`: The default value is `https://kms.eu-west-3.amazonaws.com` (see `src/constants.rs`).
+- `KMS_TEST_BACKEND`: Integration-test switch — `mock` (default) or `localstack` (used by `make test-localstack`).
 
 If you want to use a local KMS emulator (such as LocalStack), set `AWS_ENDPOINT` to your local endpoint, e.g.:
 
 ```env
+TESTING_MODE=false
+AWS_MODE=true
 AWS_ENDPOINT=http://localhost:4566
+KMS_CREATE_ID=test
+KMS_CREATE_KEY=test
+KMS_SIGN_ID=test
+KMS_SIGN_KEY=test
+```
+
+Or use the bundled image:
+
+```bash
+make docker-build-localstack && make docker-run-localstack
 ```
 
 ### Blockchain-Specific Configuration

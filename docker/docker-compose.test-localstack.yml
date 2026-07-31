@@ -1,0 +1,48 @@
+services:
+  kms-localstack:
+    container_name: kms-localstack-test
+    image: ${KMS_LOCALSTACK_IMAGE:-kms-localstack:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile-localstack
+    ports:
+      - '4566:4566'
+    environment:
+      - AWS_REGION=eu-west-3
+      - SERVICES=kms
+      - DEBUG=0
+      - LOCALSTACK_PERSISTENCE=0
+      - GATEWAY_LISTEN=4566
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/tmp/kms.ready']
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s
+
+  kms-secp256k1-api:
+    container_name: kms-secp256k1-api-test-localstack
+    image: kms-secp256k1-api:latest
+    depends_on:
+      kms-localstack:
+        condition: service_healthy
+    environment:
+      - APP_PORT=4001
+      - TESTING_MODE=false
+      - AWS_MODE=true
+      - AWS_ENDPOINT=http://kms-localstack:4566
+      - AWS_REGION=eu-west-3
+      - KMS_CREATE_ID=test
+      - KMS_CREATE_KEY=test
+      - KMS_SIGN_ID=test
+      - KMS_SIGN_KEY=test
+      - KMS_DELETE_ID=test
+      - KMS_DELETE_KEY=test
+      - KMS_LIST_ID=test
+      - KMS_LIST_KEY=test
+      - DELETE_MODE=true
+      - LIST_MODE=true
+      - BLOCKCHAIN_MODE=casper
+      - COSMOS_HRP=wasm
+    ports:
+      - '4001:4001'

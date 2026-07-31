@@ -1,0 +1,14 @@
+FROM localstack/localstack:4.14.0
+
+ENV SERVICES=kms \
+  DEBUG=0 \
+  LOCALSTACK_PERSISTENCE=0 \
+  GATEWAY_LISTEN=4566 \
+  AWS_DEFAULT_REGION=eu-west-3
+
+COPY --chmod=755 ./bootstrap-kms.sh /etc/localstack/init/ready.d/bootstrap-kms.sh
+
+EXPOSE 4566
+
+HEALTHCHECK --interval=10s --timeout=5s --start-period=20s --retries=12 \
+  CMD test -f /tmp/kms.ready
