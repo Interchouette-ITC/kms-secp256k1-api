@@ -24,7 +24,7 @@ Do **not** recreate `main` as the integration branch once org remotes exist.
 
 ## Commits (signed + conventional)
 
-- Author: **Interchouette** `<contact@interchouette.net>` (local repo `user.*`, not Greg's global).
+- Author: **Interchouette** with GitHub noreply `484423+Interchouette@users.noreply.github.com` (local repo `user.*`, not Greg's global). Do **not** use `contact@interchouette.net` as commit `user.email` - GitHub GH007 rejects it when email privacy blocks pushes.
 - **Sign every commit** with SSH key `~/.ssh/id_ed25519_itc` (`gpg.format=ssh`, `commit.gpgsign=true`).
 - Never commit as Greg's personal identity on this worker repo.
 - Subject grammar: see `github-public-quality.mdc`.
