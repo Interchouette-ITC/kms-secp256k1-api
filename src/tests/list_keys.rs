@@ -1,4 +1,4 @@
-#[cfg(test)]
+#[cfg(all(test, feature = "casper"))]
 mod tests {
     use crate::config::ConfigBuilder;
     use crate::create_app;

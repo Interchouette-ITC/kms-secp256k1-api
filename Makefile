@@ -19,6 +19,12 @@ COMPOSE_TEST ?= docker/docker-compose.test.yml
 COMPOSE_LOCALSTACK ?= docker/docker-compose.localstack.yml
 COMPOSE_TEST_LOCALSTACK ?= docker/docker-compose.test-localstack.yml
 
+# Chain Cargo features: casper | ethereum | cosmos | all
+# Default all so make check/test/docker stay full-coverage.
+# Fast local: make build FEATURES=casper  (or plain `cargo build` = casper only)
+FEATURES ?= all
+CARGO_FEATURES := --no-default-features --features $(FEATURES)
+
 .DEFAULT_GOAL := help
 
 .PHONY: help build build-release check test test-localstack verify \
@@ -57,20 +63,27 @@ help:
 	@echo "  make version-bump-patch|minor|major"
 	@echo "  make version-set VERSION=x.y.z"
 	@echo ""
+	@echo "Features (FEATURES=$(FEATURES)):"
+	@echo "  casper | ethereum | cosmos | all"
+	@echo "  make build FEATURES=casper   # fast single-chain"
+	@echo "  cargo build                  # default feature = casper only"
+	@echo "  make test / make check       # --features all (full suite)"
+	@echo "  Docker images always build with --features all"
+	@echo ""
 	@echo "Release: make version-show → GitHub Release tag v\$$(APP_VERSION)"
-	@echo "Overrides: HUB_IMAGE=$(HUB_IMAGE) APP_VERSION=$(APP_VERSION) CI=0|1 TAG=$(TAG)"
+	@echo "Overrides: HUB_IMAGE=$(HUB_IMAGE) APP_VERSION=$(APP_VERSION) CI=0|1 TAG=$(TAG) FEATURES=$(FEATURES)"
 
 build:
-	cargo build
+	cargo build $(CARGO_FEATURES)
 
 build-release:
-	cargo build --release
+	cargo build --release $(CARGO_FEATURES)
 
 check:
-	cargo check --all --locked
+	cargo check --all --locked $(CARGO_FEATURES)
 
 test: lint
-	KMS_TEST_BACKEND=mock cargo test -- --nocapture
+	KMS_TEST_BACKEND=mock cargo test $(CARGO_FEATURES) -- --nocapture
 
 # Integration tests against LocalStack (requires Docker). Builds image if missing.
 test-localstack: lint docker-build-localstack
@@ -87,7 +100,7 @@ test-localstack: lint docker-build-localstack
 	KMS_TEST_BACKEND=localstack \
 	AWS_ENDPOINT=http://127.0.0.1:4566 \
 	AWS_REGION=eu-west-3 \
-	cargo test --test mod -- --nocapture
+	cargo test $(CARGO_FEATURES) --test mod -- --nocapture
 
 format:
 	cargo fmt
@@ -96,12 +109,12 @@ format-check:
 	cargo fmt -- --check
 
 clippy:
-	cargo clippy --all-targets -- $(CLIPPY_FLAGS)
+	cargo clippy --all-targets $(CARGO_FEATURES) -- $(CLIPPY_FLAGS)
 
 lint: format-check clippy
 
 check-lint: format-check
-	cargo clippy --fix --allow-dirty --allow-staged --all-targets -- $(CLIPPY_FLAGS)
+	cargo clippy --fix --allow-dirty --allow-staged --all-targets $(CARGO_FEATURES) -- $(CLIPPY_FLAGS)
 
 verify: format-check clippy test
 	@echo "verify OK"
@@ -110,7 +123,7 @@ verify: format-check clippy test
 DOC_OUT ?= $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR)/doc,target/doc)
 
 doc:
-	RUSTDOCFLAGS='-D warnings' cargo doc --package kms-secp256k1-api --no-deps
+	RUSTDOCFLAGS='-D warnings' cargo doc --package kms-secp256k1-api --no-deps $(CARGO_FEATURES)
 	@test -d "$(DOC_OUT)/kms_secp256k1_api" || (echo "missing $(DOC_OUT)/kms_secp256k1_api"; exit 1)
 	@rm -rf docs/api-rust
 	@mkdir -p docs/api-rust

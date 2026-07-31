@@ -497,6 +497,7 @@ mod tests {
     use base64::Engine;
     use base64::engine::general_purpose::STANDARD;
 
+    #[cfg(feature = "casper")]
     #[tokio::test]
     async fn test_sign_successful() {
         let config = ConfigBuilder::new().with_casper_mode().build();
@@ -543,6 +544,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "casper")]
     #[tokio::test]
     async fn test_verify_successful() {
         let config = ConfigBuilder::new().with_casper_mode().build();
@@ -573,6 +575,7 @@ mod tests {
         assert!(result.unwrap(), "signature verification returned false");
     }
 
+    #[cfg(feature = "ethereum")]
     #[tokio::test]
     async fn test_verify_eip155_successful() {
         let config = ConfigBuilder::new().with_ethereum_mode().build();
@@ -602,6 +605,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "casper")]
     #[tokio::test]
     async fn test_verify_via_kms_successful() {
         let config = ConfigBuilder::new().with_casper_mode().build();
@@ -632,6 +636,7 @@ mod tests {
         assert!(result.unwrap(), "KMS verification returned false");
     }
 
+    #[cfg(feature = "ethereum")]
     #[tokio::test]
     async fn test_verify_via_kms_eip155_successful() {
         let config = ConfigBuilder::new().with_ethereum_mode().build();
