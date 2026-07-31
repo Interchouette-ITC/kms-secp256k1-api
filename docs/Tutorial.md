@@ -5,7 +5,9 @@
 Rust-based API service that provides key management, signing, and verification using **secp256k1**.
 Supports multiple blockchains including **Ethereum**, **Cosmos**, and **Casper**.
 
-This service is designed to run securely inside Docker and can connect to cloud KMS providers like AWS KMS.
+This service is designed to run securely inside Docker and connects to **AWS KMS** (currently the only supported KMS backend).
+
+Docker Hub / GHCR image tags and publish flow: [`docker/DOCKERHUB.md`](../docker/DOCKERHUB.md).
 
 <details>
   <summary><strong><code>Overview</code></strong></summary>
@@ -19,8 +21,8 @@ It enables cryptographic transactions (generation, signing, listing, deletion) v
   <summary><strong><code>Key Features</code></strong></summary>
 
 - Multi-chain support: Works with Casper, Ethereum, and Cosmos networks.
-- Secure key management: All signing and key operations are handled within AWS KMS — private keys never leave the AWS infrastructure.
-- Robust API: Exposes endpoints for key life cycle and signing — `/createKey`, `/deleteKey`, `/listKeys`, `/signTransaction`, `/signTransactionHash`, `/verifySignature`.
+- Secure key management: All signing and key operations are handled within AWS KMS - private keys never leave the AWS infrastructure.
+- Robust API: Exposes endpoints for key life cycle and signing - `/createKey`, `/deleteKey`, `/listKeys`, `/signTransaction`, `/signTransactionHash`, `/verifySignature`.
 - Selective endpoints: Security-sensitive routes like deletion and listing can be disabled at runtime.
 - Auditable and secure: Fine-grained access control, logging, and no local key storage.
 </details>
@@ -52,13 +54,13 @@ The API abstracts cryptographic details, presenting your app with a secure and s
   <summary><strong><code>Highlights & Endpoints</code></strong></summary>
 
 - Endpoints:
-  - POST /createKey — create a new keypair
-  - POST /signTransactionHash — sign a hex transaction hash (query param: keys)
-  - POST /signTransaction — sign a JSON transaction (query param: keys)
-  - GET /verifySignature — verify signatures (optional via KMS)
-  - GET /listKeys — list keys (can be disabled)
-  - DELETE /deleteKey — delete a key (can be disabled)
-  - GET / — simple hello/health
+  - POST /createKey - create a new keypair
+  - POST /signTransactionHash - sign a hex transaction hash (query param: keys)
+  - POST /signTransaction - sign a JSON transaction (query param: keys)
+  - GET /verifySignature - verify signatures (optional via KMS)
+  - GET /listKeys - list keys (can be disabled)
+  - DELETE /deleteKey - delete a key (can be disabled)
+  - GET / - simple hello/health
 
   - OpenAPI / Swagger UI:
   - Swagger UI: /docs on `http://localhost:<APP_PORT>/docs`
@@ -245,24 +247,24 @@ Environment variables can be set in .env file
 
 Core configuration:
 
-- APP_PORT — HTTP port inside the container (e.g., `4001` for test, `4000` for prod)
-- TESTING_MODE — true or false (enables test mode with dummy KMS values)
-- BLOCKCHAIN_MODE — one of: casper, ethereum, cosmos
-- AWS_MODE — true to enable AWS KMS; false to disable (currently only AWS is supported)
-- AWS_REGION — e.g., eu-west-3 (required if AWS_MODE=true)
-- DELETE_MODE — true enables DELETE /deleteKey endpoint
-- LIST_MODE — true enables GET /listKeys endpoint
-- ETH_CHAIN_ID — Ethereum chain ID (used for signing transactions), defaults to wasmd `1`
-- COSMOS_HRP — Bech32 HRP prefix for Cosmos addresses, defaults to wasmd `cosmos`
-- COSMOS_REST_URL — URL for the Cosmos REST node, defaults to wasmd `http://localhost:1317/cosmos/auth/v1beta1/accounts/`
-- COSMOS_CHAIN_ID — Cosmos chain ID, defaults to wasmd `testing`
+- APP_PORT - HTTP port inside the container (e.g., `4001` for test, `4000` for prod)
+- TESTING_MODE - true or false (enables test mode with dummy KMS values)
+- BLOCKCHAIN_MODE - one of: casper, ethereum, cosmos
+- AWS_MODE - true to enable AWS KMS; false to disable (currently only AWS is supported)
+- AWS_REGION - e.g., eu-west-3 (required if AWS_MODE=true)
+- DELETE_MODE - true enables DELETE /deleteKey endpoint
+- LIST_MODE - true enables GET /listKeys endpoint
+- ETH_CHAIN_ID - Ethereum chain ID (used for signing transactions), defaults to wasmd `1`
+- COSMOS_HRP - Bech32 HRP prefix for Cosmos addresses, defaults to wasmd `cosmos`
+- COSMOS_REST_URL - URL for the Cosmos REST node, defaults to wasmd `http://localhost:1317/cosmos/auth/v1beta1/accounts/`
+- COSMOS_CHAIN_ID - Cosmos chain ID, defaults to wasmd `testing`
 
 KMS key routing (used by your backend/KMS integration):
 
-- KMS_CREATE_ID, KMS_CREATE_KEY — routing for key creation
-- KMS_SIGN_ID, KMS_SIGN_KEY — routing for signing
-- KMS_DELETE_ID, KMS_DELETE_KEY — routing for deletion
-- KMS_LIST_ID, KMS_LIST_KEY — routing for listing
+- KMS_CREATE_ID, KMS_CREATE_KEY - routing for key creation
+- KMS_SIGN_ID, KMS_SIGN_KEY - routing for signing
+- KMS_DELETE_ID, KMS_DELETE_KEY - routing for deletion
+- KMS_LIST_ID, KMS_LIST_KEY - routing for listing
 
 **Example of `.env` (production) file:**
 

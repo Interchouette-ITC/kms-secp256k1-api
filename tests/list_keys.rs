@@ -1,22 +1,14 @@
-use kms_secp256k1_api::{config::ConfigBuilder, routes::CreateKeyResponse, run_server};
+mod common;
+
+use kms_secp256k1_api::{config::ConfigBuilder, routes::CreateKeyResponse};
 use serde_json::Value;
 use serial_test::serial;
-use std::time::Duration;
-use tokio::task;
-
-async fn start_server(list_mode: bool) -> task::JoinHandle<()> {
-    let config = ConfigBuilder::new().with_list_mode(list_mode).build();
-
-    task::spawn(async move {
-        let _ = run_server(config).await;
-    })
-}
 
 #[tokio::test]
 #[serial]
 async fn test_list_keys_returns_200_and_keys_present() {
-    let server_handle = start_server(true).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new().with_list_mode(true).build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
     let client = reqwest::Client::new();
     let mut created_keys = Vec::new();
@@ -24,7 +16,7 @@ async fn test_list_keys_returns_200_and_keys_present() {
     // Create two keys
     for _ in 0..2 {
         let resp = client
-            .post("http://127.0.0.1:4000/createKey")
+            .post(format!("{base}/createKey"))
             .send()
             .await
             .expect("Failed to create key");
@@ -41,7 +33,7 @@ async fn test_list_keys_returns_200_and_keys_present() {
 
     // Call listKeys
     let resp = client
-        .get("http://127.0.0.1:4000/listKeys")
+        .get(format!("{base}/listKeys"))
         .send()
         .await
         .expect("Failed to send request to listKeys");
@@ -78,11 +70,11 @@ async fn test_list_keys_returns_200_and_keys_present() {
 #[tokio::test]
 #[serial]
 async fn test_list_keys_returns_500_on_error() {
-    let server_handle = start_server(true).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new().with_list_mode(true).build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
     // Simulate internal error by skipping key creation, if that causes a 500 in your implementation
-    let resp = reqwest::get("http://127.0.0.1:4000/listKeys")
+    let resp = reqwest::get(format!("{base}/listKeys"))
         .await
         .expect("Failed to send request to listKeys");
 
@@ -100,10 +92,10 @@ async fn test_list_keys_returns_500_on_error() {
 #[tokio::test]
 #[serial]
 async fn test_list_keys_returns_404_when_disabled() {
-    let server_handle = start_server(false).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new().with_list_mode(false).build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-    let resp = reqwest::get("http://127.0.0.1:4000/listKeys")
+    let resp = reqwest::get(format!("{base}/listKeys"))
         .await
         .expect("Failed to send request to listKeys");
 

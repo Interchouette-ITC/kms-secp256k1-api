@@ -90,7 +90,7 @@ pub async fn create_app(config: Config) -> Router {
         } else if config.is_cosmos_mode() {
             Box::new(
                 MockCosmosKeysService::new(config.clone(), crypto_service)
-                    .expect("Failed to initialize MockCasperKeysService"),
+                    .expect("Failed to initialize MockCosmosKeysService"),
             )
         } else {
             unimplemented!()
@@ -99,19 +99,19 @@ pub async fn create_app(config: Config) -> Router {
         Box::new(
             EthereumKeysService::new(config.clone(), crypto_service)
                 .await
-                .expect("Failed to initialize Failed to initialize EthereumKeysService"),
+                .expect("Failed to initialize EthereumKeysService"),
         )
     } else if config.is_casper_mode() {
         Box::new(
             CasperKeysService::new(config.clone(), crypto_service)
                 .await
-                .expect("Failed to initialize Failed to initialize CasperKeysService"),
+                .expect("Failed to initialize CasperKeysService"),
         )
     } else if config.is_cosmos_mode() {
         Box::new(
             CosmosKeysService::new(config.clone(), crypto_service)
                 .await
-                .expect("Failed to initialize Failed to initialize CasperKeysService"),
+                .expect("Failed to initialize CosmosKeysService"),
         )
     } else {
         unimplemented!()
@@ -153,7 +153,7 @@ pub async fn run_server(config: Config) -> Result<(), Box<dyn std::error::Error 
     let app = create_app(config.clone()).await;
 
     let addr = format!("{}:{}", config.get_addr(), config.get_port());
-    info!("🚀 Listening on {addr}");
+    info!("Listening on {addr}");
 
     if config.is_testing_mode() {
         warn!("TESTING_MODE ACTIVE");
@@ -181,7 +181,7 @@ mod tests_lib {
 
         // Spawn the server in a background task but abort immediately,
         // just test that it starts without panics or errors.
-        let server_future = task::spawn(async move { run_server(config).await });
+        let server_future = task::spawn(async move { Box::pin(run_server(config)).await });
 
         // Wait briefly or abort since we don't want it running forever.
         // Here just wait a little and then abort.
@@ -196,8 +196,25 @@ mod tests_lib {
     mod tests_create_app {
         use super::*;
         use crate::config::ConfigBuilder;
-        use axum::http;
+        use axum::http::{self, Method, StatusCode};
         use tower::ServiceExt;
+
+        async fn oneshot(
+            app: &axum::Router,
+            method: Method,
+            uri: &str,
+        ) -> axum::http::Response<axum::body::Body> {
+            app.clone()
+                .oneshot(
+                    http::Request::builder()
+                        .method(method)
+                        .uri(uri)
+                        .body(axum::body::Body::empty())
+                        .unwrap(),
+                )
+                .await
+                .unwrap()
+        }
 
         #[tokio::test]
         async fn test_create_app_routes() {
@@ -209,151 +226,69 @@ mod tests_lib {
 
             let app = create_app(config.clone()).await;
 
-            let response = app
-                .clone()
-                .oneshot(
-                    http::Request::builder()
-                        .uri("/")
-                        .body(axum::body::Body::empty())
-                        .unwrap(),
-                )
-                .await
-                .unwrap();
-
-            assert_eq!(response.status(), http::StatusCode::OK);
-
-            let delete_route = app
-                .clone()
-                .oneshot(
-                    http::Request::builder()
-                        .method("DELETE")
-                        .uri("/deleteKey?key=test_key")
-                        .body(axum::body::Body::empty())
-                        .unwrap(),
-                )
-                .await
-                .unwrap();
+            assert_eq!(
+                oneshot(&app, Method::GET, "/").await.status(),
+                StatusCode::OK
+            );
 
             assert!(
-                delete_route.status().is_success(),
+                oneshot(&app, Method::DELETE, "/deleteKey?key=test_key")
+                    .await
+                    .status()
+                    .is_success(),
                 "Expected /deleteKey route to exist or return 404",
             );
 
-            let list_route = app
-                .clone()
-                .oneshot(
-                    http::Request::builder()
-                        .method("GET")
-                        .uri("/listKeys")
-                        .body(axum::body::Body::empty())
-                        .unwrap(),
-                )
-                .await
-                .unwrap();
-
             assert!(
-                list_route.status().is_server_error(),
+                oneshot(&app, Method::GET, "/listKeys")
+                    .await
+                    .status()
+                    .is_server_error(),
                 "Expected /listKeys route to exist and return 500"
             );
 
-            let create_key_response = app
-                .clone()
-                .oneshot(
-                    http::Request::builder()
-                        .method("POST")
-                        .uri("/createKey")
-                        .body(axum::body::Body::empty())
-                        .unwrap(),
-                )
-                .await
-                .unwrap();
-
-            assert_ne!(create_key_response.status(), http::StatusCode::NOT_FOUND);
-
-            let list_route = app
-                .clone()
-                .oneshot(
-                    http::Request::builder()
-                        .method("GET")
-                        .uri("/listKeys")
-                        .body(axum::body::Body::empty())
-                        .unwrap(),
-                )
-                .await
-                .unwrap();
+            assert_ne!(
+                oneshot(&app, Method::POST, "/createKey").await.status(),
+                StatusCode::NOT_FOUND
+            );
 
             assert!(
-                list_route.status().is_success(),
+                oneshot(&app, Method::GET, "/listKeys")
+                    .await
+                    .status()
+                    .is_success(),
                 "Expected /listKeys route to exist"
             );
 
-            let sign_hash_response = app
-                .clone()
-                .oneshot(
-                    http::Request::builder()
-                        .method("POST")
-                        .uri("/signTransactionHash")
-                        .body(axum::body::Body::empty())
-                        .unwrap(),
-                )
-                .await
-                .unwrap();
-
             assert_ne!(
-                sign_hash_response.status(),
-                http::StatusCode::NOT_FOUND,
+                oneshot(&app, Method::POST, "/signTransactionHash")
+                    .await
+                    .status(),
+                StatusCode::NOT_FOUND,
                 "Expected /signTransactionHash route to exist"
             );
 
-            let sign_tx_response = app
-                .clone()
-                .oneshot(
-                    http::Request::builder()
-                        .method("POST")
-                        .uri("/signTransaction")
-                        .body(axum::body::Body::empty())
-                        .unwrap(),
-                )
-                .await
-                .unwrap();
             assert_ne!(
-                sign_tx_response.status(),
-                http::StatusCode::NOT_FOUND,
+                oneshot(&app, Method::POST, "/signTransaction")
+                    .await
+                    .status(),
+                StatusCode::NOT_FOUND,
                 "Expected /signTransaction route to exist"
             );
 
-            let verify_response = app
-                .clone()
-                .oneshot(
-                    http::Request::builder()
-                        .method("GET")
-                        .uri("/verifySignature")
-                        .body(axum::body::Body::empty())
-                        .unwrap(),
-                )
-                .await
-                .unwrap();
-
             assert_ne!(
-                verify_response.status(),
-                http::StatusCode::NOT_FOUND,
+                oneshot(&app, Method::GET, "/verifySignature")
+                    .await
+                    .status(),
+                StatusCode::NOT_FOUND,
                 "Expected /verifySignature route to exist"
             );
 
-            let openapi_response = app
-                .clone()
-                .oneshot(
-                    http::Request::builder()
-                        .method("GET")
-                        .uri("/docs/openapi.json")
-                        .body(axum::body::Body::empty())
-                        .unwrap(),
-                )
-                .await
-                .unwrap();
-
             assert!(
-                openapi_response.status().is_success(),
+                oneshot(&app, Method::GET, "/docs/openapi.json")
+                    .await
+                    .status()
+                    .is_success(),
                 "Expected OpenAPI JSON /docs/openapi.json route to exist and respond successfully"
             );
         }

@@ -1,10 +1,10 @@
 # KMS secp256k1 API
 
-A high-performance **custodial software wallet** built in Rust that serves as middleware between your blockchain applications and secure key storage on KMS providers. This API provides cryptographic operations for multiple blockchain networks using secp256k1 elliptic curve cryptography while keeping private keys secure in cloud-based key management systems.
+A high-performance **custodial software wallet** built in Rust that serves as middleware between your blockchain applications and secure key storage in **AWS KMS**. This API provides cryptographic operations for multiple blockchain networks using secp256k1 elliptic curve cryptography while keeping private keys inside AWS KMS.
 
-Native support for Casper, Ethereum, or Cosmos networks
+Native support for Casper, Ethereum, or Cosmos networks.
 
-⚠ Only supporting **AWS** as KMS storage for now, some more KMS providers **secp256k1** will be integrated (TODO)
+Currently **AWS KMS only** - other KMS backends are not supported.
 
 You can find here the [Rust Code documentation](https://interchouette-itc.github.io/kms-secp256k1-api/kms_secp256k1_api).
 

@@ -67,29 +67,27 @@ impl KmsClientService for MockKmsClientService {
         key: &str,
     ) -> Result<bool, String> {
         let expected_cases = [
-            ExpectedMatch {
-                tx_hash: TRANSACTION_HASH,
-                signature: SIGNATURE_BASE64,
-                key: CASPER_PUBLIC_KEY_PREFIXED,
-            },
-            ExpectedMatch {
-                tx_hash: ETH_TRANSACTION_HASH,
-                signature: ETH_SIGNATURE_BASE64,
-                key: ETH_ADDRESS,
-            },
-            ExpectedMatch {
-                tx_hash: COSMOS_TRANSACTION_HASH,
-                signature: COSMOS_SIGNATURE_BASE64,
-                key: COSMOS_PUBLIC_KEY,
-            },
+            (
+                TRANSACTION_HASH,
+                SIGNATURE_BASE64,
+                CASPER_PUBLIC_KEY_PREFIXED,
+            ),
+            (ETH_TRANSACTION_HASH, ETH_SIGNATURE_BASE64, ETH_ADDRESS),
+            (
+                COSMOS_TRANSACTION_HASH,
+                COSMOS_SIGNATURE_BASE64,
+                COSMOS_PUBLIC_KEY,
+            ),
         ];
 
-        let matches = expected_cases.iter().any(|case| {
-            transaction_hash_hex.contains(case.tx_hash)
-                && signature_base64 == case.signature
-                && key.contains(case.key)
-                || key == case.key
-        });
+        let matches = expected_cases
+            .iter()
+            .any(|(tx_hash, signature, match_key)| {
+                (transaction_hash_hex.contains(tx_hash)
+                    && signature_base64 == *signature
+                    && key.contains(match_key))
+                    || key == *match_key
+            });
 
         Ok(matches)
     }
@@ -134,11 +132,4 @@ impl KmsClientService for MockKmsClientService {
             unimplemented!("Mock KMS Client signature type unimplemented for get_public_key")
         }
     }
-}
-
-#[allow(dead_code)]
-struct ExpectedMatch<'a> {
-    tx_hash: &'a str,
-    signature: &'a str,
-    key: &'a str,
 }

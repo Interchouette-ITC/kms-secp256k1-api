@@ -86,7 +86,7 @@ mod tests {
                 .expect("Missing 'signature' in signature");
 
             assert!(
-                public_keys.contains(&signer.to_string()),
+                public_keys.iter().any(|k| k.as_str() == signer),
                 "Unexpected signer: {signer}"
             );
 

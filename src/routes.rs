@@ -1,4 +1,3 @@
-#![allow(clippy::needless_for_each)]
 use crate::{AppState, VERSION};
 use axum::Json;
 use axum::{Extension, response::IntoResponse};
@@ -744,9 +743,7 @@ mod tests_routes {
             config: Config::default(),
         };
 
-        let params = DeleteKeyParams {
-            key: "".to_string(),
-        };
+        let params = DeleteKeyParams { key: String::new() };
 
         let response = delete_key(Extension(state.clone()), Query(params))
             .await

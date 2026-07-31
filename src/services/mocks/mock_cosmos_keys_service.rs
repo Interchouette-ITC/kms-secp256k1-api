@@ -3,8 +3,8 @@ use crate::{
     constants::{COSMOS_SECP_LEN, DEFAULT_COSMOS_HRP},
     services::{
         cosmos_keys_service::{
-            BodyHelper, append_signature_to_transaction, build_auth_info, fee_amount_json,
-            fetch_account_info, signature_to_json,
+            BaseAccount, BodyHelper, PubKey, append_signature_to_transaction, build_auth_info,
+            fee_amount_json, fetch_account_info, signature_to_json,
         },
         crypto_service::CryptoService,
         keys_service::{KeyEntry, KeysServiceTrait, SigEntry},
@@ -17,7 +17,7 @@ use cosmrs::{
     bip32::{PrivateKey, PublicKey},
     proto::cosmos::tx::v1beta1::TxRaw,
     tendermint::chain::Id,
-    tx::{Fee, MessageExt, SignDoc},
+    tx::{AuthInfo, Body, Fee, MessageExt, SignDoc},
 };
 use k256::{
     ecdsa::{Signature, SigningKey, signature::Signer},
@@ -101,7 +101,6 @@ impl KeysServiceTrait for MockCosmosKeysService {
         let der = signature.to_der();
         let der_bytes = der.as_bytes();
         let base64_signature = STANDARD.encode(der_bytes);
-        // let sig_hex_long = hex::encode(der_bytes);
 
         let signature = self
             .inner
@@ -133,150 +132,49 @@ impl KeysServiceTrait for MockCosmosKeysService {
     ///
     /// Returns the signed transaction as a JSON string on success.
     /// Returns an error string if parsing the transaction or signing fails.
-    #[allow(clippy::too_many_lines)]
     async fn sign_transaction(
         &mut self,
         config: &Config,
         transaction_str: &str,
         key: &str,
     ) -> Result<String, String> {
-        let tx_json: serde_json::Value = serde_json::from_str(transaction_str)
-            .map_err(|e| format!("Failed to parse JSON: {e}"))?;
-
-        // Extract chain_id and address
         let chain_id = Id::from_str(&config.get_cosmos_chain_id())
             .map_err(|e| format!("Failed to fetch chain_id: {e}"))?;
 
-        // Get key pair and wallet
-        let key = self.resolve_key(key)?;
-        let key_pair = {
-            let keys = self.inner.keys.lock().await;
-            keys.get(&key)
-                .ok_or_else(|| "Public key not found".to_string())?
-                .clone()
-        };
-        let key = key_pair.address;
-
-        // Deserialize TxBody
-        let helper: BodyHelper = serde_json::from_value(tx_json["body"].clone())
-            .map_err(|e| format!("Invalid TxBody: {e}"))?;
-
-        let tx_body = helper.into_body()?;
-
-        // Deserialize Fee
-        let fee: Fee = serde_json::from_value(tx_json["auth_info"]["fee"].clone())
-            .map_err(|e| format!("Invalid Fee: {e}"))?;
-
-        let private_key_bytes = hex::decode(&key_pair.private_key)
-            .map_err(|e| format!("Failed to decode secret key: {e}"))?;
-
-        let signing_key = SigningKey::from_slice(&private_key_bytes)
-            .map_err(|e| format!("Failed to create signing key: {e}"))?;
-
-        let public_key = signing_key.public_key();
-
-        let public_key_bytes = public_key.to_bytes();
-        let pubkey_base64 = STANDARD.encode(public_key_bytes);
-
-        // Fetch account_number and sequence
-        let mut account = fetch_account_info(&key, &pubkey_base64, config)
-            .await
-            .map_err(|e| format!("Failed to fetch account info: {e}"))?;
-
-        let Some(fetched_pub_key) = account.pub_key.take() else {
-            return Err("Account info is missing pub_key".to_string());
-        };
-
-        if fetched_pub_key.key != pubkey_base64 {
-            return Err(format!(
-                "Invalid fetched public key: got {}",
-                fetched_pub_key.key
-            ));
-        }
-        let auth_info = build_auth_info(&public_key_bytes, account.sequence, &fee)?;
-
-        // Build SignDoc
-        let sign_doc = SignDoc::new(&tx_body, &auth_info, &chain_id, account.sequence)
-            .map_err(|e| format!("SignDoc error: {e}"))?;
-
-        let sign_doc_bytes = sign_doc
-            .into_bytes()
-            .map_err(|e| format!("SignDoc encode error: {e}"))?;
-
-        // Hash and sign
-        let transaction_hash = Sha256::digest(&sign_doc_bytes);
-        let signature: Signature = signing_key.sign(&transaction_hash);
-        let transaction_hash = hex::encode(transaction_hash);
-
-        // Verify signature
-        let signature_hex = signature.to_string();
-        let public_key = hex::encode(public_key_bytes);
-
-        let is_valid = self
-            .verify(&transaction_hash, &signature_hex, &public_key)
+        let (tx_json, tx_body, fee) = Self::parse_body_and_fee(transaction_str)?;
+        let (key, signing_key, public_key_bytes, pubkey_base64) =
+            self.load_signing_material(key).await?;
+        let (account, fetched_pub_key, auth_info) = Self::fetch_account_and_auth_info(
+            &key,
+            &pubkey_base64,
+            &public_key_bytes,
+            &fee,
+            config,
+        )
+        .await?;
+        let (signature, transaction_hash, public_key) = self
+            .sign_and_verify(
+                &tx_body,
+                &auth_info,
+                &chain_id,
+                account.sequence,
+                &signing_key,
+            )
             .await?;
-        if !is_valid {
-            return Err("Generated signature failed verification".to_string());
-        }
 
-        let body_bytes = tx_body
-            .into_bytes()
-            .map_err(|e| format!("Failed to encode body: {e}"))?;
-        let auth_info_bytes = auth_info
-            .into_bytes()
-            .map_err(|e| format!("Failed to encode auth_info: {e}"))?;
-
-        let tx_raw = TxRaw {
-            body_bytes,
-            auth_info_bytes,
-            signatures: vec![signature.to_bytes().to_vec()],
-        };
-
-        let tx_raw_bytes = tx_raw
-            .to_bytes()
-            .map_err(|e| format!("Failed to encode TxRaw: {e}"))?;
-
-        let base64_tx = STANDARD.encode(tx_raw_bytes);
-        let broadcast_request = json!({
-            "tx_bytes": base64_tx,
-            "mode": "BROADCAST_MODE_SYNC"  // or "BLOCK" or "ASYNC"
-        });
-        let fee_amount_json = fee_amount_json(&fee);
-
-        // Existing signatures from the original transaction (if any)
-        let new_signature = signature_to_json(&key, &public_key, &signature, &transaction_hash);
-        let signatures_array = append_signature_to_transaction(&tx_json, new_signature);
-
-        // Prepare final JSON response
-        let result = json!({
-            "chain_id": chain_id,
-            "body": tx_json["body"],
-            "auth_info": {
-                "signer_infos": [
-                    {
-                        "public_key": {
-                            "@type": fetched_pub_key.key_type,
-                            "key": fetched_pub_key.key,
-                        },
-                        "mode_info": {
-                            "single": { "mode": "SIGN_MODE_DIRECT" }
-                        },
-                        "sequence": account.sequence,
-                        "account_number": account.account_number
-                    }
-                ],
-                "fee": {
-                    "amount": fee_amount_json,
-                    "gas_limit": fee.gas_limit
-                }
-            },
-            "broadcast_request": broadcast_request,
-            "signatures": signatures_array
-        });
-
-        // Return the wrapped transaction + signatures JSON
-        serde_json::to_string(&result)
-            .map_err(|e| format!("Failed to serialize final signed transaction: {e}"))
+        Self::assemble_signed_transaction_json(AssembleSignedTx {
+            tx_json: &tx_json,
+            chain_id: &chain_id,
+            fee: &fee,
+            account: &account,
+            fetched_pub_key: &fetched_pub_key,
+            key: &key,
+            public_key: &public_key,
+            signature: &signature,
+            transaction_hash: &transaction_hash,
+            tx_body,
+            auth_info,
+        })
     }
 
     /// Verifies an Cosmos EIP-155 signature for a given transaction hash and public key.
@@ -405,4 +303,181 @@ impl MockCosmosKeysService {
             Ok(key.to_string())
         }
     }
+
+    fn parse_body_and_fee(transaction_str: &str) -> Result<(serde_json::Value, Body, Fee), String> {
+        let tx_json: serde_json::Value = serde_json::from_str(transaction_str)
+            .map_err(|e| format!("Failed to parse JSON: {e}"))?;
+
+        let helper: BodyHelper = serde_json::from_value(tx_json["body"].clone())
+            .map_err(|e| format!("Invalid TxBody: {e}"))?;
+        let tx_body = helper.into_body()?;
+
+        let fee: Fee = serde_json::from_value(tx_json["auth_info"]["fee"].clone())
+            .map_err(|e| format!("Invalid Fee: {e}"))?;
+
+        Ok((tx_json, tx_body, fee))
+    }
+
+    async fn load_signing_material(
+        &mut self,
+        key: &str,
+    ) -> Result<(String, SigningKey, Vec<u8>, String), String> {
+        let key = self.resolve_key(key)?;
+        let key_pair = {
+            let keys = self.inner.keys.lock().await;
+            keys.get(&key)
+                .ok_or_else(|| "Public key not found".to_string())?
+                .clone()
+        };
+        let key = key_pair.address;
+
+        let private_key_bytes = hex::decode(&key_pair.private_key)
+            .map_err(|e| format!("Failed to decode secret key: {e}"))?;
+
+        let signing_key = SigningKey::from_slice(&private_key_bytes)
+            .map_err(|e| format!("Failed to create signing key: {e}"))?;
+
+        let public_key = signing_key.public_key();
+        let public_key_bytes = public_key.to_bytes();
+        let pubkey_base64 = STANDARD.encode(public_key_bytes);
+
+        Ok((key, signing_key, public_key_bytes.to_vec(), pubkey_base64))
+    }
+
+    async fn fetch_account_and_auth_info(
+        key: &str,
+        pubkey_base64: &str,
+        public_key_bytes: &[u8],
+        fee: &Fee,
+        config: &Config,
+    ) -> Result<(BaseAccount, PubKey, AuthInfo), String> {
+        let mut account = fetch_account_info(key, pubkey_base64, config)
+            .await
+            .map_err(|e| format!("Failed to fetch account info: {e}"))?;
+
+        let Some(fetched_pub_key) = account.pub_key.take() else {
+            return Err("Account info is missing pub_key".to_string());
+        };
+
+        if fetched_pub_key.key != pubkey_base64 {
+            return Err(format!(
+                "Invalid fetched public key: got {}",
+                fetched_pub_key.key
+            ));
+        }
+
+        let auth_info = build_auth_info(public_key_bytes, account.sequence, fee)?;
+        Ok((account, fetched_pub_key, auth_info))
+    }
+
+    async fn sign_and_verify(
+        &mut self,
+        tx_body: &Body,
+        auth_info: &AuthInfo,
+        chain_id: &Id,
+        sequence: u64,
+        signing_key: &SigningKey,
+    ) -> Result<(Signature, String, String), String> {
+        let sign_doc = SignDoc::new(tx_body, auth_info, chain_id, sequence)
+            .map_err(|e| format!("SignDoc error: {e}"))?;
+
+        let sign_doc_bytes = sign_doc
+            .into_bytes()
+            .map_err(|e| format!("SignDoc encode error: {e}"))?;
+
+        let transaction_hash = Sha256::digest(&sign_doc_bytes);
+        let signature: Signature = signing_key.sign(&transaction_hash);
+        let transaction_hash = hex::encode(transaction_hash);
+
+        let signature_hex = signature.to_string();
+        let public_key = hex::encode(signing_key.public_key().to_bytes());
+
+        let is_valid = self
+            .verify(&transaction_hash, &signature_hex, &public_key)
+            .await?;
+        if !is_valid {
+            return Err("Generated signature failed verification".to_string());
+        }
+
+        Ok((signature, transaction_hash, public_key))
+    }
+
+    fn assemble_signed_transaction_json(parts: AssembleSignedTx<'_>) -> Result<String, String> {
+        let body_bytes = parts
+            .tx_body
+            .into_bytes()
+            .map_err(|e| format!("Failed to encode body: {e}"))?;
+        let auth_info_bytes = parts
+            .auth_info
+            .into_bytes()
+            .map_err(|e| format!("Failed to encode auth_info: {e}"))?;
+
+        let tx_raw = TxRaw {
+            body_bytes,
+            auth_info_bytes,
+            signatures: vec![parts.signature.to_bytes().to_vec()],
+        };
+
+        let tx_raw_bytes = tx_raw
+            .to_bytes()
+            .map_err(|e| format!("Failed to encode TxRaw: {e}"))?;
+
+        let base64_tx = STANDARD.encode(tx_raw_bytes);
+        let broadcast_request = json!({
+            "tx_bytes": base64_tx,
+            "mode": "BROADCAST_MODE_SYNC"  // or "BLOCK" or "ASYNC"
+        });
+        let fee_amount_json = fee_amount_json(parts.fee);
+
+        let new_signature = signature_to_json(
+            parts.key,
+            parts.public_key,
+            parts.signature,
+            parts.transaction_hash,
+        );
+        let signatures_array = append_signature_to_transaction(parts.tx_json, new_signature);
+
+        let result = json!({
+            "chain_id": parts.chain_id,
+            "body": parts.tx_json["body"],
+            "auth_info": {
+                "signer_infos": [
+                    {
+                        "public_key": {
+                            "@type": parts.fetched_pub_key.key_type,
+                            "key": parts.fetched_pub_key.key,
+                        },
+                        "mode_info": {
+                            "single": { "mode": "SIGN_MODE_DIRECT" }
+                        },
+                        "sequence": parts.account.sequence,
+                        "account_number": parts.account.account_number
+                    }
+                ],
+                "fee": {
+                    "amount": fee_amount_json,
+                    "gas_limit": parts.fee.gas_limit
+                }
+            },
+            "broadcast_request": broadcast_request,
+            "signatures": signatures_array
+        });
+
+        serde_json::to_string(&result)
+            .map_err(|e| format!("Failed to serialize final signed transaction: {e}"))
+    }
+}
+
+struct AssembleSignedTx<'a> {
+    tx_json: &'a serde_json::Value,
+    chain_id: &'a Id,
+    fee: &'a Fee,
+    account: &'a BaseAccount,
+    fetched_pub_key: &'a PubKey,
+    key: &'a str,
+    public_key: &'a str,
+    signature: &'a Signature,
+    transaction_hash: &'a str,
+    tx_body: Body,
+    auth_info: AuthInfo,
 }

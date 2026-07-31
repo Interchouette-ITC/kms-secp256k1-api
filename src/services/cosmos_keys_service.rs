@@ -41,47 +41,11 @@ impl KeysServiceTrait for CosmosKeysService {
     ///
     /// Returns an error if key creation, public key conversion, or alias creation fails.
     async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
-        let (key_id, public_key_base64) = self
-            .keys_service
-            .kms_client_service
-            .create_key()
-            .await
-            .map_err(|e| {
-            let msg = format!("Failed to create_key in KmsClientService: {e}");
-            error!("{}", &msg);
-            msg
-        })?;
-
-        let public_key = self
-            .keys_service
-            .crypto_service
-            .public_key(&public_key_base64)
-            .map_err(|e| {
-                let msg = format!("public_key conversion failed: {e:?}");
-                error!("{}", &msg);
-                msg
-            })?;
-
-        if public_key.is_empty() {
-            let msg = "No public key generated".to_string();
-            error!("{}", &msg);
-            return Err(msg);
-        }
+        let (key_id, public_key_base64, public_key) = self.keys_service.create_kms_key().await?;
 
         let key = self.resolve_key(&public_key)?;
 
-        // Create alias for the key
-        self.keys_service
-            .kms_client_service
-            .create_alias(&key_id, &key)
-            .await
-            .map_err(|e| {
-                let msg = format!("Error creating alias: {e:?}");
-                error!("{}", &msg);
-                msg
-            })?;
-
-        // info!("{}", &public_key_base64);
+        self.keys_service.create_alias(&key_id, &key).await?;
 
         Ok(KeyEntry {
             public_key: Some(public_key.clone()).into(),
@@ -316,11 +280,13 @@ impl KeysServiceTrait for CosmosKeysService {
     }
 
     async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+        // Delegates to KeysService after resolving the Cosmos address.
         let key = self.resolve_key(key)?;
         self.keys_service.delete_key(&key).await
     }
 
     async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
+        // Delegates to KeysService.
         self.keys_service.list_keys().await
     }
 }
@@ -941,19 +907,19 @@ mod tests {
 
         assert!(result.is_ok(), "Expected signing to succeed");
 
-        let signed = result.unwrap();
-        let json: Value = serde_json::from_str(&signed).expect("Invalid JSON returned");
+        let signed_tx = result.unwrap();
+        let json: Value = serde_json::from_str(&signed_tx).expect("Invalid JSON returned");
 
         let signatures = json["signatures"]
             .as_array()
             .expect("Missing 'signatures' array");
         let first = &signatures[0];
 
-        let signer = first["signer"].as_str().expect("Missing 'signer'");
+        let signer_key = first["signer"].as_str().expect("Missing 'signer'");
         let signature = first["signature"].as_str().expect("Missing 'signature'");
 
         assert_eq!(
-            signer, COSMOS_PUBLIC_KEY,
+            signer_key, COSMOS_PUBLIC_KEY,
             "Expected signer to match COSMOS_PUBLIC_KEY"
         );
 

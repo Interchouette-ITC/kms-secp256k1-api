@@ -4,3 +4,5 @@ pub mod casper;
 pub mod cosmos;
 #[cfg(test)]
 pub mod eth;
+
+mod common;

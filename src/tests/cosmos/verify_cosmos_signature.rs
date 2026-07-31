@@ -89,12 +89,12 @@ mod tests {
     #[tokio::test]
     async fn test_verify_signature_returns_200() {
         let via_kms = false;
-        test_verify_signature_returns(via_kms).await
+        Box::pin(test_verify_signature_returns(via_kms)).await;
     }
 
     #[tokio::test]
     async fn test_verify_via_kms_signature_returns_200() {
         let via_kms = true;
-        test_verify_signature_returns(via_kms).await
+        Box::pin(test_verify_signature_returns(via_kms)).await;
     }
 }
