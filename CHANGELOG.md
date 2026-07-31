@@ -20,10 +20,16 @@ First org-cut release will be **1.1.0** (matches current `Cargo.toml`). Notes be
 ### Docker
 
 - Distroless `cc-debian13` runtime; builder `rust:slim-trixie`
-- Hub image `interchouette/kms-secp256k1-api`; GHCR `ghcr.io/interchouette-itc/kms-secp256k1-api`
-- `:dev` via Actions workflow dispatch; `:X.Y.Z` + `:latest` via GitHub Release
+- API image on Hub `interchouette/kms-secp256k1-api`, personal GHCR `ghcr.io/groussac/kms-secp256k1-api`, org GHCR `ghcr.io/interchouette-itc/kms-secp256k1-api`
+- LocalStack image `interchouette/kms-localstack` (+ `ghcr.io/groussac/kms-localstack`, `ghcr.io/interchouette-itc/kms-localstack`)
+- `:dev` via Actions (API: CI/CD Image dev; LocalStack: CI/CD LocalStack Image dev); `:X.Y.Z` + `:latest` via GitHub Release for both images
+- Optional Cargo chain features: default `casper`; `make` / CI / Docker use `--features all`
+
+### Testing
+
+- Dual backends: mock (`make test`) and LocalStack KMS (`make test-localstack`)
 
 ### Docs and tooling
 
 - Keep a Changelog + `make version-show` / version bump targets
-- Release workflow attaches the Linux `kms-secp256k1-api` binary
+- Release workflow attaches the Linux `kms-secp256k1-api` binary and publishes API + LocalStack to Hub and both GHCR registries
