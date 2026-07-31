@@ -6,11 +6,11 @@ Native support for Casper, Ethereum, or Cosmos networks
 
 ⚠ Only supporting **AWS** as KMS storage for now, some more KMS providers **secp256k1** will be integrated (TODO)
 
-You can find here the [Rust Code documentation](https://groussac.github.io/kms-secp256k1-api/kms_secp256k1_api).
+You can find here the [Rust Code documentation](https://interchouette-itc.github.io/kms-secp256k1-api/kms_secp256k1_api).
 
 ## Swagger UI
 
-![KMS secp256k1 API](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/Swagger-UI.png)
+![KMS secp256k1 API](https://github.com/Interchouette-ITC/kms-secp256k1-api/blob/dev/docs/images/Swagger-UI.png)
 
 <details>
   <summary><strong><code>What This Custodial KMS API Does</code></strong></summary>
@@ -28,7 +28,7 @@ This software acts as a **custodial wallet service** that:
 <details>
   <summary><strong><code>Tutorial / Doc</code></strong></summary>
 
-[KMS secp256k1 API Tutorial/Doc](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/Tutorial.md)
+[KMS secp256k1 API Tutorial/Doc](https://github.com/Interchouette-ITC/kms-secp256k1-api/blob/dev/docs/Tutorial.md)
 
 </details>
 
@@ -476,7 +476,7 @@ To use this API securely with AWS KMS, you must configure IAM users in your AWS 
 <details>
   <summary>📷 Click to view image</summary>
 
-![Create Key](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/create_key.png)
+![Create Key](https://github.com/Interchouette-ITC/kms-secp256k1-api/blob/dev/docs/images/create_key.png)
 
 </details><br>
 
@@ -485,7 +485,7 @@ To use this API securely with AWS KMS, you must configure IAM users in your AWS 
 <details>
   <summary>📷 Click to view image</summary>
 
-![Signature](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/signature.png)
+![Signature](https://github.com/Interchouette-ITC/kms-secp256k1-api/blob/dev/docs/images/signature.png)
 
 </details><br>
 
@@ -494,7 +494,7 @@ To use this API securely with AWS KMS, you must configure IAM users in your AWS 
 <details>
   <summary>📷 Click to view image</summary>
 
-![List Keys](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/list_keys.png)
+![List Keys](https://github.com/Interchouette-ITC/kms-secp256k1-api/blob/dev/docs/images/list_keys.png)
 
 </details><br>
 
@@ -503,7 +503,7 @@ To use this API securely with AWS KMS, you must configure IAM users in your AWS 
 <details>
   <summary>📷 Click to view image</summary>
 
-![Delete Key](https://github.com/gRoussac/kms-secp256k1-api/blob/dev/docs/images/delete.png)
+![Delete Key](https://github.com/Interchouette-ITC/kms-secp256k1-api/blob/dev/docs/images/delete.png)
 
 </details><br>
 

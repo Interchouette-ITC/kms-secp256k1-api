@@ -1,4 +1,4 @@
-**KMS Secp256k1 API** - See base docker commands at https://github.com/gRoussac/kms-secp256k1-api
+**KMS Secp256k1 API** - See base docker commands at https://github.com/Interchouette-ITC/kms-secp256k1-api
 
 **A high-performance custodial software wallet middleware for secure blockchain key operations.**
 
@@ -294,7 +294,7 @@ KMS_LIST_KEY=your_IAM_Key
 ### Clone and Build Locally
 
 ```bash
-git clone https://github.com/gRoussac/kms-secp256k1-api.git
+git clone https://github.com/Interchouette-ITC/kms-secp256k1-api.git
 cd kms-secp256k1-api
 cargo build
 ```
@@ -318,11 +318,13 @@ You can use the provided `Makefile` for common tasks:
 | `make test`                  | Run tests with output (`cargo test -- --nocapture`)        |
 | `make lint`                  | Run Clippy linter with strict rules                        |
 | `make check-lint`            | Auto-fix Clippy lints where possible                       |
-| `make docker-build`          | Build image tagged `:latest` and `:<Cargo version>`        |
+| `make docker-build`          | Build Hub image `:latest` and `:<Cargo version>`           |
+| `make docker-build-dev`      | Build and tag `:dev` (Hub + GHCR names)                    |
 | `make docker-build-no-cache` | Build Docker image without cache                           |
 | `make docker-run-test`       | Run Docker Compose test environment (maps port 4001)       |
 | `make docker-run`            | Run Docker Compose production environment (maps port 4000) |
 | `make docker-stop`           | Stop the production container                              |
+| `make version-show`          | Print Cargo.toml version + suggested GitHub Release tag    |
 
 ### Example
 
