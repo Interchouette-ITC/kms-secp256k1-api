@@ -303,8 +303,23 @@ cargo build
 ### Run Tests
 
 ```bash
-cargo test -- --nocapture
+# Mocks (default, no Docker)
+make test
+
+# Real LocalStack KMS (builds/starts kms-localstack, then runs integration tests)
+make test-localstack
 ```
+
+### LocalStack image
+
+```bash
+make docker-build-localstack
+make docker-run-localstack   # :4566
+make docker-stop-localstack
+```
+
+Tags: `interchouette/kms-localstack`, `ghcr.io/groussac/kms-localstack`, `ghcr.io/interchouette-itc/kms-localstack`  
+(Base image `localstack/localstack:4.14.0`.)
 
 ---
 
@@ -315,13 +330,17 @@ You can use the provided `Makefile` for common tasks:
 | Command                      | Description                                                |
 | ---------------------------- | ---------------------------------------------------------- |
 | `make build`                 | Build the Rust project (`cargo build`)                     |
-| `make test`                  | Run tests with output (`cargo test -- --nocapture`)        |
+| `make test`                  | Mock-backed tests (`KMS_TEST_BACKEND=mock`)                |
+| `make test-localstack`       | Integration tests against LocalStack KMS                   |
 | `make lint`                  | Run Clippy linter with strict rules                        |
 | `make check-lint`            | Auto-fix Clippy lints where possible                       |
 | `make docker-build`          | Build Docker image (Hub tags `:latest` + `:<version>`)     |
 | `make docker-build-dev`      | Build and tag `:dev` (Hub + GHCR names)                    |
+| `make docker-build-localstack` | Build slim LocalStack KMS image                          |
 | `make docker-build-no-cache` | Build Docker image without cache                           |
 | `make docker-run-test`       | Run Docker Compose test environment (maps port 4001)       |
+| `make docker-run-localstack` | Start LocalStack on port 4566                              |
+| `make docker-stop-localstack`| Stop LocalStack compose                                    |
 | `make docker-run`            | Run Docker Compose production environment (maps port 4000) |
 | `make docker-stop`           | Stop the production container                              |
 | `make version-show`          | Print Cargo.toml version + suggested GitHub Release tag    |

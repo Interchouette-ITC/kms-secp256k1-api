@@ -13,7 +13,7 @@ mod tests {
     use tower::ServiceExt;
 
     #[tokio::test]
-    async fn test_eth_transaction_hash_returns_200() {
+    async fn test_cosmos_transaction_returns_200() {
         let config = ConfigBuilder::new().with_cosmos_mode().build();
 
         let app = create_app(config).await;

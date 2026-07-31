@@ -1,12 +1,11 @@
 use kms_secp256k1_api::{
-    config::ConfigBuilder,
     constants::ETH_TRANSACTION_HASH,
     routes::{Approval, CreateKeyResponse},
 };
 use serial_test::serial;
 
 async fn run_verify_eth_signature_test(via_kms: bool) {
-    let config = ConfigBuilder::new().with_ethereum_mode().build();
+    let config = crate::common::config_builder().with_ethereum_mode().build();
     let (server_handle, base_url) = crate::common::start_test_server(config).await;
 
     let client = reqwest::Client::new();

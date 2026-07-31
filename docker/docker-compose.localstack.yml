@@ -1,0 +1,21 @@
+services:
+  kms-localstack:
+    container_name: kms-localstack
+    image: ${KMS_LOCALSTACK_IMAGE:-kms-localstack:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile-localstack
+    ports:
+      - '4566:4566'
+    environment:
+      - AWS_REGION=eu-west-3
+      - SERVICES=kms
+      - DEBUG=0
+      - LOCALSTACK_PERSISTENCE=0
+      - GATEWAY_LISTEN=4566
+    healthcheck:
+      test: ['CMD', 'test', '-f', '/tmp/kms.ready']
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 15s

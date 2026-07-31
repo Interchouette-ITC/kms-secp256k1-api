@@ -4,16 +4,14 @@ use casper_rust_wasm_sdk::{
         transaction::Transaction, transaction_params::transaction_str_params::TransactionStrParams,
     },
 };
-use kms_secp256k1_api::{
-    config::ConfigBuilder, constants::SIGNATURE_RSV_LEN, routes::CreateKeyResponse,
-};
+use kms_secp256k1_api::{constants::SIGNATURE_RSV_LEN, routes::CreateKeyResponse};
 use serial_test::serial;
 use std::collections::HashSet;
 
 #[tokio::test]
 #[serial]
 async fn test_sign_casper_transaction_returns_200_integration() {
-    let config = ConfigBuilder::new().build();
+    let config = crate::common::config_builder().build();
     let (server_handle, base_url) = crate::common::start_test_server(config).await;
 
     let client = reqwest::Client::new();

@@ -1,16 +1,15 @@
-mod common;
-
-use kms_secp256k1_api::config::ConfigBuilder;
 use serial_test::serial;
 
 #[tokio::test]
 #[serial]
 async fn test_hello_returns_200() {
-    let config = ConfigBuilder::new()
-        .with_testing_mode(false)
-        .with_aws_mode(true) // Do not mock the KMS
-        .build();
-    let (server_handle, base) = common::start_test_server(config).await;
+    let config = crate::common::apply_backend(
+        kms_secp256k1_api::config::ConfigBuilder::new()
+            .with_testing_mode(false)
+            .with_aws_mode(true),
+    )
+    .build();
+    let (server_handle, base) = crate::common::start_test_server(config).await;
 
     let resp = reqwest::get(format!("{base}/"))
         .await
@@ -28,11 +27,11 @@ async fn test_hello_returns_200() {
 #[tokio::test]
 #[serial]
 async fn test_hello_returns_200_mocked() {
-    let config = ConfigBuilder::new()
+    let config = kms_secp256k1_api::config::ConfigBuilder::new()
         .with_testing_mode(true)
-        .with_aws_mode(true) // Do not mock the KMS
+        .with_aws_mode(true)
         .build();
-    let (server_handle, base) = common::start_test_server(config).await;
+    let (server_handle, base) = crate::common::start_test_server(config).await;
 
     let resp = reqwest::get(format!("{base}/"))
         .await
@@ -50,11 +49,13 @@ async fn test_hello_returns_200_mocked() {
 #[tokio::test]
 #[serial]
 async fn test_hello_with_custom_message() {
-    let config = ConfigBuilder::new()
-        .with_testing_mode(false)
-        .with_aws_mode(true) // Do not mock the KMS
-        .build();
-    let (server_handle, base) = common::start_test_server(config).await;
+    let config = crate::common::apply_backend(
+        kms_secp256k1_api::config::ConfigBuilder::new()
+            .with_testing_mode(false)
+            .with_aws_mode(true),
+    )
+    .build();
+    let (server_handle, base) = crate::common::start_test_server(config).await;
 
     let resp = reqwest::get(format!("{base}/?message=HelloWorld"))
         .await
@@ -73,11 +74,11 @@ async fn test_hello_with_custom_message() {
 #[tokio::test]
 #[serial]
 async fn test_hello_with_custom_message_mocked() {
-    let config = ConfigBuilder::new()
+    let config = kms_secp256k1_api::config::ConfigBuilder::new()
         .with_testing_mode(true)
-        .with_aws_mode(true) // Do not mock the KMS
+        .with_aws_mode(true)
         .build();
-    let (server_handle, base) = common::start_test_server(config).await;
+    let (server_handle, base) = crate::common::start_test_server(config).await;
 
     let resp = reqwest::get(format!("{base}/?message=HelloWorld"))
         .await
