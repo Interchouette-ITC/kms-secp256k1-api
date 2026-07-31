@@ -1,5 +1,4 @@
 use kms_secp256k1_api::{
-    config::ConfigBuilder,
     constants::{COSMOS_TRANSACTION, SIGNATURE_RS_LEN},
     routes::CreateKeyResponse,
 };
@@ -8,8 +7,8 @@ use serial_test::serial;
 
 #[tokio::test]
 #[serial]
-async fn test_sign_eth_transaction_returns_200_integration() {
-    let config = ConfigBuilder::new().with_cosmos_mode().build();
+async fn test_sign_cosmos_transaction_returns_200_integration() {
+    let config = crate::common::config_builder().with_cosmos_mode().build();
     let (server_handle, base_url) = crate::common::start_test_server(config).await;
 
     let client = reqwest::Client::new();

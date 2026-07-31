@@ -277,10 +277,22 @@ impl KeysServiceTrait for CosmosKeysService {
         signature_hex: &str,
         key: &str,
     ) -> crate::Result<bool> {
-        let public_key = self.resolve_public_key(key).await?;
+        let address = self.resolve_key(key)?;
+        let public_key = self.resolve_public_key(&address).await?;
+
+        let is_verified =
+            self.keys_service
+                .verify(transaction_hash_hex, signature_hex, &public_key)?;
+        if !is_verified {
+            return Ok(false);
+        }
+
+        let signature = self.keys_service.crypto_service.unconvert(signature_hex)?;
         self.keys_service
-            .verify_via_kms(transaction_hash_hex, signature_hex, &public_key)
+            .kms_client_service
+            .verify(transaction_hash_hex, &signature, &address)
             .await
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to verify signature with KMS: {e}")))
     }
 
     async fn delete_key(&mut self, key: &str) -> crate::Result<bool> {

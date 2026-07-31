@@ -1,19 +1,16 @@
-mod common;
-
-use kms_secp256k1_api::{config::ConfigBuilder, routes::CreateKeyResponse};
+use kms_secp256k1_api::routes::CreateKeyResponse;
 use serde_json::Value;
 use serial_test::serial;
 
 #[tokio::test]
 #[serial]
 async fn test_list_keys_returns_200_and_keys_present() {
-    let config = ConfigBuilder::new().with_list_mode(true).build();
-    let (server_handle, base) = common::start_test_server(config).await;
+    let config = crate::common::config_builder().with_list_mode(true).build();
+    let (server_handle, base) = crate::common::start_test_server(config).await;
 
     let client = reqwest::Client::new();
     let mut created_keys = Vec::new();
 
-    // Create two keys
     for _ in 0..2 {
         let resp = client
             .post(format!("{base}/createKey"))
@@ -31,7 +28,6 @@ async fn test_list_keys_returns_200_and_keys_present() {
         created_keys.push(parsed);
     }
 
-    // Call listKeys
     let resp = client
         .get(format!("{base}/listKeys"))
         .send()
@@ -45,10 +41,12 @@ async fn test_list_keys_returns_200_and_keys_present() {
         .as_array()
         .expect("Expected 'keys' array in response");
 
-    assert_eq!(
-        keys.len(),
+    // LocalStack may retain keys from earlier tests; require at least the keys we created.
+    assert!(
+        keys.len() >= created_keys.len(),
+        "Expected at least {} keys, got {}",
         created_keys.len(),
-        "Mismatch in number of returned keys"
+        keys.len()
     );
 
     for created in &created_keys {
@@ -70,10 +68,14 @@ async fn test_list_keys_returns_200_and_keys_present() {
 #[tokio::test]
 #[serial]
 async fn test_list_keys_returns_404_when_empty() {
-    let config = ConfigBuilder::new().with_list_mode(true).build();
-    let (server_handle, base) = common::start_test_server(config).await;
+    // LocalStack shares state across tests; an empty key store is not guaranteed.
+    if crate::common::is_localstack() {
+        return;
+    }
 
-    // Empty key store returns 404 (not an internal error)
+    let config = crate::common::config_builder().with_list_mode(true).build();
+    let (server_handle, base) = crate::common::start_test_server(config).await;
+
     let resp = reqwest::get(format!("{base}/listKeys"))
         .await
         .expect("Failed to send request to listKeys");
@@ -92,8 +94,10 @@ async fn test_list_keys_returns_404_when_empty() {
 #[tokio::test]
 #[serial]
 async fn test_list_keys_returns_404_when_disabled() {
-    let config = ConfigBuilder::new().with_list_mode(false).build();
-    let (server_handle, base) = common::start_test_server(config).await;
+    let config = crate::common::config_builder()
+        .with_list_mode(false)
+        .build();
+    let (server_handle, base) = crate::common::start_test_server(config).await;
 
     let resp = reqwest::get(format!("{base}/listKeys"))
         .await
