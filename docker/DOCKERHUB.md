@@ -18,7 +18,11 @@ Size-optimized multi-stage build → `gcr.io/distroless/cc-debian13` (Debian 13 
 | `:latest` | Stable release image (GitHub Release workflow) |
 | `:X.Y.Z` | Versioned release matching `Cargo.toml` (GitHub Release tag `vX.Y.Z`) |
 
-Also on GHCR: `ghcr.io/interchouette-itc/kms-secp256k1-api`
+Also published to:
+
+- Docker Hub: `interchouette/kms-secp256k1-api`
+- Personal GHCR: `ghcr.io/groussac/kms-secp256k1-api`
+- Org GHCR: `ghcr.io/interchouette-itc/kms-secp256k1-api`
 
 Publish:
 
@@ -317,14 +321,30 @@ Chain Cargo features: `casper`, `ethereum`, `cosmos`, or `all`. Docker images al
 
 ### LocalStack image
 
+Slim LocalStack KMS image for integration tests (`make test-localstack`). Base: `localstack/localstack:4.14.0`.
+
+| Tag | Meaning |
+| --- | --- |
+| `:dev` | Development image (Actions “CI/CD LocalStack Image dev” or local `make docker-build-localstack-dev`) |
+| `:latest` | Stable release image (GitHub Release workflow) |
+| `:X.Y.Z` | Versioned release matching `Cargo.toml` (GitHub Release tag `vX.Y.Z`) |
+
+Published to:
+
+- Docker Hub: `interchouette/kms-localstack`
+- Personal GHCR: `ghcr.io/groussac/kms-localstack`
+- Org GHCR: `ghcr.io/interchouette-itc/kms-localstack`
+
+Publish:
+
+- `:dev` → GitHub Actions → **CI/CD LocalStack Image dev** (workflow_dispatch)
+- `:X.Y.Z` + `:latest` → GitHub Release (same workflow as the API image)
+
 ```bash
 make docker-build-localstack
 make docker-run-localstack   # :4566
 make docker-stop-localstack
 ```
-
-Tags: `interchouette/kms-localstack`, `ghcr.io/groussac/kms-localstack`, `ghcr.io/interchouette-itc/kms-localstack`  
-(Base image `localstack/localstack:4.14.0`.)
 
 ---
 
