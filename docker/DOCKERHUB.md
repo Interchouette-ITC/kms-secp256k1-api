@@ -1,4 +1,4 @@
-**KMS Secp256k1 API** - See base docker commands at https://github.com/gRoussac/kms-secp256k1-api
+**KMS Secp256k1 API** - See base docker commands at https://github.com/Interchouette-ITC/kms-secp256k1-api
 
 **A high-performance custodial software wallet middleware for secure blockchain key operations.**
 
@@ -14,13 +14,16 @@ Size-optimized multi-stage build → `gcr.io/distroless/cc-debian13` (Debian 13 
 
 | Tag | Meaning |
 | --- | --- |
-| `:dev` | Development image (manual workflow publish) |
-| `:latest` | Stable release image (manual workflow publish) |
-| `:X.Y.Z` | Versioned release matching `Cargo.toml` (manual) |
+| `:dev` | Development image (Actions “CI/CD Image dev” or local `make docker-build-dev`) |
+| `:latest` | Stable release image (GitHub Release workflow) |
+| `:X.Y.Z` | Versioned release matching `Cargo.toml` (GitHub Release tag `vX.Y.Z`) |
 
 Also on GHCR: `ghcr.io/interchouette-itc/kms-secp256k1-api`
 
-Publish via GitHub Actions → **CI/CD Image 2.0** → Run workflow (enter tags, e.g. `dev` or `latest 1.1.0`).
+Publish:
+
+- `:dev` → GitHub Actions → **CI/CD Image dev** (workflow_dispatch)
+- `:X.Y.Z` + `:latest` → GitHub Release tag `vX.Y.Z` (must equal `Cargo.toml`; see `make version-show`)
 
 ## Overview
 
@@ -292,7 +295,7 @@ KMS_LIST_KEY=your_IAM_Key
 ### Clone and Build Locally
 
 ```bash
-git clone https://github.com/gRoussac/kms-secp256k1-api.git
+git clone https://github.com/Interchouette-ITC/kms-secp256k1-api.git
 cd kms-secp256k1-api
 cargo build
 ```
@@ -315,11 +318,13 @@ You can use the provided `Makefile` for common tasks:
 | `make test`                  | Run tests with output (`cargo test -- --nocapture`)        |
 | `make lint`                  | Run Clippy linter with strict rules                        |
 | `make check-lint`            | Auto-fix Clippy lints where possible                       |
-| `make docker-build`          | Build Docker image using network=host                      |
+| `make docker-build`          | Build Docker image (Hub tags `:latest` + `:<version>`)     |
+| `make docker-build-dev`      | Build and tag `:dev` (Hub + GHCR names)                    |
 | `make docker-build-no-cache` | Build Docker image without cache                           |
 | `make docker-run-test`       | Run Docker Compose test environment (maps port 4001)       |
 | `make docker-run`            | Run Docker Compose production environment (maps port 4000) |
 | `make docker-stop`           | Stop the production container                              |
+| `make version-show`          | Print Cargo.toml version + suggested GitHub Release tag    |
 
 ---
 
