@@ -1,0 +1,54 @@
+---
+description: Public GitHub quality, conventional commits/PRs, no plan jargon outside allowlist
+alwaysApply: true
+---
+
+# GitHub public quality (kms-secp256k1-api)
+
+Treat every README as if it could be public tomorrow.
+
+## Product voice
+
+- **kms-secp256k1-api** is an AWS KMS-backed HTTP API for secp256k1 key ops (Ethereum / Cosmos / Casper modes) plus Docker.
+- Keep AWS-only honesty in public docs; do not invent non-AWS key backends as product claims.
+
+## Sensitive / internal (keep out of README, docs, Makefile, scripts)
+
+Do **not** put these in committed product text:
+
+- Host-absolute paths (any `/…` machine layout)
+- Screen recipes, agent handoff tone
+- "Worker fork" / Cursor agent merge cuisine as the main contributor story
+- Cursor plan/stage IDs
+- Shared credential file paths
+
+## Plan jargon allowlist
+
+**Forbidden** in: code, comments, commit subjects/bodies, PR titles/bodies, README, public docs.
+
+**Allowed only** in:
+
+- `.cursor/plans/*`
+
+## Conventional commits and PRs
+
+Subject (≤72 chars):
+
+```text
+<type>(optional-scope): summary in imperative
+```
+
+Types: `feat` | `fix` | `docs` | `refactor` | `test` | `chore` | `ci`.
+
+PR title = same grammar. Body: Summary + Test plan only. Do **not** append "Made with Cursor".
+
+## Signing and merge checklist (every PR)
+
+1. Author Interchouette; every local commit SSH-signed (`commit.gpgsign=true`).
+2. On the **fork**: `git fetch interchouette && git rebase interchouette/dev`, resolve, push to `interchouette` (signed).
+3. PR up to date with org `dev`; always `--reviewer gRoussac`.
+4. Confirm PR head Verified.
+5. Wait for **gRoussac** Approve (org `dev` requires **1** approving review + code owner), then `gh pr merge --squash` (never `gh pr merge --rebase` onto org). Never merge when `reviews` lacks `APPROVED` from **gRoussac**.
+6. Sync fork `dev` from `upstream/dev`.
+
+See `github-fork-pr.mdc`.
