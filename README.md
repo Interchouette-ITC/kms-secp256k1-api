@@ -29,8 +29,9 @@ Swagger UI (when running): `http://localhost:<APP_PORT>/api`
 
 | Registry | Image |
 | --- | --- |
-| Docker Hub | `interchouette/kms-secp256k1-api` |
-| GHCR | `ghcr.io/interchouette-itc/kms-secp256k1-api` |
+| Docker Hub | `interchouette/kms-secp256k1-api`, `interchouette/kms-localstack` |
+| Personal GHCR | `ghcr.io/groussac/kms-secp256k1-api`, `ghcr.io/groussac/kms-localstack` |
+| Org GHCR | `ghcr.io/interchouette-itc/kms-secp256k1-api`, `ghcr.io/interchouette-itc/kms-localstack` |
 
 ```bash
 docker pull interchouette/kms-secp256k1-api:dev
@@ -47,7 +48,7 @@ Details: [`docker/README.md`](docker/README.md).
 1. `make version-show` (or `make version-bump-patch` / `version-set VERSION=x.y.z`)
 2. Update [`CHANGELOG.md`](CHANGELOG.md); merge to `dev`
 3. Create a GitHub Release on the org repo with tag **`v$(APP_VERSION)`** (must equal `Cargo.toml`)
-4. `release.yml` pushes Hub + GHCR `:version` / `:latest` and attaches the Linux binary
+4. `release.yml` publishes API + LocalStack `:version` / `:latest` to Hub and both GHCR registries, and attaches the Linux binary
 
 Not published to crates.io.
 

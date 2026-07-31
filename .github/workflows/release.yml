@@ -77,6 +77,12 @@ jobs:
       - name: Push :version and :latest to Docker Hub
         run: make docker-push-release-hub APP_VERSION=${{ needs.validate.outputs.version }}
 
+      - name: Build LocalStack Docker image
+        run: make docker-build-localstack TAG=latest APP_VERSION=${{ needs.validate.outputs.version }}
+
+      - name: Push LocalStack :version and :latest to Docker Hub
+        run: make docker-push-localstack-release-hub APP_VERSION=${{ needs.validate.outputs.version }}
+
       - name: Log in to GHCR
         uses: docker/login-action@v3
         with:
@@ -84,11 +90,17 @@ jobs:
           username: ${{ secrets.GHCR_USERNAME }}
           password: ${{ secrets.GHCR_PAT }}
 
-      - name: Push to personal GHCR
+      - name: Push API to personal GHCR
         run: make docker-push-release-ghcr-personal APP_VERSION=${{ needs.validate.outputs.version }}
 
-      - name: Push to org GHCR
+      - name: Push API to org GHCR
         run: make docker-push-release-ghcr-itc APP_VERSION=${{ needs.validate.outputs.version }}
+
+      - name: Push LocalStack to personal GHCR
+        run: make docker-push-localstack-release-ghcr-personal APP_VERSION=${{ needs.validate.outputs.version }}
+
+      - name: Push LocalStack to org GHCR
+        run: make docker-push-localstack-release-ghcr-itc APP_VERSION=${{ needs.validate.outputs.version }}
 
   summary:
     name: Summary
@@ -99,7 +111,10 @@ jobs:
       - name: Summary
         run: |
           V="${{ needs.validate.outputs.version }}"
-          echo "Pushed interchouette/kms-secp256k1-api:${V} and :latest"
-          echo "Pushed personal GHCR :${V} and :latest"
-          echo "Pushed ghcr.io/interchouette-itc/kms-secp256k1-api:${V} and :latest"
+          echo "API Hub: interchouette/kms-secp256k1-api:${V} and :latest"
+          echo "API personal GHCR: ghcr.io/groussac/kms-secp256k1-api:${V} and :latest"
+          echo "API org GHCR: ghcr.io/interchouette-itc/kms-secp256k1-api:${V} and :latest"
+          echo "LocalStack Hub: interchouette/kms-localstack:${V} and :latest"
+          echo "LocalStack personal GHCR: ghcr.io/groussac/kms-localstack:${V} and :latest"
+          echo "LocalStack org GHCR: ghcr.io/interchouette-itc/kms-localstack:${V} and :latest"
           echo "Attached release binary: kms-secp256k1-api"
