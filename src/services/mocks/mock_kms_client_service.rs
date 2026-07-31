@@ -26,29 +26,31 @@ pub struct MockKmsClientService;
 #[cfg(test)]
 #[async_trait::async_trait]
 impl KmsClientService for MockKmsClientService {
-    async fn create_key(&self) -> Result<(String, String), String> {
+    async fn create_key(&self) -> crate::Result<(String, String)> {
         let signing_key = SigningKey::random(&mut OsRng);
         let verifying_key = signing_key.verifying_key();
         let encoded_point: EncodedPoint = verifying_key.to_encoded_point(false);
 
         let public_key: PublicKey<Secp256k1> = PublicKey::from_encoded_point(&encoded_point)
             .into_option()
-            .ok_or_else(|| "Failed to create PublicKey from encoded point".to_string())?;
+            .ok_or_else(|| {
+                crate::KmsError::Msg("Failed to create PublicKey from encoded point".into())
+            })?;
 
         let der = public_key
             .to_public_key_der()
-            .map_err(|e| format!("DER encode error: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("DER encode error: {e}")))?;
 
         let der_base64 = STANDARD.encode(der.as_bytes());
 
         Ok(("mock-key_id".to_string(), der_base64))
     }
 
-    async fn create_alias(&self, _key_id: &str, _alias: &str) -> Result<(), String> {
+    async fn create_alias(&self, _key_id: &str, _alias: &str) -> crate::Result<()> {
         Ok(())
     }
 
-    async fn sign(&self, _transaction_hash_hex: &str, address: &str) -> Result<String, String> {
+    async fn sign(&self, _transaction_hash_hex: &str, address: &str) -> crate::Result<String> {
         if address.eq(CASPER_PUBLIC_KEY_PREFIXED) {
             Ok(SIGNATURE_BASE64.to_string())
         } else if address.eq(ETH_ADDRESS) {
@@ -65,7 +67,7 @@ impl KmsClientService for MockKmsClientService {
         transaction_hash_hex: &str,
         signature_base64: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let expected_cases = [
             (
                 TRANSACTION_HASH,
@@ -92,7 +94,7 @@ impl KmsClientService for MockKmsClientService {
         Ok(matches)
     }
 
-    async fn delete_key(&self, key: &str) -> Result<bool, String> {
+    async fn delete_key(&self, key: &str) -> crate::Result<bool> {
         if key.contains("known_public_key") {
             Ok(true)
         } else {
@@ -100,7 +102,7 @@ impl KmsClientService for MockKmsClientService {
         }
     }
 
-    async fn list_keys(&self) -> Result<Vec<KeyEntry>, String> {
+    async fn list_keys(&self) -> crate::Result<Vec<KeyEntry>> {
         Ok(vec![
             KeyEntry {
                 address: "address_1".to_string().into(),
@@ -117,7 +119,7 @@ impl KmsClientService for MockKmsClientService {
         ])
     }
 
-    async fn get_public_key(&self, alias: &str) -> Result<String, String> {
+    async fn get_public_key(&self, alias: &str) -> crate::Result<String> {
         if CASPER_PUBLIC_KEY_PREFIXED.contains(alias) {
             Ok(CASPER_PUBLIC_KEY_BASE64.to_string())
         } else if alias.eq(ETH_ADDRESS) {

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["create_app","run_server"],"mod":["config","constants","routes","services","wasm_loader"],"struct":["AppState"]};
+window.SIDEBAR_ITEMS = {"fn":["create_app","run_server"],"mod":["config","constants","error","routes","services","wasm_loader"],"struct":["AppState"]};

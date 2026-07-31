@@ -31,7 +31,7 @@ pub trait KeysServiceTrait: Send + Sync {
     /// # Errors
     /// Returns an error if key creation fails due to misconfiguration, internal cryptographic errors,
     /// or if the underlying storage backend is unavailable.
-    async fn create_key(&mut self, config: &Config) -> Result<KeyEntry, String>;
+    async fn create_key(&mut self, config: &Config) -> crate::Result<KeyEntry>;
 
     /// Signs the given transaction hash using the specified public key.
     ///
@@ -46,7 +46,7 @@ pub trait KeysServiceTrait: Send + Sync {
         config: &Config,
         transaction_hash: &str,
         key: &str,
-    ) -> Result<SigEntry, String>;
+    ) -> crate::Result<SigEntry>;
 
     /// Signs the raw transaction data using the specified public key.
     ///
@@ -61,7 +61,7 @@ pub trait KeysServiceTrait: Send + Sync {
         config: &Config,
         transaction_str: &str,
         key: &str,
-    ) -> Result<String, String>;
+    ) -> crate::Result<String>;
 
     /// Verifies that the given signature is valid for the provided transaction hash and public key.
     ///
@@ -78,7 +78,7 @@ pub trait KeysServiceTrait: Send + Sync {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String>;
+    ) -> crate::Result<bool>;
 
     /// Verifies a transaction hash using an external KMS (Key Management System).
     ///
@@ -95,7 +95,7 @@ pub trait KeysServiceTrait: Send + Sync {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String>;
+    ) -> crate::Result<bool>;
 
     /// Deletes the cryptographic key associated with the given key.
     ///
@@ -104,13 +104,13 @@ pub trait KeysServiceTrait: Send + Sync {
     ///
     /// # Errors
     /// Returns an error if the key cannot be found or deletion fails due to internal issues or access control.
-    async fn delete_key(&mut self, key: &str) -> Result<bool, String>;
+    async fn delete_key(&mut self, key: &str) -> crate::Result<bool>;
 
     /// Lists all available public keys and their metadata.
     ///
     /// # Errors
     /// Returns an error if key listing fails due to storage access problems or unexpected internal errors.
-    async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String>;
+    async fn list_keys(&mut self) -> crate::Result<Vec<KeyEntry>>;
 }
 
 pub struct KeysService {
@@ -127,16 +127,18 @@ impl KeysService {
     ///
     /// Returns an error if the AWS KMS client fails to initialize.
     ///
-    pub async fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
+    pub async fn new(config: Config, crypto_service: CryptoService) -> crate::Result<Self> {
         let kms_client_service: Arc<dyn KmsClientService> = if config.is_aws_mode() {
             let client = AWSKmsClientService::new(config.get_aws_config().clone())
                 .await
-                .map_err(|e| format!("Failed to initialize AWSKmsClientService: {e}"))?;
+                .map_err(|e| {
+                    crate::KmsError::Msg(format!("Failed to initialize AWSKmsClientService: {e}"))
+                })?;
             Arc::new(client)
         } else if config.is_testing_mode() {
             Self::get_mock_kms_client_service()
         } else {
-            return Err("Unsupported KMS mode and not in testing".to_string());
+            return Err(crate::KmsError::UnsupportedMode);
         };
 
         Ok(Self {
@@ -179,7 +181,7 @@ impl KeysService {
         transaction_hash_hex: &str,
         key: &str,
         prefix: Option<&str>,
-    ) -> Result<String, String> {
+    ) -> crate::Result<String> {
         let signature = self
             .kms_client_service
             .sign(transaction_hash_hex, key)
@@ -187,13 +189,13 @@ impl KeysService {
             .map_err(|e| {
                 let msg = format!("Failed to sign transaction with KMS: {e}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         let mut signature = self.crypto_service.convert(&signature).map_err(|e| {
             let msg = format!("Failed to convert signature: {e}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })?;
 
         if let Some(pref) = prefix {
@@ -223,13 +225,13 @@ impl KeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         public_key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         self.crypto_service
             .verify(transaction_hash_hex, signature_hex, public_key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })
     }
 
@@ -253,13 +255,13 @@ impl KeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         public_key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         self.crypto_service
             .verify_eip155(transaction_hash_hex, signature_hex, public_key)
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })
     }
 
@@ -287,7 +289,7 @@ impl KeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         public_key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         self.verify_via_kms_internal(transaction_hash_hex, signature_hex, public_key, false)
             .await
     }
@@ -317,7 +319,7 @@ impl KeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         public_key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         self.verify_via_kms_internal(transaction_hash_hex, signature_hex, public_key, true)
             .await
     }
@@ -328,14 +330,14 @@ impl KeysService {
         mut signature_hex: &str,
         public_key: &str,
         use_eip155: bool,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let is_verified = if use_eip155 {
             let verify_eip155 = self
                 .verify_eip155(transaction_hash_hex, signature_hex, public_key)
                 .map_err(|e| {
                     let msg = format!("Signature eip155 verification failed: {e}");
                     error!("{}", msg);
-                    msg
+                    crate::KmsError::Msg(msg)
                 })?;
 
             // Trim the last v byte for KMS verification if signature length matches
@@ -360,7 +362,7 @@ impl KeysService {
         let signature = self.crypto_service.unconvert(signature_hex).map_err(|e| {
             let msg = format!("Signature conversion failed: {e}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })?;
 
         let alias = if use_eip155 {
@@ -379,7 +381,7 @@ impl KeysService {
             .map_err(|e| {
                 let msg = format!("Failed to verify signature with KMS: {e}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })
     }
 
@@ -391,12 +393,12 @@ impl KeysService {
     /// # Errors
     ///
     /// Returns an error if key creation or public key conversion fails.
-    pub(crate) async fn create_kms_key(&mut self) -> Result<(String, String, String), String> {
+    pub(crate) async fn create_kms_key(&mut self) -> crate::Result<(String, String, String)> {
         let (key_id, public_key_base64) =
             self.kms_client_service.create_key().await.map_err(|e| {
                 let msg = format!("Failed to create_key in KmsClientService: {e}");
                 error!("{}", &msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         let public_key = self
@@ -405,13 +407,12 @@ impl KeysService {
             .map_err(|e| {
                 let msg = format!("public_key conversion failed: {e:?}");
                 error!("{}", &msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         if public_key.is_empty() {
-            let msg = "No public key generated".to_string();
-            error!("{}", &msg);
-            return Err(msg);
+            error!("No public key generated");
+            return Err(crate::KmsError::EmptyPublicKey);
         }
 
         Ok((key_id, public_key_base64, public_key))
@@ -422,14 +423,14 @@ impl KeysService {
     /// # Errors
     ///
     /// Returns an error if alias creation fails.
-    pub(crate) async fn create_alias(&self, key_id: &str, alias: &str) -> Result<(), String> {
+    pub(crate) async fn create_alias(&self, key_id: &str, alias: &str) -> crate::Result<()> {
         self.kms_client_service
             .create_alias(key_id, alias)
             .await
             .map_err(|e| {
                 let msg = format!("Error creating alias: {e:?}");
                 error!("{}", &msg);
-                msg
+                crate::KmsError::Msg(msg)
             })
     }
 
@@ -446,11 +447,11 @@ impl KeysService {
     /// # Returns
     ///
     /// `Ok(true)` if the key was successfully deleted.
-    pub async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+    pub async fn delete_key(&mut self, key: &str) -> crate::Result<bool> {
         self.kms_client_service.delete_key(key).await.map_err(|e| {
             let msg = format!("Key deletion failed: {e}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })
     }
 
@@ -463,11 +464,11 @@ impl KeysService {
     /// # Returns
     ///
     /// `Ok` with a vector of `KeyEntry`
-    pub async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
+    pub async fn list_keys(&mut self) -> crate::Result<Vec<KeyEntry>> {
         let entries = self.kms_client_service.list_keys().await.map_err(|e| {
             let msg = format!("Listing keys failed: {e}");
             error!("{}", msg);
-            msg
+            crate::KmsError::Msg(msg)
         })?;
 
         let mut result = Vec::with_capacity(entries.len());
@@ -482,7 +483,7 @@ impl KeysService {
                         .map_err(|e| {
                             let msg = format!("public_key conversion failed: {e:?}");
                             error!("{}", &msg);
-                            msg
+                            crate::KmsError::Msg(msg)
                         })?;
 
                 entry.public_key = Some(public_key).into();

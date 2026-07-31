@@ -35,7 +35,7 @@ pub struct MockCosmosKeysService {
 
 #[async_trait::async_trait]
 impl KeysServiceTrait for MockCosmosKeysService {
-    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
+    async fn create_key(&mut self, _config: &Config) -> crate::Result<KeyEntry> {
         let signing_key = SigningKey::random(&mut OsRng);
         let verifying_key = signing_key.verifying_key();
         let encoded_point = verifying_key.to_encoded_point(true);
@@ -74,28 +74,26 @@ impl KeysServiceTrait for MockCosmosKeysService {
         _config: &Config,
         transaction_hash: &str,
         key: &str,
-    ) -> Result<SigEntry, String> {
+    ) -> crate::Result<SigEntry> {
         let key = self.resolve_key(key)?;
 
         let key_pair = {
             let keys = self.inner.keys.lock().await;
-            keys.get(&key)
-                .ok_or_else(|| "Key not found".to_string())?
-                .clone()
+            keys.get(&key).ok_or(crate::KmsError::KeyNotFound)?.clone()
         };
 
         let hash_bytes = hex::decode(transaction_hash)
-            .map_err(|e| format!("Invalid transaction hash hex: {e}"))?;
+            .map_err(|e| crate::KmsError::InvalidTxHashHex(e.to_string()))?;
 
         if hash_bytes.len() != 32 {
-            return Err("Transaction hash must be 32 bytes".to_string());
+            return Err(crate::KmsError::TxHashWrongLength);
         }
 
         let private_key_bytes = hex::decode(&key_pair.private_key)
-            .map_err(|e| format!("Failed to decode secret key: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to decode secret key: {e}")))?;
 
         let signing_key = SigningKey::from_slice(&private_key_bytes)
-            .map_err(|e| format!("Failed to create signing key: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to create signing key: {e}")))?;
 
         let signature: Signature = signing_key.sign(&hash_bytes);
         let der = signature.to_der();
@@ -109,7 +107,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
             .map_err(|e| {
                 let msg = format!("Failed to convert signature: {e}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })?;
 
         // Verify signature
@@ -118,7 +116,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
             .await?;
 
         if !is_valid {
-            return Err("Signature verification failed".to_string());
+            return Err(crate::KmsError::VerificationFailed);
         }
 
         Ok(SigEntry {
@@ -137,9 +135,9 @@ impl KeysServiceTrait for MockCosmosKeysService {
         config: &Config,
         transaction_str: &str,
         key: &str,
-    ) -> Result<String, String> {
+    ) -> crate::Result<String> {
         let chain_id = Id::from_str(&config.get_cosmos_chain_id())
-            .map_err(|e| format!("Failed to fetch chain_id: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to fetch chain_id: {e}")))?;
 
         let (tx_json, tx_body, fee) = Self::parse_body_and_fee(transaction_str)?;
         let (key, signing_key, public_key_bytes, pubkey_base64) =
@@ -186,12 +184,12 @@ impl KeysServiceTrait for MockCosmosKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let key = self.resolve_key(key)?;
         let key_pair = {
             let keys = self.inner.keys.lock().await;
             keys.get(&key)
-                .ok_or_else(|| "Public key not found".to_string())?
+                .ok_or(crate::KmsError::PublicKeyNotFound)?
                 .clone()
         };
         self.inner
@@ -199,7 +197,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })
     }
 
@@ -212,12 +210,12 @@ impl KeysServiceTrait for MockCosmosKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let key = self.resolve_key(key)?;
         let key_pair = {
             let keys = self.inner.keys.lock().await;
             keys.get(&key)
-                .ok_or_else(|| "Public key not found".to_string())?
+                .ok_or(crate::KmsError::PublicKeyNotFound)?
                 .clone()
         };
         self.inner
@@ -229,7 +227,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
     ///
     /// Returns `Ok(true)` if the key was deleted, `Ok(false)` if the key was not found.
     /// Returns an error string if deletion fails.
-    async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+    async fn delete_key(&mut self, key: &str) -> crate::Result<bool> {
         let key = self.resolve_key(key)?;
         Ok(self.inner.delete_key(&key).await)
     }
@@ -238,7 +236,7 @@ impl KeysServiceTrait for MockCosmosKeysService {
     ///
     /// Returns a vector of `KeyEntry` on success.
     /// Returns an error string on failure.
-    async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
+    async fn list_keys(&mut self) -> crate::Result<Vec<KeyEntry>> {
         Ok(self.inner.list_keys().await)
     }
 }
@@ -255,7 +253,7 @@ impl MockCosmosKeysService {
     ///
     /// This function currently does not return an error, but it returns a `Result`
     /// to match a common interface and allow future fallibility.
-    pub fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
+    pub fn new(config: Config, crypto_service: CryptoService) -> crate::Result<Self> {
         let cosmos_hrp = config.get_cosmos_hrp();
         let hrp = match cosmos_hrp.as_str() {
             "" => DEFAULT_COSMOS_HRP,
@@ -289,7 +287,7 @@ impl MockCosmosKeysService {
     /// # Notes
     /// - The Bech32 address is generated using the provided `hrp` as prefix.
     /// - This function logs an error internally if conversion fails.
-    fn resolve_key(&mut self, key: &str) -> Result<String, String> {
+    fn resolve_key(&mut self, key: &str) -> crate::Result<String> {
         if key.len() == COSMOS_SECP_LEN {
             self.inner
                 .crypto_service
@@ -297,23 +295,23 @@ impl MockCosmosKeysService {
                 .map_err(|e| {
                     let msg = format!("Failed to convert public key to address: {e:?}");
                     error!("{}", &msg);
-                    msg
+                    crate::KmsError::Msg(msg)
                 })
         } else {
             Ok(key.to_string())
         }
     }
 
-    fn parse_body_and_fee(transaction_str: &str) -> Result<(serde_json::Value, Body, Fee), String> {
+    fn parse_body_and_fee(transaction_str: &str) -> crate::Result<(serde_json::Value, Body, Fee)> {
         let tx_json: serde_json::Value = serde_json::from_str(transaction_str)
-            .map_err(|e| format!("Failed to parse JSON: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to parse JSON: {e}")))?;
 
         let helper: BodyHelper = serde_json::from_value(tx_json["body"].clone())
-            .map_err(|e| format!("Invalid TxBody: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Invalid TxBody: {e}")))?;
         let tx_body = helper.into_body()?;
 
         let fee: Fee = serde_json::from_value(tx_json["auth_info"]["fee"].clone())
-            .map_err(|e| format!("Invalid Fee: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Invalid Fee: {e}")))?;
 
         Ok((tx_json, tx_body, fee))
     }
@@ -321,21 +319,21 @@ impl MockCosmosKeysService {
     async fn load_signing_material(
         &mut self,
         key: &str,
-    ) -> Result<(String, SigningKey, Vec<u8>, String), String> {
+    ) -> crate::Result<(String, SigningKey, Vec<u8>, String)> {
         let key = self.resolve_key(key)?;
         let key_pair = {
             let keys = self.inner.keys.lock().await;
             keys.get(&key)
-                .ok_or_else(|| "Public key not found".to_string())?
+                .ok_or(crate::KmsError::PublicKeyNotFound)?
                 .clone()
         };
         let key = key_pair.address;
 
         let private_key_bytes = hex::decode(&key_pair.private_key)
-            .map_err(|e| format!("Failed to decode secret key: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to decode secret key: {e}")))?;
 
         let signing_key = SigningKey::from_slice(&private_key_bytes)
-            .map_err(|e| format!("Failed to create signing key: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to create signing key: {e}")))?;
 
         let public_key = signing_key.public_key();
         let public_key_bytes = public_key.to_bytes();
@@ -350,20 +348,22 @@ impl MockCosmosKeysService {
         public_key_bytes: &[u8],
         fee: &Fee,
         config: &Config,
-    ) -> Result<(BaseAccount, PubKey, AuthInfo), String> {
+    ) -> crate::Result<(BaseAccount, PubKey, AuthInfo)> {
         let mut account = fetch_account_info(key, pubkey_base64, config)
             .await
-            .map_err(|e| format!("Failed to fetch account info: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to fetch account info: {e}")))?;
 
         let Some(fetched_pub_key) = account.pub_key.take() else {
-            return Err("Account info is missing pub_key".to_string());
+            return Err(crate::KmsError::Msg(
+                "Account info is missing pub_key".into(),
+            ));
         };
 
         if fetched_pub_key.key != pubkey_base64 {
-            return Err(format!(
+            return Err(crate::KmsError::Msg(format!(
                 "Invalid fetched public key: got {}",
                 fetched_pub_key.key
-            ));
+            )));
         }
 
         let auth_info = build_auth_info(public_key_bytes, account.sequence, fee)?;
@@ -377,13 +377,13 @@ impl MockCosmosKeysService {
         chain_id: &Id,
         sequence: u64,
         signing_key: &SigningKey,
-    ) -> Result<(Signature, String, String), String> {
+    ) -> crate::Result<(Signature, String, String)> {
         let sign_doc = SignDoc::new(tx_body, auth_info, chain_id, sequence)
-            .map_err(|e| format!("SignDoc error: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("SignDoc error: {e}")))?;
 
         let sign_doc_bytes = sign_doc
             .into_bytes()
-            .map_err(|e| format!("SignDoc encode error: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("SignDoc encode error: {e}")))?;
 
         let transaction_hash = Sha256::digest(&sign_doc_bytes);
         let signature: Signature = signing_key.sign(&transaction_hash);
@@ -396,21 +396,21 @@ impl MockCosmosKeysService {
             .verify(&transaction_hash, &signature_hex, &public_key)
             .await?;
         if !is_valid {
-            return Err("Generated signature failed verification".to_string());
+            return Err(crate::KmsError::PostSignVerifyFailed);
         }
 
         Ok((signature, transaction_hash, public_key))
     }
 
-    fn assemble_signed_transaction_json(parts: AssembleSignedTx<'_>) -> Result<String, String> {
+    fn assemble_signed_transaction_json(parts: AssembleSignedTx<'_>) -> crate::Result<String> {
         let body_bytes = parts
             .tx_body
             .into_bytes()
-            .map_err(|e| format!("Failed to encode body: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to encode body: {e}")))?;
         let auth_info_bytes = parts
             .auth_info
             .into_bytes()
-            .map_err(|e| format!("Failed to encode auth_info: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to encode auth_info: {e}")))?;
 
         let tx_raw = TxRaw {
             body_bytes,
@@ -420,7 +420,7 @@ impl MockCosmosKeysService {
 
         let tx_raw_bytes = tx_raw
             .to_bytes()
-            .map_err(|e| format!("Failed to encode TxRaw: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to encode TxRaw: {e}")))?;
 
         let base64_tx = STANDARD.encode(tx_raw_bytes);
         let broadcast_request = json!({
@@ -463,8 +463,9 @@ impl MockCosmosKeysService {
             "signatures": signatures_array
         });
 
-        serde_json::to_string(&result)
-            .map_err(|e| format!("Failed to serialize final signed transaction: {e}"))
+        serde_json::to_string(&result).map_err(|e| {
+            crate::KmsError::Msg(format!("Failed to serialize final signed transaction: {e}"))
+        })
     }
 }
 
