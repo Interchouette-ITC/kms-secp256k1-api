@@ -1,26 +1,18 @@
-use kms_secp256k1_api::{config::ConfigBuilder, run_server};
+mod common;
+
+use kms_secp256k1_api::config::ConfigBuilder;
 use serial_test::serial;
-use std::time::Duration;
-use tokio::task;
-
-async fn start_server(testing_mode: bool) -> task::JoinHandle<()> {
-    let config = ConfigBuilder::new()
-        .with_testing_mode(testing_mode)
-        .with_aws_mode(true) // Do not mock the KMS
-        .build();
-
-    task::spawn(async move {
-        let _ = run_server(config).await;
-    })
-}
 
 #[tokio::test]
 #[serial]
 async fn test_hello_returns_200() {
-    let server_handle = start_server(false).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new()
+        .with_testing_mode(false)
+        .with_aws_mode(true) // Do not mock the KMS
+        .build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-    let resp = reqwest::get("http://127.0.0.1:4000/")
+    let resp = reqwest::get(format!("{base}/"))
         .await
         .expect("Failed to send request");
 
@@ -36,10 +28,13 @@ async fn test_hello_returns_200() {
 #[tokio::test]
 #[serial]
 async fn test_hello_returns_200_mocked() {
-    let server_handle = start_server(true).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new()
+        .with_testing_mode(true)
+        .with_aws_mode(true) // Do not mock the KMS
+        .build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-    let resp = reqwest::get("http://127.0.0.1:4000/")
+    let resp = reqwest::get(format!("{base}/"))
         .await
         .expect("Failed to send request");
 
@@ -55,10 +50,13 @@ async fn test_hello_returns_200_mocked() {
 #[tokio::test]
 #[serial]
 async fn test_hello_with_custom_message() {
-    let server_handle = start_server(false).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new()
+        .with_testing_mode(false)
+        .with_aws_mode(true) // Do not mock the KMS
+        .build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-    let resp = reqwest::get("http://127.0.0.1:4000/?message=HelloWorld")
+    let resp = reqwest::get(format!("{base}/?message=HelloWorld"))
         .await
         .expect("Failed to send request");
 
@@ -75,10 +73,13 @@ async fn test_hello_with_custom_message() {
 #[tokio::test]
 #[serial]
 async fn test_hello_with_custom_message_mocked() {
-    let server_handle = start_server(true).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new()
+        .with_testing_mode(true)
+        .with_aws_mode(true) // Do not mock the KMS
+        .build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-    let resp = reqwest::get("http://127.0.0.1:4000/?message=HelloWorld")
+    let resp = reqwest::get(format!("{base}/?message=HelloWorld"))
         .await
         .expect("Failed to send request");
 

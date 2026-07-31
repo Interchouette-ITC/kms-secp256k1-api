@@ -444,7 +444,6 @@ mod tests {
         match result {
             Ok(hex) => {
                 assert!(!hex.is_empty(), "Expected non-empty hex output");
-                // println!("Converted public key hex: {hex}");
             }
             Err(e) => panic!("Failed to convert public key: {e}"),
         }

@@ -1,34 +1,19 @@
+mod common;
+
 use kms_secp256k1_api::{
-    config::ConfigBuilder, constants::CASPER_SECP_PREFIX, routes::CreateKeyResponse, run_server,
+    config::ConfigBuilder, constants::CASPER_SECP_PREFIX, routes::CreateKeyResponse,
 };
 use serial_test::serial;
-use std::time::Duration;
-use tokio::task;
-
-async fn start_server(ethereum_mode: bool, cosmos_mode: bool) -> task::JoinHandle<()> {
-    let config = if ethereum_mode {
-        ConfigBuilder::new().with_ethereum_mode().build()
-    } else if cosmos_mode {
-        ConfigBuilder::new().with_cosmos_mode().build()
-    } else {
-        ConfigBuilder::new().with_casper_mode().build()
-    };
-
-    task::spawn(async move {
-        let _ = run_server(config).await;
-    })
-}
 
 #[tokio::test]
 #[serial]
 async fn test_create_ethereum_keypair_returns_201_mocked() {
-    let ethereum_mode = true;
-    let server_handle = start_server(ethereum_mode, false).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new().with_ethereum_mode().build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
     let client = reqwest::Client::new();
     let resp = client
-        .post("http://127.0.0.1:4000/createKey")
+        .post(format!("{base}/createKey"))
         .send()
         .await
         .expect("Failed to send request");
@@ -64,12 +49,12 @@ async fn test_create_ethereum_keypair_returns_201_mocked() {
 #[tokio::test]
 #[serial]
 async fn test_create_casper_keypair_returns_201_mocked() {
-    let server_handle = start_server(false, false).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new().with_casper_mode().build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
     let client = reqwest::Client::new();
     let resp = client
-        .post("http://127.0.0.1:4000/createKey")
+        .post(format!("{base}/createKey"))
         .send()
         .await
         .expect("Failed to send request");
@@ -94,8 +79,7 @@ async fn test_create_casper_keypair_returns_201_mocked() {
     let address = parsed.address;
     assert!(
         address.eq(&hex),
-        "Expected casper address to be public key hex, got: {}",
-        &address
+        "Expected casper address to be public key hex, got: {address}"
     );
 
     server_handle.abort();
@@ -104,13 +88,12 @@ async fn test_create_casper_keypair_returns_201_mocked() {
 #[tokio::test]
 #[serial]
 async fn test_create_cosmos_keypair_returns_201_mocked() {
-    let is_cosmos_mode = true;
-    let server_handle = start_server(false, is_cosmos_mode).await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new().with_cosmos_mode().build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
     let client = reqwest::Client::new();
     let resp = client
-        .post("http://127.0.0.1:4000/createKey")
+        .post(format!("{base}/createKey"))
         .send()
         .await
         .expect("Failed to send request");
@@ -130,10 +113,10 @@ async fn test_create_cosmos_keypair_returns_201_mocked() {
     );
 
     let address = parsed.address.trim_start_matches("0x");
+    let address_prefix = &address[..7];
     assert!(
         address.starts_with("cosmos1"),
-        "Expected cosmos address prefix (cosmos1), got: {}",
-        &address[..7]
+        "Expected cosmos address prefix (cosmos1), got: {address_prefix}"
     );
 
     server_handle.abort();

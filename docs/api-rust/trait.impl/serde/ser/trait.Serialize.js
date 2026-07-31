@@ -1,9 +1,0 @@
-(function() {
-    var implementors = Object.fromEntries([["kms_secp256k1_api",[["impl <a class=\"trait\" href=\"https://docs.rs/serde/1.0.219/serde/ser/trait.Serialize.html\" title=\"trait serde::ser::Serialize\">Serialize</a> for <a class=\"struct\" href=\"kms_secp256k1_api/routes/struct.Approval.html\" title=\"struct kms_secp256k1_api::routes::Approval\">Approval</a>"],["impl <a class=\"trait\" href=\"https://docs.rs/serde/1.0.219/serde/ser/trait.Serialize.html\" title=\"trait serde::ser::Serialize\">Serialize</a> for <a class=\"struct\" href=\"kms_secp256k1_api/routes/struct.CreateKeyResponse.html\" title=\"struct kms_secp256k1_api::routes::CreateKeyResponse\">CreateKeyResponse</a>"],["impl <a class=\"trait\" href=\"https://docs.rs/serde/1.0.219/serde/ser/trait.Serialize.html\" title=\"trait serde::ser::Serialize\">Serialize</a> for <a class=\"struct\" href=\"kms_secp256k1_api/services/keys_service/struct.KeyEntry.html\" title=\"struct kms_secp256k1_api::services::keys_service::KeyEntry\">KeyEntry</a>"],["impl <a class=\"trait\" href=\"https://docs.rs/serde/1.0.219/serde/ser/trait.Serialize.html\" title=\"trait serde::ser::Serialize\">Serialize</a> for <a class=\"struct\" href=\"kms_secp256k1_api/services/keys_service/struct.SigEntry.html\" title=\"struct kms_secp256k1_api::services::keys_service::SigEntry\">SigEntry</a>"]]]]);
-    if (window.register_implementors) {
-        window.register_implementors(implementors);
-    } else {
-        window.pending_implementors = implementors;
-    }
-})()
-//{"start":57,"fragment_lengths":[1292]}

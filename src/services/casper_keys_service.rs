@@ -25,7 +25,7 @@ impl CasperKeysService {
 
 #[async_trait::async_trait]
 impl KeysServiceTrait for CasperKeysService {
-    /// Creates a new KMS key, derives its public key with an optional prefix `keys_serviced` on config,
+    /// Creates a new KMS key, derives its public key with an optional prefix derived from the active mode,
     /// registers an alias for it, and returns the formatted public key.
     ///
     /// # Arguments
@@ -36,47 +36,11 @@ impl KeysServiceTrait for CasperKeysService {
     ///
     /// Returns an error if key creation, public key conversion, or alias creation fails.
     async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
-        let (key_id, public_key_base64) = self
-            .keys_service
-            .kms_client_service
-            .create_key()
-            .await
-            .map_err(|e| {
-            let msg = format!("Failed to create_key in KmsClientService: {e}");
-            error!("{}", &msg);
-            msg
-        })?;
-
-        let public_key = self
-            .keys_service
-            .crypto_service
-            .public_key(&public_key_base64)
-            .map_err(|e| {
-                let msg = format!("public_key conversion failed: {e:?}");
-                error!("{}", &msg);
-                msg
-            })?; // generated key contains does not contain prefix
+        let (key_id, public_key_base64, public_key) = self.keys_service.create_kms_key().await?;
 
         let address = Self::resolve_key(&public_key); // address == prefix + public_key
 
-        if public_key.is_empty() {
-            let msg = "No public key generated".to_string();
-            error!("{}", &msg);
-            return Err(msg);
-        }
-
-        // Create alias for the key
-        self.keys_service
-            .kms_client_service
-            .create_alias(&key_id, &address)
-            .await
-            .map_err(|e| {
-                let msg = format!("Error creating alias: {e:?}");
-                error!("{}", &msg);
-                msg
-            })?;
-
-        // info!("{}", &public_key_base64);
+        self.keys_service.create_alias(&key_id, &address).await?;
 
         Ok(KeyEntry {
             public_key: Some(public_key).into(),
@@ -88,7 +52,7 @@ impl KeysServiceTrait for CasperKeysService {
 
     /// Signs a transaction hash using the provided public key and configuration mode.
     ///
-    /// Selects a prefix `keys_serviced` on the active mode (Casper or Ethereum),
+    /// Selects a prefix derived from the active mode (Casper or Ethereum),
     /// and delegates signing to the internal `sign` method.
     ///
     /// # Arguments
@@ -242,11 +206,13 @@ impl KeysServiceTrait for CasperKeysService {
     }
 
     async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+        // Delegates to KeysService after resolving the Casper address form.
         let key = Self::resolve_key(key);
         self.keys_service.delete_key(&key).await
     }
 
     async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
+        // Delegates to KeysService.
         self.keys_service.list_keys().await
     }
 }

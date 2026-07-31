@@ -72,7 +72,7 @@ mod tests {
                 .expect("Missing signature field");
 
             assert!(
-                public_keys.contains(&address.to_string()),
+                public_keys.iter().any(|k| k.as_str() == address),
                 "Unexpected address: {address}"
             );
 

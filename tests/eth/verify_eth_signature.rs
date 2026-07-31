@@ -2,26 +2,14 @@ use kms_secp256k1_api::{
     config::ConfigBuilder,
     constants::ETH_TRANSACTION_HASH,
     routes::{Approval, CreateKeyResponse},
-    run_server,
 };
 use serial_test::serial;
-use std::time::Duration;
-use tokio::task;
-
-async fn start_server() -> task::JoinHandle<()> {
-    let config = ConfigBuilder::new().with_ethereum_mode().build();
-
-    task::spawn(async move {
-        let _ = run_server(config).await;
-    })
-}
 
 async fn run_verify_eth_signature_test(via_kms: bool) {
-    let server_handle = start_server().await;
-    tokio::time::sleep(Duration::from_secs(1)).await;
+    let config = ConfigBuilder::new().with_ethereum_mode().build();
+    let (server_handle, base_url) = crate::common::start_test_server(config).await;
 
     let client = reqwest::Client::new();
-    let base_url = "http://127.0.0.1:4000";
 
     let create_resp = client
         .post(format!("{base_url}/createKey"))
@@ -88,11 +76,11 @@ async fn run_verify_eth_signature_test(via_kms: bool) {
 #[tokio::test]
 #[serial]
 async fn test_verify_eth_signature_returns_200_integration() {
-    run_verify_eth_signature_test(false).await;
+    Box::pin(run_verify_eth_signature_test(false)).await;
 }
 
 #[tokio::test]
 #[serial]
 async fn test_verify_eth_via_kms_signature_returns_200_integration() {
-    run_verify_eth_signature_test(true).await;
+    Box::pin(run_verify_eth_signature_test(true)).await;
 }

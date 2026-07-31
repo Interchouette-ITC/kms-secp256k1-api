@@ -94,10 +94,7 @@ mod tests {
             let signer = approval.signer().to_hex_string();
             let signature = approval.signature().to_hex_string();
 
-            assert!(
-                public_keys.contains(&signer.to_string()),
-                "Unexpected signer: {signer}"
-            );
+            assert!(public_keys.contains(&signer), "Unexpected signer: {signer}");
 
             assert_eq!(
                 signature.len(),

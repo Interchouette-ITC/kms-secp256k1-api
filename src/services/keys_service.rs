@@ -134,7 +134,6 @@ impl KeysService {
                 .map_err(|e| format!("Failed to initialize AWSKmsClientService: {e}"))?;
             Arc::new(client)
         } else if config.is_testing_mode() {
-            // TODO Implement other kms
             Self::get_mock_kms_client_service()
         } else {
             return Err("Unsupported KMS mode and not in testing".to_string());
@@ -384,6 +383,56 @@ impl KeysService {
             })
     }
 
+    /// Creates a KMS key and derives `(key_id, public_key_base64, public_key)`.
+    ///
+    /// Caller resolves the chain-specific address from `public_key`, then registers
+    /// the alias via [`Self::create_alias`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if key creation or public key conversion fails.
+    pub(crate) async fn create_kms_key(&mut self) -> Result<(String, String, String), String> {
+        let (key_id, public_key_base64) =
+            self.kms_client_service.create_key().await.map_err(|e| {
+                let msg = format!("Failed to create_key in KmsClientService: {e}");
+                error!("{}", &msg);
+                msg
+            })?;
+
+        let public_key = self
+            .crypto_service
+            .public_key(&public_key_base64)
+            .map_err(|e| {
+                let msg = format!("public_key conversion failed: {e:?}");
+                error!("{}", &msg);
+                msg
+            })?;
+
+        if public_key.is_empty() {
+            let msg = "No public key generated".to_string();
+            error!("{}", &msg);
+            return Err(msg);
+        }
+
+        Ok((key_id, public_key_base64, public_key))
+    }
+
+    /// Registers a KMS alias for an existing key id.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if alias creation fails.
+    pub(crate) async fn create_alias(&self, key_id: &str, alias: &str) -> Result<(), String> {
+        self.kms_client_service
+            .create_alias(key_id, alias)
+            .await
+            .map_err(|e| {
+                let msg = format!("Error creating alias: {e:?}");
+                error!("{}", &msg);
+                msg
+            })
+    }
+
     /// Deletes a key identified by the given key using the KMS client.
     ///
     /// # Arguments
@@ -505,37 +554,6 @@ mod tests {
             "Signature length invalid"
         );
     }
-
-    // #[tokio::test]
-    // async fn test_sign_eip155_successful() {
-    //     let config = ConfigBuilder::new().with_ethereum_mode().build();
-
-    //     let wasm_loader = WasmLoader::new(WASM_PATH)
-    //         .await
-    //         .expect("Failed to load WASM module");
-
-    //     let crypto_service =
-    //         CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
-
-    //     // Create CasperKeysService (uses mocked KMS + real CryptoService)
-    //     let mut service = KeysService::new(config.clone(), crypto_service)
-    //         .await
-    //         .expect("Failed to create KeysService");
-
-    //     // Call the sign method without PREFIX
-    //     let result = service
-    //         .sign(ETH_TRANSACTION_HASH, ETH_PUBLIC_KEY, None)
-    //         .await;
-    //     assert!(result.is_ok(), "sign failed: {result:?}");
-    //     let signature = result.unwrap();
-
-    //     assert_eq!(signature.to_string(), ETH_SIGNATURE, "Signature invalid");
-    //     assert_eq!(
-    //         signature.len(),
-    //         SIGNATURE_RSV_LEN,
-    //         "Signature length invalid"
-    //     );
-    // }
 
     #[tokio::test]
     async fn test_verify_successful() {
