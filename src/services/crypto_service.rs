@@ -1,8 +1,9 @@
+use crate::KmsError;
 use crate::{
     constants::DEFAULT_ETH_CHAIN_ID,
     wasm_loader::{WasmInstance, WasmLoader},
 };
-use std::{error::Error, sync::Arc};
+use std::sync::Arc;
 use wasmtime::TypedFunc;
 
 pub type CryptoService = WasmInstance;
@@ -12,8 +13,8 @@ impl CryptoService {
     ///
     /// # Errors
     ///
-    /// Returns an error if the WASM module instantiation fails.
-    pub fn new(loader: &Arc<WasmLoader>) -> Result<Self, Box<dyn Error>> {
+    /// Returns [`KmsError::Crypto`] if the WASM module instantiation fails.
+    pub fn new(loader: &Arc<WasmLoader>) -> crate::Result<Self> {
         let instance = loader.instantiate()?;
         Ok(instance)
     }
@@ -22,7 +23,7 @@ impl CryptoService {
         &mut self,
         func: &TypedFunc<(i32, i32), i32>,
         input: &str,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> crate::Result<String> {
         let input_bytes = input.as_bytes();
         let input_len = i32::try_from(input_bytes.len()).unwrap_or_default();
 
@@ -30,13 +31,17 @@ impl CryptoService {
         let alloc_func = self.alloc.typed::<i32, i32>(&self.store)?;
         let input_ptr_i32 = alloc_func.call(&mut self.store, input_len)?;
         if input_ptr_i32 < 0 {
-            return Err("Allocation failed: negative pointer returned".into());
+            return Err(KmsError::Crypto(
+                "Allocation failed: negative pointer returned".into(),
+            ));
         }
-        let input_ptr = usize::try_from(input_ptr_i32).map_err(|_| "Pointer conversion failed")?;
+        let input_ptr = usize::try_from(input_ptr_i32)
+            .map_err(|_| KmsError::Crypto("Pointer conversion failed".into()))?;
 
         // 2. Write input into memory
         let mem_data = self.memory.data_mut(&mut self.store);
-        let input_len_usize = usize::try_from(input_len).map_err(|_| "Invalid input length")?;
+        let input_len_usize = usize::try_from(input_len)
+            .map_err(|_| KmsError::Crypto("Invalid input length".into()))?;
         mem_data[input_ptr..input_ptr + input_len_usize].copy_from_slice(input_bytes);
 
         // 3. Call wasm function
@@ -45,14 +50,16 @@ impl CryptoService {
             (i32::try_from(input_ptr).unwrap_or_default(), input_len),
         )?;
         if output_ptr == 0 {
-            return Err("WASM function returned null pointer".into());
+            return Err(KmsError::Crypto(
+                "WASM function returned null pointer".into(),
+            ));
         }
 
         // 4. Read null-terminated result string
         let result_str = {
             let mem_data = self.memory.data(&self.store);
-            let output_ptr_usize =
-                usize::try_from(output_ptr).map_err(|_| "Invalid output pointer")?;
+            let output_ptr_usize = usize::try_from(output_ptr)
+                .map_err(|_| KmsError::Crypto("Invalid output pointer".into()))?;
 
             let mut end = output_ptr_usize;
             while end < mem_data.len() && mem_data[end] != 0 {
@@ -90,8 +97,8 @@ impl CryptoService {
     ///
     /// # Errors
     ///
-    /// Returns an error if the WASM function cannot be typed or invoked correctly.
-    pub fn public_key(&mut self, public_key: &str) -> Result<String, Box<dyn std::error::Error>> {
+    /// Returns [`KmsError::Crypto`] if the WASM function cannot be typed or invoked correctly.
+    pub fn public_key(&mut self, public_key: &str) -> crate::Result<String> {
         let func = self.public_key.typed::<(i32, i32), i32>(&self.store)?;
         self.invoke_wasm_str_func(&func, public_key)
     }
@@ -110,7 +117,7 @@ impl CryptoService {
     ///
     /// Returns an error if the WASM function cannot be typed or invoked correctly,
     /// or if the WASM function returns an error string.
-    pub fn address_eth(&mut self, public_key: &str) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn address_eth(&mut self, public_key: &str) -> crate::Result<String> {
         let func = self.address_eth.typed::<(i32, i32), i32>(&self.store)?;
         self.invoke_wasm_str_func(&func, public_key)
     }
@@ -130,11 +137,7 @@ impl CryptoService {
     ///
     /// Returns an error if the WASM function cannot be typed or invoked correctly,
     /// or if the WASM function returns an error string.
-    pub fn address_cosmos(
-        &mut self,
-        public_key: &str,
-        hrp: &str,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn address_cosmos(&mut self, public_key: &str, hrp: &str) -> crate::Result<String> {
         let alloc_func = self.alloc.typed::<i32, i32>(&self.store)?;
         let free_func = self.free.typed::<(i32, i32), ()>(&self.store)?;
         let func = self
@@ -142,7 +145,7 @@ impl CryptoService {
             .typed::<(i32, i32, i32, i32), i32>(&self.store)?;
 
         // Helper closure to allocate and write string input into WASM memory
-        let mut alloc_and_write = |input: &str| -> Result<(i32, i32), Box<dyn std::error::Error>> {
+        let mut alloc_and_write = |input: &str| -> crate::Result<(i32, i32)> {
             let bytes = input.as_bytes();
             let len = i32::try_from(bytes.len())?;
             let ptr_i32 = alloc_func.call(&mut self.store, len)?;
@@ -165,24 +168,26 @@ impl CryptoService {
 
         // Check for null return
         if ret_ptr == 0 {
-            return Err("address_cosmos returned null pointer".into());
+            return Err(KmsError::Crypto(
+                "address_cosmos returned null pointer".into(),
+            ));
         }
 
         // Read null-terminated string from WASM memory
         let mem = self.memory.data(&self.store);
         let mut end = usize::try_from(ret_ptr)
-            .map_err(|_| "address_cosmos pointer cannot be negative".to_string())?;
+            .map_err(|_| KmsError::Crypto("address_cosmos pointer cannot be negative".into()))?;
         while end < mem.len() && mem[end] != 0 {
             end += 1;
         }
-        let start =
-            usize::try_from(ret_ptr).map_err(|_| "ret_ptr cannot be negative".to_string())?;
+        let start = usize::try_from(ret_ptr)
+            .map_err(|_| KmsError::Crypto("ret_ptr cannot be negative".into()))?;
         let result_bytes = &mem[start..end];
         let result_str = std::str::from_utf8(result_bytes)?.to_string();
 
         // Free result string in WASM memory
         let len_i32 = i32::try_from(result_str.len())
-            .map_err(|_| "result_str length exceeds i32::MAX".to_string())?;
+            .map_err(|_| KmsError::Crypto("result_str length exceeds i32::MAX".into()))?;
         free_func.call(&mut self.store, (ret_ptr, len_i32))?;
 
         Ok(result_str)
@@ -200,7 +205,7 @@ impl CryptoService {
     /// # Errors
     ///
     /// Returns an error if the WASM function cannot be typed or invoked correctly.
-    pub fn convert(&mut self, signature: &str) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn convert(&mut self, signature: &str) -> crate::Result<String> {
         let func = self.convert.typed::<(i32, i32), i32>(&self.store)?;
         self.invoke_wasm_str_func(&func, signature)
     }
@@ -217,7 +222,7 @@ impl CryptoService {
     /// # Errors
     ///
     /// Returns an error if the WASM function cannot be typed or invoked correctly.
-    pub fn unconvert(&mut self, signature: &str) -> Result<String, Box<dyn std::error::Error>> {
+    pub fn unconvert(&mut self, signature: &str) -> crate::Result<String> {
         let func = self.unconvert.typed::<(i32, i32), i32>(&self.store)?;
         self.invoke_wasm_str_func(&func, signature)
     }
@@ -242,7 +247,7 @@ impl CryptoService {
         message: &str,
         signature: &str,
         public_key: &str,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
+    ) -> crate::Result<bool> {
         let alloc_func = self.alloc.typed::<i32, i32>(&self.store)?;
         let free_func = self.free.typed::<(i32, i32), ()>(&self.store)?;
         let func = self
@@ -250,12 +255,12 @@ impl CryptoService {
             .typed::<(i32, i32, i32, i32, i32, i32), i32>(&self.store)?;
 
         // Helper closure to allocate memory and write input string bytes
-        let mut alloc_and_write = |input: &str| -> Result<(i32, i32), Box<dyn std::error::Error>> {
+        let mut alloc_and_write = |input: &str| -> crate::Result<(i32, i32)> {
             let bytes = input.as_bytes();
             let len = i32::try_from(bytes.len()).unwrap_or_default();
             let ptr_i32 = alloc_func.call(&mut self.store, len)?;
-            let ptr =
-                usize::try_from(ptr_i32).map_err(|_| "Invalid pointer returned from alloc")?;
+            let ptr = usize::try_from(ptr_i32)
+                .map_err(|_| KmsError::Crypto("Invalid pointer returned from alloc".into()))?;
             let mem_data = self.memory.data_mut(&mut self.store);
             mem_data[ptr..ptr + bytes.len()].copy_from_slice(bytes);
             Ok((ptr_i32, len))
@@ -303,14 +308,14 @@ impl CryptoService {
         signature: &str,
         public_key: &str,
         eth_chain_id: Option<u8>,
-    ) -> Result<String, Box<dyn std::error::Error>> {
+    ) -> crate::Result<String> {
         let alloc_func = self.alloc.typed::<i32, i32>(&self.store)?;
         let free_func = self.free.typed::<(i32, i32), ()>(&self.store)?;
         let func = self
             .recover_v
             .typed::<(i32, i32, i32, i32, i32, i32, i32), i32>(&self.store)?;
 
-        let mut alloc_and_write = |input: &str| -> Result<(i32, i32), Box<dyn std::error::Error>> {
+        let mut alloc_and_write = |input: &str| -> crate::Result<(i32, i32)> {
             let bytes = input.as_bytes();
             let len = i32::try_from(bytes.len())?;
             let ptr_i32 = alloc_func.call(&mut self.store, len)?;
@@ -336,23 +341,23 @@ impl CryptoService {
         free_func.call(&mut self.store, (pk_ptr, pk_len))?;
 
         if ret_ptr == 0 {
-            return Err("recover_v returned null pointer".into());
+            return Err(KmsError::Crypto("recover_v returned null pointer".into()));
         }
 
         let mem_data = self.memory.data(&self.store);
 
-        let mut end =
-            usize::try_from(ret_ptr).map_err(|_| "ret_ptr cannot be negative".to_string())?;
+        let mut end = usize::try_from(ret_ptr)
+            .map_err(|_| KmsError::Crypto("ret_ptr cannot be negative".into()))?;
         while end < mem_data.len() && mem_data[end] != 0 {
             end += 1;
         }
-        let start =
-            usize::try_from(ret_ptr).map_err(|_| "ret_ptr cannot be negative".to_string())?;
+        let start = usize::try_from(ret_ptr)
+            .map_err(|_| KmsError::Crypto("ret_ptr cannot be negative".into()))?;
         let cstr_bytes = &mem_data[start..end];
         let result_str = std::str::from_utf8(cstr_bytes)?.to_string();
 
         let len_i32 = i32::try_from(result_str.len())
-            .map_err(|_| "result_str length exceeds i32::MAX".to_string())?;
+            .map_err(|_| KmsError::Crypto("result_str length exceeds i32::MAX".into()))?;
         free_func.call(&mut self.store, (ret_ptr, len_i32))?;
 
         Ok(result_str)
@@ -377,7 +382,7 @@ impl CryptoService {
         message_hash: &str,
         signature: &str,
         public_key: &str,
-    ) -> Result<bool, Box<dyn std::error::Error>> {
+    ) -> crate::Result<bool> {
         let alloc_func = self.alloc.typed::<i32, i32>(&self.store)?;
         let free_func = self.free.typed::<(i32, i32), ()>(&self.store)?;
         let func = self
@@ -385,12 +390,12 @@ impl CryptoService {
             .typed::<(i32, i32, i32, i32, i32, i32), i32>(&self.store)?;
 
         // Helper to allocate and write string input
-        let mut alloc_and_write = |input: &str| -> Result<(i32, i32), Box<dyn std::error::Error>> {
+        let mut alloc_and_write = |input: &str| -> crate::Result<(i32, i32)> {
             let bytes = input.as_bytes();
             let len = i32::try_from(bytes.len()).unwrap_or_default();
             let ptr_i32 = alloc_func.call(&mut self.store, len)?;
-            let ptr =
-                usize::try_from(ptr_i32).map_err(|_| "Invalid pointer returned from alloc")?;
+            let ptr = usize::try_from(ptr_i32)
+                .map_err(|_| KmsError::Crypto("Invalid pointer returned from alloc".into()))?;
             let mem_data = self.memory.data_mut(&mut self.store);
             mem_data[ptr..ptr + bytes.len()].copy_from_slice(bytes);
             Ok((ptr_i32, len))
