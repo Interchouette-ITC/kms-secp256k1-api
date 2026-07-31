@@ -1,7 +1,6 @@
 #[cfg(test)]
 mod tests {
     use crate::config::ConfigBuilder;
-    use crate::constants::CASPER_PUBLIC_KEY_PREFIXED;
     use crate::create_app;
     use crate::routes::CreateKeyResponse;
     use axum::{
@@ -11,6 +10,7 @@ mod tests {
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
+    #[cfg(feature = "casper")]
     #[tokio::test]
     async fn test_delete_key_returns_200_when_key_exists() {
         let config = ConfigBuilder::new().with_delete_mode(true).build();
@@ -53,8 +53,11 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "casper")]
     #[tokio::test]
     async fn test_delete_key_returns_200_when_key_does_not_exist() {
+        use crate::constants::CASPER_PUBLIC_KEY_PREFIXED;
+
         let config = ConfigBuilder::new().with_delete_mode(true).build();
         let app = create_app(config).await;
 
@@ -77,6 +80,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "casper")]
     #[tokio::test]
     async fn test_delete_key_returns_404_when_disabled() {
         let config = ConfigBuilder::new().with_delete_mode(false).build();
@@ -91,6 +95,7 @@ mod tests {
         assert_eq!(response.status(), StatusCode::NOT_FOUND);
     }
 
+    #[cfg(feature = "ethereum")]
     #[tokio::test]
     async fn test_delete_key_returns_200_when_key_exists_from_address() {
         let config = ConfigBuilder::new()
@@ -136,6 +141,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "ethereum")]
     #[tokio::test]
     async fn test_delete_key_returns_200_when_key_does_not_exist_from_address() {
         let config = ConfigBuilder::new()

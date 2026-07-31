@@ -10,6 +10,7 @@ mod tests {
     use http_body_util::BodyExt;
     use tower::ServiceExt;
 
+    #[cfg(feature = "ethereum")]
     #[tokio::test]
     async fn test_create_ethereum_create_keypair_returns_201() {
         let config = ConfigBuilder::new().with_ethereum_mode().build();
@@ -50,6 +51,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "casper")]
     #[tokio::test]
     async fn test_create_casper_create_keypair_returns_201() {
         let config = ConfigBuilder::new().with_casper_mode().build();
@@ -98,6 +100,7 @@ mod tests {
         );
     }
 
+    #[cfg(feature = "cosmos")]
     #[tokio::test]
     async fn test_create_cosmos_create_keypair_returns_201() {
         let config = ConfigBuilder::new().with_cosmos_mode().build();
