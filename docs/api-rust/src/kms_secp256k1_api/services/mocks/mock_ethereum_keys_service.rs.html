@@ -316,14 +316,12 @@
 <a href=#316 id=316 data-nosnippet>316</a>    ///
 <a href=#317 id=317 data-nosnippet>317</a>    </span><span class="kw">fn </span>resolve_key(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw">crate</span>::Result&lt;String&gt; {
 <a href=#318 id=318 data-nosnippet>318</a>        <span class="kw">if </span>key.len() == ETH_SECP_LEN {
-<a href=#319 id=319 data-nosnippet>319</a>            <span class="self">self</span>.inner.crypto_service.address_eth(key).map_err(|e| {
-<a href=#320 id=320 data-nosnippet>320</a>                <span class="kw">let </span>msg = <span class="macro">format!</span>(<span class="string">"Failed to convert public key to address: {e:?}"</span>);
-<a href=#321 id=321 data-nosnippet>321</a>                <span class="macro">error!</span>(<span class="string">"{}"</span>, <span class="kw-2">&amp;</span>msg);
-<a href=#322 id=322 data-nosnippet>322</a>                <span class="kw">crate</span>::KmsError::Msg(msg)
-<a href=#323 id=323 data-nosnippet>323</a>            })
-<a href=#324 id=324 data-nosnippet>324</a>        } <span class="kw">else </span>{
-<a href=#325 id=325 data-nosnippet>325</a>            <span class="prelude-val">Ok</span>(key.to_string())
-<a href=#326 id=326 data-nosnippet>326</a>        }
-<a href=#327 id=327 data-nosnippet>327</a>    }
-<a href=#328 id=328 data-nosnippet>328</a>}
+<a href=#319 id=319 data-nosnippet>319</a>            <span class="self">self</span>.inner.crypto_service.address_eth(key).inspect_err(|e| {
+<a href=#320 id=320 data-nosnippet>320</a>                <span class="macro">error!</span>(error = %e, <span class="string">"Failed to convert public key to address"</span>);
+<a href=#321 id=321 data-nosnippet>321</a>            })
+<a href=#322 id=322 data-nosnippet>322</a>        } <span class="kw">else </span>{
+<a href=#323 id=323 data-nosnippet>323</a>            <span class="prelude-val">Ok</span>(key.to_string())
+<a href=#324 id=324 data-nosnippet>324</a>        }
+<a href=#325 id=325 data-nosnippet>325</a>    }
+<a href=#326 id=326 data-nosnippet>326</a>}
 </code></pre></div></section></main></body></html>

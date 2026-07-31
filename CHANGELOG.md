@@ -14,7 +14,8 @@ First org-cut release will be **1.1.0** (matches current `Cargo.toml`). Notes be
 - HTTP API for secp256k1 key create / sign / verify / list / delete
 - Blockchain modes: Ethereum, Cosmos, Casper
 - AWS KMS backend for production key material (testing mode for local mocks)
-- Typed domain errors via `thiserror` (`KmsError` / `crate::Result`) at service and KMS client trait boundaries; HTTP maps `Display` into JSON
+- Typed domain errors via `thiserror` (`KmsError` / `crate::Result`) through services, KMS client, WASM loader, and crypto helpers; HTTP maps variants via `KmsError::status` and `Display` into JSON
+
 
 ### Docker
 

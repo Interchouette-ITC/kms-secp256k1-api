@@ -316,10 +316,8 @@ impl MockEthereumKeysService {
     ///
     fn resolve_key(&mut self, key: &str) -> crate::Result<String> {
         if key.len() == ETH_SECP_LEN {
-            self.inner.crypto_service.address_eth(key).map_err(|e| {
-                let msg = format!("Failed to convert public key to address: {e:?}");
-                error!("{}", &msg);
-                crate::KmsError::Msg(msg)
+            self.inner.crypto_service.address_eth(key).inspect_err(|e| {
+                error!(error = %e, "Failed to convert public key to address");
             })
         } else {
             Ok(key.to_string())

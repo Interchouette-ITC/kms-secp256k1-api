@@ -69,16 +69,16 @@ async fn test_list_keys_returns_200_and_keys_present() {
 
 #[tokio::test]
 #[serial]
-async fn test_list_keys_returns_500_on_error() {
+async fn test_list_keys_returns_404_when_empty() {
     let config = ConfigBuilder::new().with_list_mode(true).build();
     let (server_handle, base) = common::start_test_server(config).await;
 
-    // Simulate internal error by skipping key creation, if that causes a 500 in your implementation
+    // Empty key store returns 404 (not an internal error)
     let resp = reqwest::get(format!("{base}/listKeys"))
         .await
         .expect("Failed to send request to listKeys");
 
-    assert!(resp.status().is_server_error());
+    assert_eq!(resp.status(), reqwest::StatusCode::NOT_FOUND);
 
     let body = resp.text().await.expect("Failed to read response body");
     assert!(

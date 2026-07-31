@@ -192,10 +192,8 @@ impl KeysService {
                 crate::KmsError::Msg(msg)
             })?;
 
-        let mut signature = self.crypto_service.convert(&signature).map_err(|e| {
-            let msg = format!("Failed to convert signature: {e}");
-            error!("{}", msg);
-            crate::KmsError::Msg(msg)
+        let mut signature = self.crypto_service.convert(&signature).inspect_err(|e| {
+            error!(error = %e, "Failed to convert signature");
         })?;
 
         if let Some(pref) = prefix {
@@ -228,10 +226,8 @@ impl KeysService {
     ) -> crate::Result<bool> {
         self.crypto_service
             .verify(transaction_hash_hex, signature_hex, public_key)
-            .map_err(|e| {
-                let msg = format!("Signature verification failed: {e}");
-                error!("{}", msg);
-                crate::KmsError::Msg(msg)
+            .inspect_err(|e| {
+                error!(error = %e, "Signature verification failed");
             })
     }
 
@@ -258,10 +254,8 @@ impl KeysService {
     ) -> crate::Result<bool> {
         self.crypto_service
             .verify_eip155(transaction_hash_hex, signature_hex, public_key)
-            .map_err(|e| {
-                let msg = format!("Signature verification failed: {e}");
-                error!("{}", msg);
-                crate::KmsError::Msg(msg)
+            .inspect_err(|e| {
+                error!(error = %e, "Signature verification failed");
             })
     }
 
@@ -334,10 +328,8 @@ impl KeysService {
         let is_verified = if use_eip155 {
             let verify_eip155 = self
                 .verify_eip155(transaction_hash_hex, signature_hex, public_key)
-                .map_err(|e| {
-                    let msg = format!("Signature eip155 verification failed: {e}");
-                    error!("{}", msg);
-                    crate::KmsError::Msg(msg)
+                .inspect_err(|e| {
+                    error!(error = %e, "Signature eip155 verification failed");
                 })?;
 
             // Trim the last v byte for KMS verification if signature length matches
@@ -348,10 +340,8 @@ impl KeysService {
             verify_eip155
         } else {
             self.verify(transaction_hash_hex, signature_hex, public_key)
-                .map_err(|e| {
-                    let msg = format!("Signature verification failed: {e}");
-                    error!("{}", msg);
-                    msg
+                .inspect_err(|e| {
+                    error!(error = %e, "Signature verification failed");
                 })?
         };
 
@@ -359,18 +349,19 @@ impl KeysService {
             return Ok(false);
         }
 
-        let signature = self.crypto_service.unconvert(signature_hex).map_err(|e| {
-            let msg = format!("Signature conversion failed: {e}");
-            error!("{}", msg);
-            crate::KmsError::Msg(msg)
-        })?;
+        let signature = self
+            .crypto_service
+            .unconvert(signature_hex)
+            .inspect_err(|e| {
+                error!(error = %e, "Signature conversion failed");
+            })?;
 
         let alias = if use_eip155 {
-            self.crypto_service.address_eth(public_key).map_err(|e| {
-                let msg = format!("Failed to convert public key to address: {e:?}");
-                error!("{}", &msg);
-                msg
-            })?
+            self.crypto_service
+                .address_eth(public_key)
+                .inspect_err(|e| {
+                    error!(error = %e, "Failed to convert public key to address");
+                })?
         } else {
             public_key.to_string()
         };
@@ -404,10 +395,8 @@ impl KeysService {
         let public_key = self
             .crypto_service
             .public_key(&public_key_base64)
-            .map_err(|e| {
-                let msg = format!("public_key conversion failed: {e:?}");
-                error!("{}", &msg);
-                crate::KmsError::Msg(msg)
+            .inspect_err(|e| {
+                error!(error = %e, "public_key conversion failed");
             })?;
 
         if public_key.is_empty() {
@@ -477,14 +466,12 @@ impl KeysService {
             if entry.public_key.is_none() {
                 let public_key_base64 = entry.public_key_base64.to_string();
 
-                let public_key =
-                    self.crypto_service
-                        .public_key(&public_key_base64)
-                        .map_err(|e| {
-                            let msg = format!("public_key conversion failed: {e:?}");
-                            error!("{}", &msg);
-                            crate::KmsError::Msg(msg)
-                        })?;
+                let public_key = self
+                    .crypto_service
+                    .public_key(&public_key_base64)
+                    .inspect_err(|e| {
+                        error!(error = %e, "public_key conversion failed");
+                    })?;
 
                 entry.public_key = Some(public_key).into();
             }

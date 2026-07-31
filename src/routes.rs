@@ -1,4 +1,4 @@
-use crate::{AppState, VERSION};
+use crate::{AppState, KmsError, VERSION};
 use axum::Json;
 use axum::{Extension, response::IntoResponse};
 use axum_extra::extract::Query;
@@ -7,6 +7,16 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use std::collections::HashSet;
 use utoipa::{IntoParams, OpenApi, ToSchema};
+
+/// JSON error body using [`KmsError::status`].
+fn kms_json_err(err: &KmsError) -> (StatusCode, Json<Value>) {
+    (err.status(), Json(json!({ "error": err.to_string() })))
+}
+
+/// JSON error with a contextual message, status from the underlying [`KmsError`].
+fn kms_json_err_msg(err: &KmsError, message: &str) -> (StatusCode, Json<Value>) {
+    (err.status(), Json(json!({ "error": message })))
+}
 
 #[derive(OpenApi)]
 #[openapi(paths(
@@ -78,10 +88,7 @@ pub async fn create_key(Extension(state): Extension<AppState>) -> impl IntoRespo
                 "address": key.address
             })),
         ),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err.to_string() })),
-        ),
+        Err(err) => kms_json_err(&err),
     }
 }
 
@@ -146,10 +153,7 @@ pub async fn sign_transaction_hash(
                 let mut sig_bytes = match hex::decode(sig_clean) {
                     Ok(bytes) if bytes.len() == 64 || bytes.len() == 65 => bytes,
                     _ => {
-                        return (
-                            StatusCode::INTERNAL_SERVER_ERROR,
-                            Json(json!({ "error": "Invalid signature format" })),
-                        );
+                        return kms_json_err(&KmsError::InvalidSignatureLength { expected: 65 });
                     }
                 };
 
@@ -177,10 +181,7 @@ pub async fn sign_transaction_hash(
                 });
             }
             Err(err) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({ "error": format!("Error signing for {}: {}", key, err) })),
-                );
+                return kms_json_err_msg(&err, &format!("Error signing for {key}: {err}"));
             }
         }
     }
@@ -244,12 +245,7 @@ pub async fn sign_transaction(
                 current_signed = signed;
             }
             Err(err) => {
-                return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "error": format!("Failed to sign with key {}: {}", key, err)
-                    })),
-                );
+                return kms_json_err_msg(&err, &format!("Failed to sign with key {key}: {err}"));
             }
         }
     }
@@ -257,13 +253,10 @@ pub async fn sign_transaction(
     // Deserialize once at the end to return clean JSON (not a quoted string)
     let final_value: Value = match serde_json::from_str(&current_signed) {
         Ok(v) => v,
-        Err(_) => {
-            return (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "error": "Failed to parse final signed transaction"
-                })),
-            );
+        Err(e) => {
+            return kms_json_err(&KmsError::ParseJson(format!(
+                "Failed to parse final signed transaction: {e}"
+            )));
         }
     };
 
@@ -313,10 +306,7 @@ pub async fn verify_signature(
 
     match result {
         Ok(valid) => (StatusCode::OK, Json(json!({ "valid": valid }))),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err.to_string() })),
-        ),
+        Err(err) => kms_json_err(&err),
     }
 }
 
@@ -355,10 +345,7 @@ pub async fn delete_key(
 
     match keys_service.delete_key(key).await {
         Ok(result) => (StatusCode::OK, Json(json!({ "deleted": result }))),
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err.to_string() })),
-        ),
+        Err(err) => kms_json_err(&err),
     }
 }
 
@@ -401,17 +388,14 @@ pub async fn list_keys(Extension(state): Extension<AppState>) -> impl IntoRespon
 
             if keys_entries.is_empty() {
                 return (
-                    StatusCode::INTERNAL_SERVER_ERROR,
+                    StatusCode::NOT_FOUND,
                     Json(json!({ "error": "No keys found" })),
                 );
             }
 
             (StatusCode::OK, Json(json!({ "keys": keys_entries })))
         }
-        Err(err) => (
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({ "error": err.to_string() })),
-        ),
+        Err(err) => kms_json_err(&err),
     }
 }
 

@@ -72,7 +72,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn test_list_keys_returns_500_on_error() {
+    async fn test_list_keys_returns_404_when_empty() {
         let config = ConfigBuilder::new().with_list_mode(true).build();
         let app = create_app(config).await;
 
@@ -81,7 +81,7 @@ mod tests {
             .await
             .unwrap();
 
-        assert_eq!(response.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
         let body = response.into_body().collect().await.unwrap().to_bytes();
         let body_str = String::from_utf8(body.to_vec()).unwrap();

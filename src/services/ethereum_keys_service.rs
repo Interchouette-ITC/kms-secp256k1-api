@@ -303,10 +303,8 @@ impl EthereumKeysService {
             self.keys_service
                 .crypto_service
                 .address_eth(key)
-                .map_err(|e| {
-                    let msg = format!("Failed to convert public key to address: {e:?}");
-                    error!("{}", &msg);
-                    crate::KmsError::Msg(msg)
+                .inspect_err(|e| {
+                    error!(error = %e, "Failed to convert public key to address");
                 })
         } else {
             Ok(key.to_string())
@@ -347,10 +345,8 @@ impl EthereumKeysService {
             self.keys_service
                 .crypto_service
                 .public_key(&public_key)
-                .map_err(|e| {
-                    let msg = format!("public_key conversion failed: {e:?}");
-                    error!("{}", &msg);
-                    crate::KmsError::Msg(msg)
+                .inspect_err(|e| {
+                    error!(error = %e, "public_key conversion failed");
                 })
         }
     }

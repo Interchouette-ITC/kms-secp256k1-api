@@ -104,10 +104,8 @@ impl KeysServiceTrait for MockCosmosKeysService {
             .inner
             .crypto_service
             .convert(&base64_signature)
-            .map_err(|e| {
-                let msg = format!("Failed to convert signature: {e}");
-                error!("{}", msg);
-                crate::KmsError::Msg(msg)
+            .inspect_err(|e| {
+                error!(error = %e, "Failed to convert signature");
             })?;
 
         // Verify signature
@@ -292,10 +290,8 @@ impl MockCosmosKeysService {
             self.inner
                 .crypto_service
                 .address_cosmos(key, &self.hrp)
-                .map_err(|e| {
-                    let msg = format!("Failed to convert public key to address: {e:?}");
-                    error!("{}", &msg);
-                    crate::KmsError::Msg(msg)
+                .inspect_err(|e| {
+                    error!(error = %e, "Failed to convert public key to address");
                 })
         } else {
             Ok(key.to_string())
