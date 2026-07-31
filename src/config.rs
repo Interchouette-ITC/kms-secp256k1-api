@@ -27,7 +27,6 @@ pub enum HashType {
     #[default]
     Sha256,
     Keccak256,
-    // Sha3_256,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -261,7 +260,6 @@ struct Modes {
     hash_type: HashType,
 }
 
-#[allow(clippy::cognitive_complexity)]
 fn log_modes(modes: &Modes) {
     info!("testing_mode: {}", modes.testing_mode);
     info!("aws_mode: {}", modes.aws_mode);

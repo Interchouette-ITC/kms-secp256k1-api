@@ -94,8 +94,7 @@ mod tests {
         let address = parsed.address;
         assert!(
             address.eq(&hex),
-            "Expected casper address to be public key hex, got: {}",
-            &address
+            "Expected casper address to be public key hex, got: {address}"
         );
     }
 
@@ -128,10 +127,10 @@ mod tests {
         );
 
         let address = parsed.address;
+        let address_prefix = &address[..7];
         assert!(
             address.starts_with("cosmos1"),
-            "Expected cosmos address prefix (cosmos1), got: {}",
-            &address[..7]
+            "Expected cosmos address prefix (cosmos1), got: {address_prefix}"
         );
     }
 }

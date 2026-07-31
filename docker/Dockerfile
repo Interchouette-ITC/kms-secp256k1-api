@@ -1,4 +1,4 @@
-# Latest Debian (13 / trixie) builder — not bookworm.
+# Latest Debian (13 / trixie) builder - not bookworm.
 FROM rust:slim-trixie AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -30,7 +30,7 @@ COPY wasm ./wasm
 RUN cargo build --release
 
 # Distroless on Debian 13 (trixie family): glibc + libgcc/libstdc++, no shell/apt/perl.
-# Binary is rustls-only (ldd: libc, libm, libgcc) — no OpenSSL .so required.
+# Binary is rustls-only (ldd: libc, libm, libgcc) - no OpenSSL .so required.
 FROM gcr.io/distroless/cc-debian13:nonroot AS runtime
 
 WORKDIR /app

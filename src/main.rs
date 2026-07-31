@@ -1,5 +1,6 @@
 use kms_secp256k1_api::{config::Config, run_server};
 use once_cell::sync::OnceCell;
+use tracing::error;
 use tracing_subscriber::{EnvFilter, fmt};
 
 static TRACING_INIT: OnceCell<()> = OnceCell::new();
@@ -19,7 +20,7 @@ async fn main() {
     init_tracing();
     let config = Config::from_env();
     if let Err(e) = Box::pin(run_server(config)).await {
-        eprintln!("Server error: {e}");
+        error!(error = %e, "Server error");
         std::process::exit(1);
     }
 }

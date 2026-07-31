@@ -1,282 +1,255 @@
-use kms_secp256k1_api::{config::ConfigBuilder, run_server};
-use tokio::task;
+mod common;
 
-async fn start_server(delete_mode: bool, ethereum_mode: bool) -> task::JoinHandle<()> {
-    let mut builder = ConfigBuilder::new().with_delete_mode(delete_mode);
+use kms_secp256k1_api::config::ConfigBuilder;
+use kms_secp256k1_api::{constants::CASPER_PUBLIC_KEY_PREFIXED, routes::CreateKeyResponse};
+use serial_test::serial;
 
-    if ethereum_mode {
-        builder = builder.with_ethereum_mode();
-    }
+#[tokio::test]
+#[serial]
+async fn test_delete_key_returns_200_when_key_exists() {
+    let config = ConfigBuilder::new().with_delete_mode(true).build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-    let config = builder.build();
+    let client = reqwest::Client::new();
 
-    task::spawn(async move {
-        let _ = run_server(config).await;
-    })
+    // Create a key first
+    let create_resp = client
+        .post(format!("{base}/createKey"))
+        .send()
+        .await
+        .expect("Failed to send createKey request");
+
+    assert!(create_resp.status().is_success());
+
+    let created: CreateKeyResponse = create_resp
+        .json()
+        .await
+        .expect("Failed to parse createKey response");
+
+    // Delete the created key
+    let url = format!("{base}/deleteKey?key={}", created.address);
+    let delete_resp = client
+        .delete(&url)
+        .send()
+        .await
+        .expect("Failed to send deleteKey request");
+
+    assert!(delete_resp.status().is_success());
+
+    let body = delete_resp.text().await.expect("Failed to read body");
+
+    assert!(
+        body.contains("\"deleted\":true"),
+        "Expected successful deletion, got body: {body}"
+    );
+
+    server_handle.abort();
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use kms_secp256k1_api::{constants::CASPER_PUBLIC_KEY_PREFIXED, routes::CreateKeyResponse};
-    use serial_test::serial;
-    use std::time::Duration;
+#[tokio::test]
+#[serial]
+async fn test_delete_key_returns_200_when_key_does_not_exist() {
+    let config = ConfigBuilder::new().with_delete_mode(true).build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-    #[tokio::test]
-    #[serial]
-    async fn test_delete_key_returns_200_when_key_exists() {
-        let delete_mode = true;
-        let ethereum_mode = false;
-        let server_handle = start_server(delete_mode, ethereum_mode).await;
-        tokio::time::sleep(Duration::from_secs(1)).await;
+    let client = reqwest::Client::new();
 
-        let client = reqwest::Client::new();
+    let fake_key = CASPER_PUBLIC_KEY_PREFIXED;
+    let url = format!("{base}/deleteKey?key={fake_key}");
+    let resp = client
+        .delete(&url)
+        .send()
+        .await
+        .expect("Failed to send deleteKey request");
 
-        // Create a key first
-        let create_resp = client
-            .post("http://127.0.0.1:4000/createKey")
-            .send()
-            .await
-            .expect("Failed to send createKey request");
+    assert!(resp.status().is_success());
 
-        assert!(create_resp.status().is_success());
+    let body = resp.text().await.expect("Failed to read body");
 
-        let created: CreateKeyResponse = create_resp
-            .json()
-            .await
-            .expect("Failed to parse createKey response");
+    assert!(
+        body.contains("\"deleted\":false"),
+        "Expected deleted:false for non-existent key, got: {body}"
+    );
 
-        // Delete the created key
-        let url = format!("http://127.0.0.1:4000/deleteKey?key={}", created.address);
-        let delete_resp = client
-            .delete(&url)
-            .send()
-            .await
-            .expect("Failed to send deleteKey request");
+    server_handle.abort();
+}
 
-        assert!(delete_resp.status().is_success());
+#[tokio::test]
+#[serial]
+async fn test_delete_key_returns_404_when_disabled() {
+    let config = ConfigBuilder::new().with_delete_mode(false).build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-        let body = delete_resp.text().await.expect("Failed to read body");
+    let client = reqwest::Client::new();
 
-        assert!(
-            body.contains("\"deleted\":true"),
-            "Expected successful deletion, got body: {body}"
-        );
+    let url = format!("{base}/deleteKey?key=dummykey");
+    let resp = client
+        .delete(&url)
+        .send()
+        .await
+        .expect("Failed to send deleteKey request");
 
-        server_handle.abort();
-    }
+    assert!(resp.status().is_client_error());
 
-    #[tokio::test]
-    #[serial]
-    async fn test_delete_key_returns_200_when_key_does_not_exist() {
-        let delete_mode = true;
-        let ethereum_mode = false;
-        let server_handle = start_server(delete_mode, ethereum_mode).await;
-        tokio::time::sleep(Duration::from_secs(1)).await;
+    server_handle.abort();
+}
 
-        let client = reqwest::Client::new();
+#[tokio::test]
+#[serial]
+async fn test_delete_key_returns_200_when_key_exists_from_address() {
+    let config = ConfigBuilder::new().with_delete_mode(true).build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-        let fake_key = CASPER_PUBLIC_KEY_PREFIXED;
-        let url = format!("http://127.0.0.1:4000/deleteKey?key={fake_key}");
-        let resp = client
-            .delete(&url)
-            .send()
-            .await
-            .expect("Failed to send deleteKey request");
+    let client = reqwest::Client::new();
 
-        assert!(resp.status().is_success());
+    // Create a key first
+    let create_resp = client
+        .post(format!("{base}/createKey"))
+        .send()
+        .await
+        .expect("Failed to send createKey request");
 
-        let body = resp.text().await.expect("Failed to read body");
+    assert!(create_resp.status().is_success());
 
-        assert!(
-            body.contains("\"deleted\":false"),
-            "Expected deleted:false for non-existent key, got: {body}"
-        );
+    let created: CreateKeyResponse = create_resp
+        .json()
+        .await
+        .expect("Failed to parse createKey response");
 
-        server_handle.abort();
-    }
+    // Delete the created key
+    let url = format!("{base}/deleteKey?key={}", created.address);
+    let delete_resp = client
+        .delete(&url)
+        .send()
+        .await
+        .expect("Failed to send deleteKey request");
 
-    #[tokio::test]
-    #[serial]
-    async fn test_delete_key_returns_404_when_disabled() {
-        let delete_mode = false;
-        let ethereum_mode = false;
-        let server_handle = start_server(delete_mode, ethereum_mode).await;
-        tokio::time::sleep(Duration::from_secs(1)).await;
+    assert!(delete_resp.status().is_success());
 
-        let client = reqwest::Client::new();
+    let body = delete_resp.text().await.expect("Failed to read body");
 
-        let url = "http://127.0.0.1:4000/deleteKey?key=dummykey";
-        let resp = client
-            .delete(url)
-            .send()
-            .await
-            .expect("Failed to send deleteKey request");
+    assert!(
+        body.contains("\"deleted\":true"),
+        "Expected successful deletion, got body: {body}"
+    );
 
-        assert!(resp.status().is_client_error());
+    server_handle.abort();
+}
 
-        server_handle.abort();
-    }
+#[tokio::test]
+#[serial]
+async fn test_delete_key_returns_200_when_key_does_not_exist_from_address() {
+    let config = ConfigBuilder::new().with_delete_mode(true).build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-    #[tokio::test]
-    #[serial]
-    async fn test_delete_key_returns_200_when_key_exists_from_address() {
-        let delete_mode = true;
-        let ethereum_mode = false;
-        let server_handle = start_server(delete_mode, ethereum_mode).await;
-        tokio::time::sleep(Duration::from_secs(1)).await;
+    let client = reqwest::Client::new();
 
-        let client = reqwest::Client::new();
+    let fake_key = "fake_address";
+    let url = format!("{base}/deleteKey?key={fake_key}");
+    let resp = client
+        .delete(&url)
+        .send()
+        .await
+        .expect("Failed to send deleteKey request");
 
-        // Create a key first
-        let create_resp = client
-            .post("http://127.0.0.1:4000/createKey")
-            .send()
-            .await
-            .expect("Failed to send createKey request");
+    assert!(resp.status().is_success());
 
-        assert!(create_resp.status().is_success());
+    let body = resp.text().await.expect("Failed to read body");
 
-        let created: CreateKeyResponse = create_resp
-            .json()
-            .await
-            .expect("Failed to parse createKey response");
+    assert!(
+        body.contains("\"deleted\":false"),
+        "Expected deleted:false for non-existent key, got: {body}"
+    );
 
-        // Delete the created key
-        let url = format!("http://127.0.0.1:4000/deleteKey?key={}", created.address);
-        let delete_resp = client
-            .delete(&url)
-            .send()
-            .await
-            .expect("Failed to send deleteKey request");
+    server_handle.abort();
+}
 
-        assert!(delete_resp.status().is_success());
+#[tokio::test]
+#[serial]
+async fn test_delete_eth_key_returns_200_when_key_exists() {
+    let config = ConfigBuilder::new()
+        .with_delete_mode(true)
+        .with_ethereum_mode()
+        .build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-        let body = delete_resp.text().await.expect("Failed to read body");
+    let client = reqwest::Client::new();
 
-        assert!(
-            body.contains("\"deleted\":true"),
-            "Expected successful deletion, got body: {body}"
-        );
+    // Create a key first
+    let create_resp = client
+        .post(format!("{base}/createKey"))
+        .send()
+        .await
+        .expect("Failed to send createKey request");
 
-        server_handle.abort();
-    }
+    assert!(create_resp.status().is_success());
 
-    #[tokio::test]
-    #[serial]
-    async fn test_delete_key_returns_200_when_key_does_not_exist_from_address() {
-        let delete_mode = true;
-        let ethereum_mode = false;
-        let server_handle = start_server(delete_mode, ethereum_mode).await;
-        tokio::time::sleep(Duration::from_secs(1)).await;
+    let created: CreateKeyResponse = create_resp
+        .json()
+        .await
+        .expect("Failed to parse createKey response");
 
-        let client = reqwest::Client::new();
+    // Delete the created key
+    let url = format!("{base}/deleteKey?key={}", created.public_key);
+    let delete_resp = client
+        .delete(&url)
+        .send()
+        .await
+        .expect("Failed to send deleteKey request");
 
-        let fake_key = "fake_address";
-        let url = format!("http://127.0.0.1:4000/deleteKey?key={fake_key}");
-        let resp = client
-            .delete(&url)
-            .send()
-            .await
-            .expect("Failed to send deleteKey request");
+    assert!(delete_resp.status().is_success());
 
-        assert!(resp.status().is_success());
+    let body = delete_resp.text().await.expect("Failed to read body");
 
-        let body = resp.text().await.expect("Failed to read body");
+    assert!(
+        body.contains("\"deleted\":true"),
+        "Expected successful deletion, got body: {body}"
+    );
 
-        assert!(
-            body.contains("\"deleted\":false"),
-            "Expected deleted:false for non-existent key, got: {body}"
-        );
+    server_handle.abort();
+}
 
-        server_handle.abort();
-    }
+#[tokio::test]
+#[serial]
+async fn test_delete_eth_key_returns_200_when_key_exists_from_address() {
+    let config = ConfigBuilder::new()
+        .with_delete_mode(true)
+        .with_ethereum_mode()
+        .build();
+    let (server_handle, base) = common::start_test_server(config).await;
 
-    #[tokio::test]
-    #[serial]
-    async fn test_delete_eth_key_returns_200_when_key_exists() {
-        let delete_mode = true;
-        let ethereum_mode = true;
-        let server_handle = start_server(delete_mode, ethereum_mode).await;
-        tokio::time::sleep(Duration::from_secs(1)).await;
+    let client = reqwest::Client::new();
 
-        let client = reqwest::Client::new();
+    // Create a key first
+    let create_resp = client
+        .post(format!("{base}/createKey"))
+        .send()
+        .await
+        .expect("Failed to send createKey request");
 
-        // Create a key first
-        let create_resp = client
-            .post("http://127.0.0.1:4000/createKey")
-            .send()
-            .await
-            .expect("Failed to send createKey request");
+    assert!(create_resp.status().is_success());
 
-        assert!(create_resp.status().is_success());
+    let created: CreateKeyResponse = create_resp
+        .json()
+        .await
+        .expect("Failed to parse createKey response");
 
-        let created: CreateKeyResponse = create_resp
-            .json()
-            .await
-            .expect("Failed to parse createKey response");
+    // Delete the created key
+    let url = format!("{base}/deleteKey?key={}", created.address);
+    let delete_resp = client
+        .delete(&url)
+        .send()
+        .await
+        .expect("Failed to send deleteKey request");
 
-        // Delete the created key
-        let url = format!("http://127.0.0.1:4000/deleteKey?key={}", created.public_key);
-        let delete_resp = client
-            .delete(&url)
-            .send()
-            .await
-            .expect("Failed to send deleteKey request");
+    assert!(delete_resp.status().is_success());
 
-        assert!(delete_resp.status().is_success());
+    let body = delete_resp.text().await.expect("Failed to read body");
 
-        let body = delete_resp.text().await.expect("Failed to read body");
+    assert!(
+        body.contains("\"deleted\":true"),
+        "Expected successful deletion, got body: {body}"
+    );
 
-        assert!(
-            body.contains("\"deleted\":true"),
-            "Expected successful deletion, got body: {body}"
-        );
-
-        server_handle.abort();
-    }
-
-    #[tokio::test]
-    #[serial]
-    async fn test_delete_eth_key_returns_200_when_key_exists_from_address() {
-        let delete_mode = true;
-        let ethereum_mode = true;
-        let server_handle = start_server(delete_mode, ethereum_mode).await;
-        tokio::time::sleep(Duration::from_secs(1)).await;
-
-        let client = reqwest::Client::new();
-
-        // Create a key first
-        let create_resp = client
-            .post("http://127.0.0.1:4000/createKey")
-            .send()
-            .await
-            .expect("Failed to send createKey request");
-
-        assert!(create_resp.status().is_success());
-
-        let created: CreateKeyResponse = create_resp
-            .json()
-            .await
-            .expect("Failed to parse createKey response");
-
-        // Delete the created key
-        let url = format!("http://127.0.0.1:4000/deleteKey?key={}", created.address);
-        let delete_resp = client
-            .delete(&url)
-            .send()
-            .await
-            .expect("Failed to send deleteKey request");
-
-        assert!(delete_resp.status().is_success());
-
-        let body = delete_resp.text().await.expect("Failed to read body");
-
-        assert!(
-            body.contains("\"deleted\":true"),
-            "Expected successful deletion, got body: {body}"
-        );
-
-        server_handle.abort();
-    }
+    server_handle.abort();
 }

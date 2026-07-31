@@ -13,7 +13,6 @@ use aws_types::region::Region;
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use k256::sha2::{Digest, Sha256};
-// use sha3::{Digest as Sha3Digest, Sha3_256};
 use std::vec;
 use tracing::{error, info};
 
@@ -116,12 +115,6 @@ impl AWSKmsClientService {
                 hasher.finalize().to_vec() // Casper Sha256 of Sha256 transaction_hash
             }
             HashType::Keccak256 => data.to_vec(), // EIP-155 transaction hash is Keccak256 hash already
-
-                                                  // HashType::Sha3_256 => {
-                                                  //     let mut hasher = Sha3_256::new();
-                                                  //     hasher.update(data);
-                                                  //     hasher.finalize().to_vec()
-                                                  // }
         }
     }
 }
@@ -154,12 +147,9 @@ impl KmsClientService for AWSKmsClientService {
                 msg
             })?;
 
-        // info!("Key created: {}", key_id);
-
         // Fetch the public key
         let public_key_base64 = self.get_public_key_base64(kms_client, &key_id).await?;
 
-        // info!("Public key (base64): {}", public_key_base64);
         Ok((key_id, public_key_base64))
     }
 
@@ -178,7 +168,6 @@ impl KmsClientService for AWSKmsClientService {
                 error!("{}", &msg);
                 msg
             })?;
-        //   info!("Alias key: {}", alias_name);
         Ok(())
     }
 
@@ -194,9 +183,6 @@ impl KmsClientService for AWSKmsClientService {
             error!("{}", msg);
             msg
         })?;
-
-        // let transaction_hash = STANDARD.encode(data.clone());
-        // info!("transaction_hash: {}", transaction_hash);
 
         let input_data = self.hash(&data);
 
@@ -223,11 +209,7 @@ impl KmsClientService for AWSKmsClientService {
 
         let signature = signature.as_ref();
 
-        // Log signature
-        // let signature_hex = hex::encode(signature);
-        // info!("signature hex: {}", signature_hex);
         let signature = STANDARD.encode(signature);
-        // info!("signature: {}", signature);
 
         Ok(signature)
     }
@@ -317,10 +299,6 @@ impl KmsClientService for AWSKmsClientService {
                 msg
             })?;
 
-        // info!(
-        //     "Key {} (alias {}) scheduled for deletion",
-        //     key_id, alias_name
-        // );
         Ok(true)
     }
 
