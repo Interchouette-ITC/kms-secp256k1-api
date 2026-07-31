@@ -1,8 +1,9 @@
 //! Domain errors for KMS API services and HTTP handlers.
 //!
 //! Library / service boundary uses [`KmsError`] (`thiserror`). HTTP handlers map
-//! `Display` into JSON `{"error": ...}` (status mapping can tighten later).
+//! variants to status via [`KmsError::status`] and `Display` into JSON `{"error": ...}`.
 
+use hyper::StatusCode;
 use thiserror::Error;
 
 /// Crate result alias for service and KMS client code.
@@ -102,7 +103,7 @@ pub enum KmsError {
     #[error("{0}")]
     Kms(String),
 
-    /// Crypto / WASM helper failure (often from `Box<dyn Error>` at the boundary).
+    /// Crypto / WASM helper failure.
     #[error("{0}")]
     Crypto(String),
 
@@ -122,10 +123,40 @@ impl KmsError {
         Self::Msg(s.into())
     }
 
-    /// Map a `Box<dyn Error>` (crypto/WASM) into [`KmsError::Crypto`].
+    /// Map a displayable failure into [`KmsError::Crypto`].
     #[must_use]
     pub fn from_dyn(err: impl std::fmt::Display) -> Self {
         Self::Crypto(err.to_string())
+    }
+
+    /// HTTP status for this failure (client vs server).
+    #[must_use]
+    pub const fn status(&self) -> StatusCode {
+        match self {
+            Self::KeyNotFound | Self::PublicKeyNotFound | Self::AliasNotFound { .. } => {
+                StatusCode::NOT_FOUND
+            }
+            Self::ModeMismatch { .. }
+            | Self::UnsupportedMode
+            | Self::InvalidHex(_)
+            | Self::InvalidTxHashHex(_)
+            | Self::TxHashWrongLength
+            | Self::InvalidSignatureHex
+            | Self::InvalidSignatureLength { .. }
+            | Self::ParseJson(_)
+            | Self::ParseTransaction(_)
+            | Self::UnsupportedTxFormat
+            | Self::VerificationFailed
+            | Self::VerificationFailedDetail(_) => StatusCode::BAD_REQUEST,
+            Self::MissingKeyId
+            | Self::EmptyPublicKey
+            | Self::SigningFailed(_)
+            | Self::PostSignVerifyFailed
+            | Self::Kms(_)
+            | Self::Crypto(_)
+            | Self::Cosmos(_)
+            | Self::Msg(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
     }
 }
 
@@ -138,5 +169,23 @@ impl From<String> for KmsError {
 impl From<&str> for KmsError {
     fn from(value: &str) -> Self {
         Self::Msg(value.to_string())
+    }
+}
+
+impl From<wasmtime::Error> for KmsError {
+    fn from(value: wasmtime::Error) -> Self {
+        Self::Crypto(value.to_string())
+    }
+}
+
+impl From<std::str::Utf8Error> for KmsError {
+    fn from(value: std::str::Utf8Error) -> Self {
+        Self::Crypto(value.to_string())
+    }
+}
+
+impl From<std::num::TryFromIntError> for KmsError {
+    fn from(value: std::num::TryFromIntError) -> Self {
+        Self::Crypto(value.to_string())
     }
 }

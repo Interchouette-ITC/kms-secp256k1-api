@@ -244,12 +244,10 @@ mod tests_lib {
                 "Expected /deleteKey route to exist or return 404",
             );
 
-            assert!(
-                oneshot(&app, Method::GET, "/listKeys")
-                    .await
-                    .status()
-                    .is_server_error(),
-                "Expected /listKeys route to exist and return 500"
+            assert_eq!(
+                oneshot(&app, Method::GET, "/listKeys").await.status(),
+                StatusCode::NOT_FOUND,
+                "Expected /listKeys with no keys to return 404"
             );
 
             assert_ne!(

@@ -1,4 +1,5 @@
-use std::{error::Error, sync::Arc};
+use crate::KmsError;
+use std::sync::Arc;
 use tokio::sync::OnceCell;
 use tracing::info;
 use wasmtime::{Engine, Func, Instance, Memory, Module, Store};
@@ -33,12 +34,14 @@ impl WasmLoader {
     ///
     /// # Errors
     ///
-    /// Returns an error if the WASM module fails to load from the given path.
-    pub async fn new(wasm_path: &str) -> Result<Arc<Self>, Box<dyn Error>> {
+    /// Returns [`KmsError::Crypto`] if the WASM module fails to load from the given path.
+    pub async fn new(wasm_path: &str) -> crate::Result<Arc<Self>> {
         WASM_INSTANCE
             .get_or_try_init(|| async move {
                 let engine = Engine::default();
-                let module = Module::from_file(&engine, wasm_path)?;
+                let module = Module::from_file(&engine, wasm_path).map_err(|e| {
+                    KmsError::Crypto(format!("Failed to load WASM from {wasm_path}: {e}"))
+                })?;
                 info!("WASM module loaded from {wasm_path}");
                 Ok(Arc::new(Self { engine, module }))
             })
@@ -52,55 +55,55 @@ impl WasmLoader {
     ///
     /// # Errors
     ///
-    /// Returns an error if the instance creation fails or if any of the required exports
-    /// (memory, alloc, free, `public_key`, verify, convert, unconvert) cannot be found.
-    pub fn instantiate(&self) -> Result<WasmInstance, Box<dyn Error>> {
+    /// Returns [`KmsError::Crypto`] if instance creation fails or a required export is missing
+    /// (memory, alloc, free, `public_key`, verify, convert, unconvert, etc.).
+    pub fn instantiate(&self) -> crate::Result<WasmInstance> {
         let mut store = Store::new(&self.engine, ());
         let instance = Instance::new(&mut store, &self.module, &[])?;
 
         let memory = instance
             .get_memory(&mut store, "memory")
-            .ok_or("failed to find memory export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find memory export".into()))?;
 
         let alloc = instance
             .get_func(&mut store, "alloc")
-            .ok_or("failed to find alloc export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find alloc export".into()))?;
 
         let free = instance
             .get_func(&mut store, "free")
-            .ok_or("failed to find free export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find free export".into()))?;
 
         let public_key = instance
             .get_func(&mut store, "public_key")
-            .ok_or("failed to find public_key export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find public_key export".into()))?;
 
         let verify = instance
             .get_func(&mut store, "verify")
-            .ok_or("failed to find verify export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find verify export".into()))?;
 
         let verify_eip155 = instance
             .get_func(&mut store, "verify_eip155")
-            .ok_or("failed to find verify_eip155 export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find verify_eip155 export".into()))?;
 
         let convert = instance
             .get_func(&mut store, "convert")
-            .ok_or("failed to find convert export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find convert export".into()))?;
 
         let unconvert = instance
             .get_func(&mut store, "unconvert")
-            .ok_or("failed to find unconvert export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find unconvert export".into()))?;
 
         let recover_v = instance
             .get_func(&mut store, "recover_v")
-            .ok_or("failed to find recover_v export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find recover_v export".into()))?;
 
         let address_eth = instance
             .get_func(&mut store, "address_eth")
-            .ok_or("failed to find address_eth export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find address_eth export".into()))?;
 
         let address_cosmos = instance
             .get_func(&mut store, "address_cosmos")
-            .ok_or("failed to find address_cosmos export")?;
+            .ok_or_else(|| KmsError::Crypto("failed to find address_cosmos export".into()))?;
 
         Ok(WasmInstance {
             memory,
