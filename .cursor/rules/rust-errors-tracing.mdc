@@ -1,27 +1,24 @@
 ---
-description: Match existing String / Box dyn Error returns; tracing for process logs
+description: thiserror KmsError in library/services; tracing for process logs
 globs: "**/*.rs"
 alwaysApply: false
 ---
 
 # Rust errors and tracing (kms-secp256k1-api)
 
-## Errors (current codebase)
-
-This repo does **not** use a typed `thiserror` domain enum today. Match what exists:
+## Errors
 
 | Layer | Pattern |
 | --- | --- |
-| Services / `KeysServiceTrait` | **`Result<T, String>`** (message for HTTP / callers) |
-| Some loaders / server edge | **`Box<dyn std::error::Error>`** (+ `Send + Sync` where required) |
-| HTTP routes | Map service `Err(String)` into JSON error responses |
+| Library / services / traits (`KeysServiceTrait`, `KmsClientService`, helpers) | **`thiserror`** [`KmsError`](src/error.rs) + `crate::Result<T>` / `?` |
+| Crypto / WASM loaders that still return `Box<dyn Error>` | Map at the boundary with `KmsError::from_dyn` / `KmsError::Crypto` |
+| Binary / `run_server` edge | Prefer `KmsError` or map `Box<dyn Error + Send + Sync>` once; do not add `anyhow` |
+| HTTP routes | `err.to_string()` (Display) into JSON; status mapping can tighten later |
 
-- Prefer extending the **existing** `Result<T, String>` / `Box<dyn Error>` paths.
-- Do **not** invent a parallel typed error layer (`thiserror` enums, new `KmsError`, wrapping everything in `anyhow`) as drive-by or housecleaning work.
-- Do **not** mix a second error style in the same module “while you are here.”
-- `# Errors` rustdoc must name failure modes (conditions / messages). Forbidden boilerplate: `Returns an error when the operation fails.`
-
-A dedicated typed-error migration is out of scope unless Greg explicitly asks for that change.
+- Do **not** return bare `String` from service traits.
+- Do **not** introduce a second parallel error type.
+- Prefer named [`KmsError`](src/error.rs) variants over `KmsError::Msg` when touching a call site.
+- `# Errors` rustdoc must name failure modes (variants / conditions). Forbidden boilerplate: `Returns an error when the operation fails.`
 
 ## Tracing
 

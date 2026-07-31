@@ -28,7 +28,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
     ///
     /// Returns the public key encoded as a hexadecimal string on success.
     /// Returns an error string describing the issue on failure.
-    async fn create_key(&mut self, _config: &Config) -> Result<KeyEntry, String> {
+    async fn create_key(&mut self, _config: &Config) -> crate::Result<KeyEntry> {
         let signing_key = SigningKey::random(&mut OsRng);
         let verifying_key = signing_key.verifying_key();
         let encoded_point = verifying_key.to_encoded_point(true);
@@ -69,33 +69,32 @@ impl KeysServiceTrait for MockEthereumKeysService {
         _config: &Config,
         transaction_hash: &str,
         key: &str,
-    ) -> Result<SigEntry, String> {
+    ) -> crate::Result<SigEntry> {
         let key = self.resolve_key(key)?;
 
         let key_pair = {
             let keys = self.inner.keys.lock().await;
             keys.get(&key)
-                .ok_or_else(|| "Public key not found".to_string())?
+                .ok_or(crate::KmsError::PublicKeyNotFound)?
                 .clone()
         };
 
         let tx_hash_bytes = hex::decode(transaction_hash)
-            .map_err(|e| format!("Invalid transaction hash hex: {e}"))?;
+            .map_err(|e| crate::KmsError::InvalidTxHashHex(e.to_string()))?;
 
         if tx_hash_bytes.len() != 32 {
-            return Err("Transaction hash must be 32 bytes".into());
+            return Err(crate::KmsError::TxHashWrongLength);
         }
 
         let tx_hash = H256::from_slice(&tx_hash_bytes);
 
-        let wallet: LocalWallet = key_pair
-            .private_key
-            .parse()
-            .map_err(|e| format!("Failed to parse secret key into wallet: {e}"))?;
+        let wallet: LocalWallet = key_pair.private_key.parse().map_err(|e| {
+            crate::KmsError::Msg(format!("Failed to parse secret key into wallet: {e}"))
+        })?;
 
         let signature = wallet
             .sign_hash(tx_hash)
-            .map_err(|e| format!("Failed to sign hash: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to sign hash: {e}")))?;
 
         // Verify signature
         let is_valid = self
@@ -107,7 +106,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
             .await?;
 
         if !is_valid {
-            return Err("Signature verification failed".to_string());
+            return Err(crate::KmsError::VerificationFailed);
         }
 
         let signature = hex::encode(signature.to_vec());
@@ -127,10 +126,10 @@ impl KeysServiceTrait for MockEthereumKeysService {
         _config: &Config,
         transaction_str: &str,
         key: &str,
-    ) -> Result<String, String> {
+    ) -> crate::Result<String> {
         // Parse the transaction JSON (can be wrapped or plain)
         let parsed: serde_json::Value = serde_json::from_str(transaction_str)
-            .map_err(|e| format!("Failed to parse input JSON: {e}"))?;
+            .map_err(|e| crate::KmsError::ParseJson(e.to_string()))?;
 
         // Extract transaction and signatures array if wrapped
         let (transaction_value, mut signatures) = match parsed {
@@ -145,12 +144,14 @@ impl KeysServiceTrait for MockEthereumKeysService {
                     (serde_json::Value::Object(map), vec![])
                 }
             }
-            _ => return Err("Unsupported transaction format".to_string()),
+            _ => return Err(crate::KmsError::UnsupportedTxFormat),
         };
 
         // Deserialize transaction to struct for sighash
         let transaction: TransactionRequest = serde_json::from_value(transaction_value.clone())
-            .map_err(|e| format!("Failed to parse transaction: {e}"))?;
+            .map_err(|e| {
+                crate::KmsError::ParseTransaction(format!("Failed to parse transaction: {e}"))
+            })?;
 
         // Calculate sighash and validate
         let mut transaction_hash_str = format!("{:x}", transaction.sighash());
@@ -166,20 +167,19 @@ impl KeysServiceTrait for MockEthereumKeysService {
         let key_pair = {
             let keys = self.inner.keys.lock().await;
             keys.get(&key)
-                .ok_or_else(|| "Public key not found".to_string())?
+                .ok_or(crate::KmsError::PublicKeyNotFound)?
                 .clone()
         };
 
-        let wallet: LocalWallet = key_pair
-            .private_key
-            .parse()
-            .map_err(|e| format!("Failed to parse secret key into wallet: {e}"))?;
+        let wallet: LocalWallet = key_pair.private_key.parse().map_err(|e| {
+            crate::KmsError::Msg(format!("Failed to parse secret key into wallet: {e}"))
+        })?;
 
         // Sign the transaction
         let signature = wallet
             .sign_transaction(&transaction.clone().into())
             .await
-            .map_err(|e| format!("Failed to sign transaction: {e}"))?;
+            .map_err(|e| crate::KmsError::Msg(format!("Failed to sign transaction: {e}")))?;
 
         let signature_hex = signature.to_string();
 
@@ -188,7 +188,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
             .verify(&transaction_hash_str, &signature_hex, &key_pair.public_key)
             .await?;
         if !is_valid {
-            return Err("Generated signature failed verification".to_string());
+            return Err(crate::KmsError::PostSignVerifyFailed);
         }
 
         // Append signature info
@@ -208,8 +208,9 @@ impl KeysServiceTrait for MockEthereumKeysService {
             "signatures": signatures
         });
 
-        serde_json::to_string(&result)
-            .map_err(|e| format!("Failed to serialize final signed transaction: {e}"))
+        serde_json::to_string(&result).map_err(|e| {
+            crate::KmsError::Msg(format!("Failed to serialize final signed transaction: {e}"))
+        })
     }
 
     /// Verifies an Ethereum EIP-155 signature for a given transaction hash and public key.
@@ -221,12 +222,12 @@ impl KeysServiceTrait for MockEthereumKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let key = self.resolve_key(key)?;
         let key_pair = {
             let keys = self.inner.keys.lock().await;
             keys.get(&key)
-                .ok_or_else(|| "Public key not found".to_string())?
+                .ok_or(crate::KmsError::PublicKeyNotFound)?
                 .clone()
         };
         self.inner
@@ -234,7 +235,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
             .map_err(|e| {
                 let msg = format!("Signature verification failed: {e}");
                 error!("{}", msg);
-                msg
+                crate::KmsError::Msg(msg)
             })
     }
 
@@ -247,12 +248,12 @@ impl KeysServiceTrait for MockEthereumKeysService {
         transaction_hash_hex: &str,
         signature_hex: &str,
         key: &str,
-    ) -> Result<bool, String> {
+    ) -> crate::Result<bool> {
         let key = self.resolve_key(key)?;
         let key_pair = {
             let keys = self.inner.keys.lock().await;
             keys.get(&key)
-                .ok_or_else(|| "Public key not found".to_string())?
+                .ok_or(crate::KmsError::PublicKeyNotFound)?
                 .clone()
         };
         self.inner
@@ -264,7 +265,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
     ///
     /// Returns `Ok(true)` if the key was deleted, `Ok(false)` if the key was not found.
     /// Returns an error string if deletion fails.
-    async fn delete_key(&mut self, key: &str) -> Result<bool, String> {
+    async fn delete_key(&mut self, key: &str) -> crate::Result<bool> {
         let key = self.resolve_key(key)?;
         Ok(self.inner.delete_key(&key).await)
     }
@@ -273,7 +274,7 @@ impl KeysServiceTrait for MockEthereumKeysService {
     ///
     /// Returns a vector of `KeyEntry` on success.
     /// Returns an error string on failure.
-    async fn list_keys(&mut self) -> Result<Vec<KeyEntry>, String> {
+    async fn list_keys(&mut self) -> crate::Result<Vec<KeyEntry>> {
         Ok(self.inner.list_keys().await)
     }
 }
@@ -290,7 +291,7 @@ impl MockEthereumKeysService {
     ///
     /// This function currently does not return an error, but it returns a `Result`
     /// to match a common interface and allow future fallibility.
-    pub fn new(config: Config, crypto_service: CryptoService) -> Result<Self, String> {
+    pub fn new(config: Config, crypto_service: CryptoService) -> crate::Result<Self> {
         Ok(Self {
             inner: MockKeysService::new(config, crypto_service),
         })
@@ -313,12 +314,12 @@ impl MockEthereumKeysService {
     /// # Errors
     /// - Returns an error if the input is treated as a public key and the conversion fails.
     ///
-    fn resolve_key(&mut self, key: &str) -> Result<String, String> {
+    fn resolve_key(&mut self, key: &str) -> crate::Result<String> {
         if key.len() == ETH_SECP_LEN {
             self.inner.crypto_service.address_eth(key).map_err(|e| {
                 let msg = format!("Failed to convert public key to address: {e:?}");
                 error!("{}", &msg);
-                msg
+                crate::KmsError::Msg(msg)
             })
         } else {
             Ok(key.to_string())
