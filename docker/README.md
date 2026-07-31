@@ -38,7 +38,7 @@ docker pull ghcr.io/interchouette-itc/kms-secp256k1-api:dev
 | Versioned release images `:X.Y.Z` + `:latest` | Cut with GitHub Release tag `vX.Y.Z` (= `Cargo.toml`) |
 | Release binary (`kms-secp256k1-api`) | Attached on that Release |
 
-First org product release: tag **`v1.1.0`** when `Cargo.toml` is `1.1.0` (see root [`CHANGELOG.md`](../CHANGELOG.md)).
+Current version **1.1.0** (see [`CHANGELOG.md`](../CHANGELOG.md)); publish `:X.Y.Z` + `:latest` by creating GitHub Release tag `v1.1.0`.
 
 To cut a release:
 
