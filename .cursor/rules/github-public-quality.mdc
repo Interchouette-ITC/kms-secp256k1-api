@@ -22,9 +22,20 @@ Do **not** put these in committed product text (including `.cursor/rules` and sk
 - Cursor plan/stage IDs
 - Credential filenames, env var names for tokens, or how to load them
 
+## Release notes and CHANGELOG (public product voice)
+
+`CHANGELOG.md` and GitHub Release bodies are **user-facing**. Describe what the product does for users.
+
+**Forbidden** there (and in README product sections):
+
+- Process / CI language: "re-cut", "overwrite", "same semver", "images and assets overwritten", workflow names, registry push recipes, tag delete/recreate
+- Internal agent or plan wording
+
+**Allowed** in README *Release playbook* / `docker/README.md` only: short maintainer how-to (tag = Cargo version, where images land). Still no "re-cut" / overwrite drama.
+
 ## Plan jargon allowlist
 
-**Forbidden** in: code, comments, commit subjects/bodies, PR titles/bodies, README, public docs.
+**Forbidden** in: code, comments, commit subjects/bodies, PR titles/bodies, README, CHANGELOG, GitHub Release notes, public docs.
 
 **Allowed only** in:
 

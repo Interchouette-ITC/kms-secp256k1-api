@@ -9,34 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [1.1.0] - 2026-08-01
 
-### API
+First public release.
 
-- HTTP API for secp256k1 key create / sign / verify / list / delete
-- Blockchain modes: Ethereum, Cosmos, Casper
-- AWS KMS backend for production key material (testing mode for local mocks)
-- Typed domain errors via `thiserror` (`KmsError` / `crate::Result`) through services, KMS client, WASM loader, and crypto helpers; HTTP maps variants via `KmsError::status` and `Display` into JSON
-- Release Linux binary embeds `wasm/wasm.wasm` (`include_bytes!`); optional on-disk `./wasm/wasm.wasm` or `WASM_PATH` override (Docker still ships `/app/wasm`)
-- Renewed committed WASM module (re-cut of this release)
+### Added
 
-### Features
+- HTTP API for secp256k1 key create, sign, verify, list, and delete
+- Blockchain modes: Ethereum, Cosmos, and Casper
+- AWS KMS backend for production key material, with a local testing mode
+- Standalone Linux binary (WASM crypto module included; no sidecar file required)
+- Optional on-disk WASM override via `./wasm/wasm.wasm` or `WASM_PATH`
+- Docker images for the API and LocalStack-backed testing
+- OpenAPI / Swagger UI
 
-- Optional Cargo chain features: default `casper`; `make` / CI / Docker use `--features all`
+### Notes
 
-### Docker
-
-- Distroless `cc-debian13` runtime; builder `rust:slim-trixie`
-- API image on Hub `interchouette/kms-secp256k1-api`, personal GHCR `ghcr.io/groussac/kms-secp256k1-api`, org GHCR `ghcr.io/interchouette-itc/kms-secp256k1-api`
-- LocalStack image `interchouette/kms-localstack` (+ `ghcr.io/groussac/kms-localstack`, `ghcr.io/interchouette-itc/kms-localstack`)
-- `:dev` via Actions workflow_dispatch (API: CI/CD Image dev; LocalStack: CI/CD LocalStack Image dev); `:X.Y.Z` + `:latest` via GitHub Release for both images
-
-### Testing
-
-- Dual backends: mock (`make test`) and LocalStack KMS (`make test-localstack`)
-
-### Docs and tooling
-
-- Keep a Changelog + `make version-show` / version bump targets
-- Release workflow attaches the Linux `kms-secp256k1-api` binary and publishes API + LocalStack to Hub and both GHCR registries
+- Typed domain errors (`KmsError`) mapped to HTTP status and JSON responses
+- Optional Cargo features select chain support (`casper` default; `all` for full image builds)
 
 [Unreleased]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.1.0...HEAD
 [1.1.0]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.1.0
