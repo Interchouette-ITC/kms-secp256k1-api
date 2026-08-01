@@ -7,18 +7,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [1.2.0] - 2026-08-01
-
-### Changed
-
-- Full `Cargo.toml` dependency floor refresh to current crates.io max-stable for every direct dep (`toml` 1.1.4, `axum-extra` 0.12, `base64` 0.23, AWS SDK floors, `utoipa` 5.5, `serial_test` 4, pinned minors across the board)
-- Lockfile refresh
-- Maintenance release
-
-### Notes
-
-- `k256` remains on 0.13.4 (cosmrs / ethers / casper-types require `^0.13`; 0.14 is max-stable but not graph-compatible here)
-
 ## [1.1.0] - 2026-08-01
 
 First public release.
@@ -33,11 +21,16 @@ First public release.
 - Docker images for the API and LocalStack-backed testing
 - OpenAPI / Swagger UI
 
+### Changed
+
+- Dependency floor refresh to current crates.io max-stable for direct deps (`toml` 1.1.4, `axum-extra` 0.12, `base64` 0.23, AWS SDK floors, `utoipa` 5.5, `serial_test` 4, pinned minors)
+- Lockfile refresh
+
 ### Notes
 
 - Typed domain errors (`KmsError`) mapped to HTTP status and JSON responses
 - Optional Cargo features select chain support (`casper` default; `all` for full image builds)
+- `k256` remains on 0.13.4 (cosmrs / ethers / casper-types require `^0.13`)
 
-[Unreleased]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.2.0...HEAD
-[1.2.0]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.2.0
+[Unreleased]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.1.0...HEAD
 [1.1.0]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.1.0
