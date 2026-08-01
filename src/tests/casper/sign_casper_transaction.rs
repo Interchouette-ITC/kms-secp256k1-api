@@ -20,7 +20,7 @@ mod tests {
     #[tokio::test]
     async fn test_casper_transaction_hash_returns_200() {
         let config = ConfigBuilder::new().with_casper_mode().build();
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let mut public_keys = Vec::new();
         for _ in 0..2 {

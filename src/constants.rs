@@ -1,3 +1,5 @@
+/// Default on-disk WASM path (optional when the module is embedded in the binary).
+/// Override with the `WASM_PATH` environment variable.
 pub static WASM_PATH: &str = "./wasm/wasm.wasm";
 pub static DEFAULT_APP_PORT: u16 = 4000;
 /// Default AWS region
