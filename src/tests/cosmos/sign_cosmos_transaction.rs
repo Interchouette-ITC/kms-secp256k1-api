@@ -16,7 +16,7 @@ mod tests {
     async fn test_cosmos_transaction_returns_200() {
         let config = ConfigBuilder::new().with_cosmos_mode().build();
 
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let mut public_keys = Vec::new();
         for _ in 0..2 {

@@ -14,7 +14,7 @@ mod tests {
     #[tokio::test]
     async fn test_create_ethereum_create_keypair_returns_201() {
         let config = ConfigBuilder::new().with_ethereum_mode().build();
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let response = app
             .oneshot(Request::post("/createKey").body(Body::empty()).unwrap())
@@ -56,7 +56,7 @@ mod tests {
     async fn test_create_casper_create_keypair_returns_201() {
         let config = ConfigBuilder::new().with_casper_mode().build();
 
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let response = app
             .oneshot(Request::post("/createKey").body(Body::empty()).unwrap())
@@ -105,7 +105,7 @@ mod tests {
     async fn test_create_cosmos_create_keypair_returns_201() {
         let config = ConfigBuilder::new().with_cosmos_mode().build();
 
-        let app = create_app(config.clone()).await;
+        let app = create_app(config.clone()).await.expect("create_app");
 
         let response = app
             .oneshot(Request::post("/createKey").body(Body::empty()).unwrap())

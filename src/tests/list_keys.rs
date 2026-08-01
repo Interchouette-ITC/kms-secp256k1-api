@@ -14,7 +14,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_keys_returns_200_and_keys_present() {
         let config = ConfigBuilder::new().with_list_mode(true).build();
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         // Create two keys
         let mut created_keys = Vec::new();
@@ -74,7 +74,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_keys_returns_404_when_empty() {
         let config = ConfigBuilder::new().with_list_mode(true).build();
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let response = app
             .oneshot(Request::get("/listKeys").body(Body::empty()).unwrap())
@@ -95,7 +95,7 @@ mod tests {
     #[tokio::test]
     async fn test_list_keys_returns_404_when_disabled() {
         let config = ConfigBuilder::new().with_list_mode(false).build();
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let response = app
             .oneshot(Request::get("/listKeys").body(Body::empty()).unwrap())

@@ -417,7 +417,6 @@ mod tests {
         config::ConfigBuilder,
         constants::{
             ETH_ADDRESS, ETH_PUBLIC_KEY, ETH_SIGNATURE, ETH_TRANSACTION, ETH_TRANSACTION_HASH,
-            WASM_PATH,
         },
         services::crypto_service::CryptoService,
         wasm_loader::WasmLoader,
@@ -433,9 +432,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -467,9 +464,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -501,9 +496,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -536,9 +529,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -568,9 +559,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -613,9 +602,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -647,9 +634,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -681,9 +666,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -728,9 +711,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -775,9 +756,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to create crypto service");
@@ -807,9 +786,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to create crypto service");
@@ -840,9 +817,7 @@ mod tests {
             .with_aws_mode(false)
             .build();
 
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM");
 
         let crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to create crypto service");

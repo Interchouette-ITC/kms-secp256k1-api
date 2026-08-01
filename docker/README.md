@@ -36,7 +36,7 @@ docker pull ghcr.io/interchouette-itc/kms-secp256k1-api:dev
 | CI (check, lint, test, rustdoc pages) | Live on `dev` |
 | `:dev` image push (Hub + GHCR) | Live via “CI/CD Image dev” |
 | Versioned release images `:X.Y.Z` + `:latest` | Cut with GitHub Release tag `vX.Y.Z` (= `Cargo.toml`) |
-| Release binary (`kms-secp256k1-api`) | Attached on that Release |
+| Release binary (`kms-secp256k1-api`) | Attached on that Release (embeds WASM; optional `WASM_PATH` / on-disk `./wasm/wasm.wasm`) |
 
 Current version **1.1.0** (see [`CHANGELOG.md`](../CHANGELOG.md)); publish `:X.Y.Z` + `:latest` by creating GitHub Release tag `v1.1.0`.
 

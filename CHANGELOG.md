@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Blockchain modes: Ethereum, Cosmos, Casper
 - AWS KMS backend for production key material (testing mode for local mocks)
 - Typed domain errors via `thiserror` (`KmsError` / `crate::Result`) through services, KMS client, WASM loader, and crypto helpers; HTTP maps variants via `KmsError::status` and `Display` into JSON
+- Release Linux binary embeds `wasm/wasm.wasm` (`include_bytes!`); optional on-disk `./wasm/wasm.wasm` or `WASM_PATH` override (Docker still ships `/app/wasm`)
+- Renewed committed WASM module (re-cut of this release)
 
 ### Features
 

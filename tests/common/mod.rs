@@ -109,7 +109,7 @@ pub fn start_test_server(
     config: Config,
 ) -> Pin<Box<dyn Future<Output = (JoinHandle<()>, String)> + Send>> {
     Box::pin(async move {
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
         let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
             .await
             .expect("Failed to bind test listener");
