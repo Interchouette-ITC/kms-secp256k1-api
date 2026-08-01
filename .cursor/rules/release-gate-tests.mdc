@@ -1,0 +1,27 @@
+---
+description: Never cut a GitHub Release without a green full local/CI test suite on the exact tip
+alwaysApply: true
+---
+
+# Release gate — full test suite first
+
+Cutting `vX.Y.Z` (or overriding a tag/release) without proving the tip is green is **forbidden**. This already burned `v1.2.0` twice.
+
+## Before any `gh release create` / tag override
+
+1. Tip of `dev` (or the exact commit you will tag) is locally checked out.
+2. Run the **full** API suite with the embedded/on-disk wasm that will ship:
+
+```bash
+make lint
+cargo test --features all
+# if LocalStack/integration is part of the release story, that too
+```
+
+3. If the release includes a renewed `wasm/wasm.wasm`: pack from the wasm repo, copy/embed into the API tree, then re-run the suite **before** tagging either repo.
+4. Do **not** rely on “clippy + pack green on the wasm crate alone” as a substitute for API `cargo test --features all`.
+5. Do **not** cut the release while CI on the merge commit is red or still running unit tests.
+
+## After create
+
+Confirm the release workflow run for **this** tag (cancel any stale run from a previous tip). Only declare done when that run is green (or deliberately cancelled + re-cut after a fix).
