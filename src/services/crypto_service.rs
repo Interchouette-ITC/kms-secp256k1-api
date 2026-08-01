@@ -427,7 +427,7 @@ mod tests {
         constants::{
             CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, COSMOS_PUBLIC_KEY, DEFAULT_COSMOS_HRP,
             ETH_PUBLIC_KEY, ETH_SIGNATURE, ETH_SIGNATURE_V, ETH_TRANSACTION_HASH, SIGNATURE,
-            SIGNATURE_PREFIXED, SIGNATURE_RS_LEN, TRANSACTION_HASH, WASM_PATH,
+            SIGNATURE_PREFIXED, SIGNATURE_RS_LEN, TRANSACTION_HASH,
         },
         services::crypto_service::CryptoService,
         wasm_loader::WasmLoader,
@@ -435,9 +435,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_public_key() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -456,9 +454,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_verify() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -493,9 +489,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_verify_eip155() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -514,9 +508,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_unconvert() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -548,9 +540,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_unconvert_eip155() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -570,9 +560,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_convert_roundtrip() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -595,9 +583,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_case_insensitive_signature_roundtrip() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -612,9 +598,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_convert_roundtrip_eip155() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -637,9 +621,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_convert_with_prefix_roundtrip() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -662,9 +644,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_recover_v() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -684,9 +664,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_recover_v_eip155() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -704,9 +682,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_recover_v_with_chain_id() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -732,9 +708,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_invalid_public_key() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -751,9 +725,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_empty_signature() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -772,9 +744,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_address_eth() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
@@ -793,9 +763,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_crypto_service_address_cosmos() {
-        let wasm_loader = WasmLoader::new(WASM_PATH)
-            .await
-            .expect("Failed to load WASM module");
+        let wasm_loader = WasmLoader::new().await.expect("Failed to load WASM module");
 
         let mut crypto_service =
             CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");

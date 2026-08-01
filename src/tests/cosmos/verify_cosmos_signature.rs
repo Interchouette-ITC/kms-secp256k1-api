@@ -15,7 +15,7 @@ mod tests {
     async fn test_verify_signature_returns(via_kms: bool) {
         let config = ConfigBuilder::new().with_cosmos_mode().build();
 
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let response = app
             .clone()

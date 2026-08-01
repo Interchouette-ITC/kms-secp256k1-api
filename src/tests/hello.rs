@@ -13,7 +13,7 @@ mod tests {
     async fn test_hello_returns_200() {
         let config = ConfigBuilder::new().with_testing_mode(true).build();
 
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let response = app
             .oneshot(Request::get("/").body(Body::empty()).unwrap())
@@ -36,7 +36,7 @@ mod tests {
             .with_aws_mode(true) // Do not mock the KMS
             .build();
 
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let response = app
             .oneshot(
@@ -63,7 +63,7 @@ mod tests {
             .with_aws_mode(true) // Do not mock the KMS
             .build();
 
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let response = app
             .oneshot(Request::get("/").body(Body::empty()).unwrap())

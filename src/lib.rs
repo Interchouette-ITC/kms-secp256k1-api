@@ -3,7 +3,6 @@ compile_error!("Enable at least one chain feature: casper, ethereum, cosmos (or 
 
 use crate::{
     config::Config,
-    constants::WASM_PATH,
     routes::{
         ApiDoc, create_key, delete_key, hello, list_keys, sign_transaction, sign_transaction_hash,
         verify_signature,
@@ -151,22 +150,19 @@ async fn create_cosmos_keys_service(
 
 /// Creates an Axum application instance with the given configuration.
 ///
+/// # Errors
+///
+/// Returns [`KmsError`] if loading the WASM module or initializing `CryptoService` fails,
+/// or if key-service construction fails for the configured mode.
+///
 /// # Panics
 ///
-/// This function will panic if:
-/// - Loading the WASM module fails.
-/// - Initializing the `CryptoService` fails.
-/// - Initializing the key service fails.
-/// - `BLOCKCHAIN_MODE` requests a chain whose Cargo feature was not enabled at compile time.
-///
-/// These errors are propagated via calls to `expect` / `panic`.
-pub async fn create_app(config: Config) -> Router {
-    let wasm_loader = WasmLoader::new(WASM_PATH)
-        .await
-        .expect("Failed to load WASM module");
+/// Panics if `BLOCKCHAIN_MODE` requests a chain whose Cargo feature was not enabled
+/// at compile time (`ensure_blockchain_feature` / `create_keys_service`).
+pub async fn create_app(config: Config) -> crate::Result<Router> {
+    let wasm_loader = WasmLoader::new().await?;
 
-    let crypto_service =
-        CryptoService::new(&wasm_loader).expect("Failed to initialize CryptoService");
+    let crypto_service = CryptoService::new(&wasm_loader)?;
 
     let keys_service = create_keys_service(&config, crypto_service).await;
 
@@ -194,19 +190,19 @@ pub async fn create_app(config: Config) -> Router {
 
     let swagger_ui = SwaggerUi::new("/docs/").url("/docs/openapi.json", ApiDoc::openapi());
 
-    app.merge(swagger_ui)
+    Ok(app.merge(swagger_ui))
 }
 
 /// Starts the HTTP server with the given configuration.
 ///
 /// # Errors
-/// This function returns an error if the TCP listener cannot be bound,
-/// or if the server fails to start.
+/// This function returns an error if WASM/crypto init fails, the TCP listener cannot be bound,
+/// or the server fails to start.
 pub async fn run_server(
     config: Config,
 ) -> std::result::Result<(), Box<dyn std::error::Error + Send + Sync>> {
     config.ensure_blockchain_feature();
-    let app = create_app(config.clone()).await;
+    let app = create_app(config.clone()).await?;
 
     let addr = format!("{}:{}", config.get_addr(), config.get_port());
     info!("Listening on {addr}");
@@ -281,7 +277,7 @@ mod tests_lib {
                 .with_list_mode(true)
                 .build();
 
-            let app = create_app(config.clone()).await;
+            let app = create_app(config.clone()).await.expect("create_app");
 
             assert_eq!(
                 oneshot(&app, Method::GET, "/").await.status(),

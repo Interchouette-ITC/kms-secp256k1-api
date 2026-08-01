@@ -14,7 +14,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_key_returns_200_when_key_exists() {
         let config = ConfigBuilder::new().with_delete_mode(true).build();
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let response = app
             .clone()
@@ -59,7 +59,7 @@ mod tests {
         use crate::constants::CASPER_PUBLIC_KEY_PREFIXED;
 
         let config = ConfigBuilder::new().with_delete_mode(true).build();
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let fake_key = CASPER_PUBLIC_KEY_PREFIXED;
 
@@ -84,7 +84,7 @@ mod tests {
     #[tokio::test]
     async fn test_delete_key_returns_404_when_disabled() {
         let config = ConfigBuilder::new().with_delete_mode(false).build();
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let uri = "/deleteKey?key=somekey";
         let response = app
@@ -102,7 +102,7 @@ mod tests {
             .with_delete_mode(true)
             .with_ethereum_mode()
             .build();
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let response = app
             .clone()
@@ -148,7 +148,7 @@ mod tests {
             .with_delete_mode(true)
             .with_ethereum_mode()
             .build();
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let fake_key = "fake_address";
 

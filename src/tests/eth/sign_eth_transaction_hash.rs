@@ -15,7 +15,7 @@ mod tests {
     async fn test_eth_transaction_hash_returns_200() {
         let config = ConfigBuilder::new().with_ethereum_mode().build();
 
-        let app = create_app(config).await;
+        let app = create_app(config).await.expect("create_app");
 
         let transaction_hash = ETH_TRANSACTION_HASH;
 
