@@ -1,9 +1,0 @@
----
-description: All kms-secp256k1-api code, docs, and product copy default to English
-alwaysApply: true
----
-
-# English-only (kms-secp256k1-api)
-
-- **Code, docs, comments, commit messages, README, API strings:** English.
-- Do not add non-English docs or UI strings unless explicitly requested.
