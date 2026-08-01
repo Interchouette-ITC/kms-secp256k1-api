@@ -48,7 +48,7 @@ Details: [`docker/README.md`](docker/README.md).
 1. `make version-show` (or `make version-bump-patch` / `version-set VERSION=x.y.z`)
 2. Update [`CHANGELOG.md`](CHANGELOG.md); merge to `dev`
 3. Create a GitHub Release on the org repo with tag **`v$(APP_VERSION)`** (must equal `Cargo.toml`)
-4. `release.yml` publishes API + LocalStack `:version` / `:latest` to Hub and both GHCR registries, and attaches the Linux binary (WASM is embedded; optional `WASM_PATH` / on-disk `./wasm/wasm.wasm` override)
+4. Creating the GitHub Release publishes Docker images (`:version` / `:latest`) and attaches the Linux binary (standalone; optional `WASM_PATH` / on-disk `./wasm/wasm.wasm` override)
 
 Not published to crates.io.
 
