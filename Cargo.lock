@@ -890,8 +890,8 @@ dependencies = [
 
 [[package]]
 name = "casper-rust-wasm-sdk"
-version = "2.1.1"
-source = "git+https://github.com/casper-ecosystem/rustSDK?branch=dev#95d5068dae8c14cede7a4ca79519e9a873a06b12"
+version = "2.2.0"
+source = "git+https://github.com/casper-ecosystem/rustSDK?branch=dev#08aa9f74923c0b664e088f057f4465a99cc71b6d"
 dependencies = [
  "async-trait",
  "base16",
@@ -2984,7 +2984,7 @@ dependencies = [
 
 [[package]]
 name = "kms-secp256k1-api"
-version = "1.1.0"
+version = "1.2.0"
 dependencies = [
  "async-trait",
  "aws-config",

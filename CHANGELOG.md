@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-08-01
+
+### Changed
+
+- Dependency and lockfile refresh
+- Maintenance release
+
 ## [1.1.0] - 2026-08-01
 
 First public release.
@@ -26,5 +33,6 @@ First public release.
 - Typed domain errors (`KmsError`) mapped to HTTP status and JSON responses
 - Optional Cargo features select chain support (`casper` default; `all` for full image builds)
 
-[Unreleased]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.2.0
 [1.1.0]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.1.0
