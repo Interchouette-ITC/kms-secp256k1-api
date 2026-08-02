@@ -15,7 +15,11 @@ fn free_port() -> u16 {
 }
 
 fn mcp_bin() -> String {
-    // Prefer release; fall back to debug when developers run `cargo test` without --release.
+    // Prefer the binary cargo just built for this test package (always matches CARGO_PKG_VERSION).
+    if let Some(p) = option_env!("CARGO_BIN_EXE_kms-secp256k1-api-mcp") {
+        return p.to_string();
+    }
+    // Fallback when running the test binary outside `cargo test`.
     let release = env!("CARGO_MANIFEST_DIR").to_string() + "/target/release/kms-secp256k1-api-mcp";
     let debug = env!("CARGO_MANIFEST_DIR").to_string() + "/target/debug/kms-secp256k1-api-mcp";
     if std::path::Path::new(&release).is_file() {
@@ -168,9 +172,14 @@ fn stdio_initialize() {
 
     let ver = env!("CARGO_PKG_VERSION");
     let stdout = child.stdout.take().expect("stdout");
+    // Kill after 5s so Content-Length framing (no newlines) cannot block read_line forever in CI.
+    let killer_pid = child.id();
+    thread::spawn(move || {
+        thread::sleep(Duration::from_secs(5));
+        let _ = Command::new("kill").arg(killer_pid.to_string()).status();
+    });
     let mut reader = BufReader::new(stdout);
     let mut line = String::new();
-    // MCP stdio may speak Content-Length framing or newline JSON; read until we see serverInfo.
     let mut buf = String::new();
     let deadline = std::time::Instant::now() + Duration::from_secs(5);
     while std::time::Instant::now() < deadline {
