@@ -21,10 +21,13 @@ struct Cli {
 }
 
 fn init_logging() {
+    // Keep stdio MCP quiet: Cursor surfaces any stderr line as [error] (same as nctl).
+    // Default warn; override with RUST_LOG when debugging.
     let filter = tracing_subscriber::EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("info"));
+        .unwrap_or_else(|_| tracing_subscriber::EnvFilter::new("warn"));
     tracing_subscriber::fmt()
         .with_env_filter(filter)
+        .with_ansi(false)
         .with_writer(std::io::stderr)
         .init();
 }

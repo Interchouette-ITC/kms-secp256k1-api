@@ -4,6 +4,31 @@
       "url": "http://127.0.0.1:8789/mcp"
     },
     "kms-secp256k1-api-stdio": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--rm",
+        "-i",
+        "-v",
+        "/var/run/docker.sock:/var/run/docker.sock",
+        "-v",
+        "${workspaceFolder}:/workspace",
+        "-e",
+        "KMS_API_ROOT=/workspace",
+        "interchouette/kms-secp256k1-api-mcp:1.1.0",
+        "kms-secp256k1-api-mcp"
+      ]
+    },
+    "kms-secp256k1-api-stdio-host": {
+      "command": "mcp/target/release/kms-secp256k1-api-mcp",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "env": {
+        "KMS_API_ROOT": "${workspaceFolder}",
+        "RUST_LOG": "warn"
+      }
+    },
+    "kms-secp256k1-api-stdio-cargo": {
       "command": "cargo",
       "args": [
         "run",
@@ -14,7 +39,8 @@
       ],
       "cwd": "${workspaceFolder}",
       "env": {
-        "KMS_API_ROOT": "${workspaceFolder}"
+        "KMS_API_ROOT": "${workspaceFolder}",
+        "RUST_LOG": "warn"
       }
     }
   }

@@ -4,13 +4,34 @@ Rust binary `kms-secp256k1-api-mcp` **v1.1.0** (mcpkit), dual transport like cas
 
 **Separate package:** lives in [`mcp/`](../mcp/) — **no dependency** on the `kms-secp256k1-api` library crate. Lifecycle uses Make/Docker; product tools call the HTTP API.
 
+Published image: [`interchouette/kms-secp256k1-api-mcp`](https://hub.docker.com/r/interchouette/kms-secp256k1-api-mcp) (`:1.1.0`, `:latest`, `:dev`).
+
 Cursor agents must use Cursor `CallMcpTool`. The always-apply rule lives in **itc-cursor** (product branch `kms-secp256k1-api`) as `.cursor/rules/kms-use-mcp.mdc`. Do not use Shell/`make`/curl as a substitute when MCP is ready.
+
+## Run without compiling
+
+```bash
+# MCP HTTP sidecar (needs Docker socket + this repo mounted as workspace)
+docker pull interchouette/kms-secp256k1-api-mcp:1.1.0
+docker run --rm -d --name kms-secp256k1-api-mcp \
+  -p 8789:8789 \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "$PWD":/workspace \
+  -e KMS_API_ROOT=/workspace \
+  interchouette/kms-secp256k1-api-mcp:1.1.0
+```
+
+Cursor HTTP: `"url": "http://127.0.0.1:8789/mcp"`.  
+Cursor stdio via Hub: see [`mcp/mcp.json.example`](../mcp/mcp.json.example) (`docker run -i …`).
+
+From a clone, `make mcp-http` pulls the Hub image (builds locally only if pull fails).
 
 | Mode | How | Cursor |
 | --- | --- | --- |
-| **HTTP** (Docker) | `make mcp-http` | `"url": "http://127.0.0.1:8789/mcp"` |
+| **HTTP** (Docker / Hub) | `make mcp-http` | `"url": "http://127.0.0.1:8789/mcp"` |
 | **HTTP** (host) | `make run-mcp-http` | same URL |
-| **stdio** (host) | `make run-mcp` / `kms-secp256k1-api-mcp` | command spawn (see example) |
+| **stdio** (Hub image) | `docker run -i … interchouette/kms-secp256k1-api-mcp:1.1.0` | see example |
+| **stdio** (host) | `make run-mcp` / `kms-secp256k1-api-mcp` | command spawn |
 
 ```bash
 kms-secp256k1-api-mcp                         # stdio
@@ -18,20 +39,45 @@ kms-secp256k1-api-mcp --http                  # 127.0.0.1:8789
 kms-secp256k1-api-mcp --http --listen 0.0.0.0:8789
 ```
 
-Example Cursor config: [`mcp/mcp.json.example`](../mcp/mcp.json.example).
-
 ## Make matrix (MCP itself)
 
 | Command | Effect |
 | --- | --- |
 | `make mcp-build` | Host release-build MCP binary |
 | `make mcp-docker-build` | Build `kms-secp256k1-api-mcp:1.1.0` (+ `:latest`) |
-| `make mcp-http` | Build image + start sidecar on **8789** |
+| `make mcp-docker-build-dev` | Build `:dev` (Hub + GHCR tags) |
+| `make mcp-http` | Pull Hub image (or build) + start sidecar on **8789** |
 | `make mcp-http-stop` | Stop MCP sidecar |
+| `make mcp-docker-push-dev` / `mcp-docker-push-release` | Push Hub + GHCR |
 | `make run-mcp` | Host **stdio** MCP |
 | `make run-mcp-http` | Host HTTP on `127.0.0.1:8789` |
 
 Compose: [`docker/docker-compose.mcp.yml`](../docker/docker-compose.mcp.yml). Image Dockerfile: [`mcp/Dockerfile`](../mcp/Dockerfile) (includes `docker`/`make`/`curl` so lifecycle tools work via the mounted repo + docker.sock).
+
+### Published MCP images
+
+| Registry | Image |
+| --- | --- |
+| Docker Hub | `interchouette/kms-secp256k1-api-mcp` |
+| Personal GHCR | `ghcr.io/groussac/kms-secp256k1-api-mcp` |
+| Org GHCR | `ghcr.io/interchouette-itc/kms-secp256k1-api-mcp` |
+
+Tags: `:dev` (CI on `mcp/**` / workflow_dispatch), `:X.Y.Z` + `:latest` on `mcp/**` push to `dev` and on GitHub Release (same cadence as API/LocalStack).
+
+### Cursor `mcp.json`
+
+Copy one entry from [`mcp/mcp.json.example`](../mcp/mcp.json.example) into product `.cursor/mcp.json` (prefer Hub stdio or HTTP; host binary after `make mcp-build`).
+
+Reload Cursor MCP after creating the file. Agents must use `CallMcpTool` (rule `kms-use-mcp.mdc`).
+
+### Tests
+
+```bash
+cd mcp
+cargo test                         # unit + FakeRepo + HTTP/stdio transport
+cargo test --test api_roundtrip    # host mock create/list/delete
+KMS_MCP_LIVE=1 cargo test --test api_roundtrip -- --ignored --nocapture  # LocalStack stack
+```
 
 ## Tool catalog
 

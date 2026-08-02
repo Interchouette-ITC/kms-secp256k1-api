@@ -24,10 +24,18 @@ Also published to:
 - Personal GHCR: `ghcr.io/groussac/kms-secp256k1-api`
 - Org GHCR: `ghcr.io/interchouette-itc/kms-secp256k1-api`
 
+**MCP sidecar** (agents / Cursor — separate image):
+
+- Docker Hub: `interchouette/kms-secp256k1-api-mcp`
+- Personal GHCR: `ghcr.io/groussac/kms-secp256k1-api-mcp`
+- Org GHCR: `ghcr.io/interchouette-itc/kms-secp256k1-api-mcp`
+- Tags: `:dev`, `:latest`, `:X.Y.Z` (same cadence; see [`docs/mcp.md`](../docs/mcp.md))
+
 Publish:
 
 - `:dev` → GitHub Actions → **CI/CD Image dev** (workflow_dispatch)
 - `:X.Y.Z` + `:latest` → GitHub Release tag `vX.Y.Z` (must equal `Cargo.toml`; see `make version-show`)
+- MCP `:dev` / `:X.Y.Z`+`:latest` → **CI/CD MCP Image** workflows + GitHub Release
 
 ## Overview
 

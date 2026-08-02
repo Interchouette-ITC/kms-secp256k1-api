@@ -40,9 +40,9 @@ Swagger UI (when running): `http://localhost:<APP_PORT>/docs/`
 
 | Registry | Image |
 | --- | --- |
-| Docker Hub | `interchouette/kms-secp256k1-api`, `interchouette/kms-localstack` |
-| Personal GHCR | `ghcr.io/groussac/kms-secp256k1-api`, `ghcr.io/groussac/kms-localstack` |
-| Org GHCR | `ghcr.io/interchouette-itc/kms-secp256k1-api`, `ghcr.io/interchouette-itc/kms-localstack` |
+| Docker Hub | `interchouette/kms-secp256k1-api`, `interchouette/kms-localstack`, `interchouette/kms-secp256k1-api-mcp` |
+| Personal GHCR | `ghcr.io/groussac/kms-secp256k1-api`, `…/kms-localstack`, `…/kms-secp256k1-api-mcp` |
+| Org GHCR | `ghcr.io/interchouette-itc/kms-secp256k1-api`, `…/kms-localstack`, `…/kms-secp256k1-api-mcp` |
 
 ```bash
 docker pull interchouette/kms-secp256k1-api:dev

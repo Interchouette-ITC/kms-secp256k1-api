@@ -26,8 +26,14 @@ jobs:
         run: cargo test
       - name: Build examples
         run: cargo build --examples
+      - name: Build release binary (transport smoke)
+        run: cargo build --release
       - name: Clippy
         run: cargo clippy --all-targets --examples -- -D warnings
       - name: Build MCP image
-        run: |
-          docker build -t kms-secp256k1-api-mcp:1.1.0 -t kms-secp256k1-api-mcp:latest -t kms-secp256k1-api-mcp:ci .
+        working-directory: ${{ github.workspace }}
+        run: make mcp-docker-build TAG=ci
+      - name: Transport + mock API roundtrip tests
+        run: cargo test --test transport_smoke --test api_roundtrip -- --nocapture
+        env:
+          KMS_API_ROOT: ${{ github.workspace }}
