@@ -1,0 +1,33 @@
+name: MCP package (Rust)
+
+on:
+  pull_request:
+    paths:
+      - "mcp/**"
+      - ".github/workflows/mcp-ci.yml"
+  push:
+    branches: [dev]
+    paths:
+      - "mcp/**"
+      - ".github/workflows/mcp-ci.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mcp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - name: Cargo test (lib + integration)
+        run: cargo test
+      - name: Build examples
+        run: cargo build --examples
+      - name: Clippy
+        run: cargo clippy --all-targets --examples -- -D warnings
+      - name: Build MCP image
+        run: |
+          docker build -t kms-secp256k1-api-mcp:1.1.0 -t kms-secp256k1-api-mcp:latest -t kms-secp256k1-api-mcp:ci .

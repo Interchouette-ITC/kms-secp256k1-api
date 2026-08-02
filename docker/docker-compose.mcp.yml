@@ -1,0 +1,20 @@
+# Slim MCP sidecar (Streamable HTTP on :8789).
+# Use: make mcp-http / make mcp-http-stop
+services:
+  kms-mcp:
+    image: kms-secp256k1-api-mcp:1.1.0
+    container_name: kms-secp256k1-api-mcp
+    build:
+      context: ../mcp
+      dockerfile: Dockerfile
+    ports:
+      - "8789:8789"
+    volumes:
+      - ..:/workspace:rw
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      KMS_API_ROOT: /workspace
+      KMS_MCP_HTTP: "1"
+      KMS_MCP_ADDR: "0.0.0.0:8789"
+      DOCKER_HOST: unix:///var/run/docker.sock
+    working_dir: /workspace

@@ -1,0 +1,35 @@
+[package]
+name = "kms-secp256k1-api-mcp"
+version = "1.1.0"
+edition = "2021"
+rust-version = "1.85"
+license = "MIT"
+description = "MCP server for kms-secp256k1-api (stdio + Streamable HTTP)"
+readme = "README.md"
+authors = ["gRoussac"]
+
+[[bin]]
+name = "kms-secp256k1-api-mcp"
+path = "src/main.rs"
+
+[lib]
+name = "kms_secp256k1_api_mcp"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive", "env"] }
+mcpkit = "0.7"
+mcpkit-axum = "0.7"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time", "fs", "io-util"] }
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.release]
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = "symbols"
+opt-level = "s"
