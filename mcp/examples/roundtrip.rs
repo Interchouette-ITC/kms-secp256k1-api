@@ -10,7 +10,7 @@ use std::time::Duration;
 #[tokio::main]
 async fn main() {
     println!("=== kms_api_start ===");
-    println!("{}", ops::api_start(Some("all"), Some(4000)));
+    println!("{}", ops::api_start(Some("casper"), Some(4000)));
 
     env::set_var("KMS_API_URL", DEFAULT_API_URL);
     for _ in 0..30 {

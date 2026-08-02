@@ -8,8 +8,13 @@ LOCALSTACK_NAME ?= kms-localstack
 LOCALSTACK_HUB_IMAGE ?= interchouette/kms-localstack
 LOCALSTACK_GHCR_PERSONAL_IMAGE ?= ghcr.io/groussac/kms-localstack
 LOCALSTACK_GHCR_ORG_IMAGE ?= ghcr.io/interchouette-itc/kms-localstack
+MCP_NAME ?= kms-secp256k1-api-mcp
+MCP_HUB_IMAGE ?= interchouette/kms-secp256k1-api-mcp
+MCP_GHCR_PERSONAL_IMAGE ?= ghcr.io/groussac/kms-secp256k1-api-mcp
+MCP_GHCR_ORG_IMAGE ?= ghcr.io/interchouette-itc/kms-secp256k1-api-mcp
 TAG ?= latest
 APP_VERSION ?= $(shell awk '/^version = /{gsub(/"/, "", $$3); print $$3; exit}' Cargo.toml)
+MCP_VERSION ?= $(shell awk '/^version = /{gsub(/"/, "", $$3); print $$3; exit}' mcp/Cargo.toml)
 DOCKERFILE ?= docker/Dockerfile
 DOCKERFILE_LOCALSTACK ?= docker/Dockerfile-localstack
 DOCKER_BUILDKIT ?= 1
@@ -18,6 +23,7 @@ COMPOSE_PROD ?= docker/docker-compose.prod.yml
 COMPOSE_TEST ?= docker/docker-compose.test.yml
 COMPOSE_LOCALSTACK ?= docker/docker-compose.localstack.yml
 COMPOSE_TEST_LOCALSTACK ?= docker/docker-compose.test-localstack.yml
+COMPOSE_MCP ?= docker/docker-compose.mcp.yml
 
 # Chain Cargo features: casper | ethereum | cosmos | all
 # Default all so make check/test/docker stay full-coverage.
@@ -42,7 +48,12 @@ CARGO_FEATURES := --no-default-features --features $(FEATURES)
 	docker-push-localstack-release-ghcr-itc docker-push-localstack-release \
 	docker-run docker-run-test docker-run-localstack docker-stop-localstack \
 	docker-stop docker-inspect \
-	mcp-build mcp-docker-build mcp-http mcp-http-stop run-mcp run-mcp-http \
+	mcp-build mcp-docker-build mcp-docker-build-dev mcp-http mcp-http-stop \
+	run-mcp run-mcp-http \
+	mcp-docker-push-dev mcp-docker-push-dev-hub \
+	mcp-docker-push-dev-ghcr-personal mcp-docker-push-dev-ghcr-itc \
+	mcp-docker-push-release mcp-docker-push-release-hub \
+	mcp-docker-push-release-ghcr-personal mcp-docker-push-release-ghcr-itc \
 	version-show version-bump-patch version-bump-minor version-bump-major version-set
 
 CLIPPY_FLAGS := -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery
@@ -60,7 +71,9 @@ help:
 	@echo "  make docker-hub-description  Sync Hub short + full description"
 	@echo "  make docker-push-release   Tag/push release images (CI uses split targets)"
 	@echo "  make docker-run / docker-run-test / docker-run-localstack / docker-stop"
-	@echo "  make mcp-build / mcp-docker-build / mcp-http / run-mcp / run-mcp-http"
+	@echo "  make mcp-build / mcp-docker-build / mcp-docker-build-dev / mcp-http"
+	@echo "  make mcp-docker-push-dev / mcp-docker-push-release"
+	@echo "  make run-mcp / run-mcp-http"
 	@echo "  make version-show          Print Cargo.toml version + suggested tag"
 	@echo "  make version-bump-patch|minor|major"
 	@echo "  make version-set VERSION=x.y.z"
@@ -312,22 +325,79 @@ docker-push-localstack-release: docker-push-localstack-release-hub \
 # MCP sidecar (mcp/ — separate Cargo package; no dep on API lib)
 # ---------------------------------------------------------------------------
 
-COMPOSE_MCP ?= docker/docker-compose.mcp.yml
-MCP_IMAGE ?= kms-secp256k1-api-mcp
-MCP_VERSION ?= $(shell awk '/^version = /{gsub(/"/, "", $$3); print $$3; exit}' mcp/Cargo.toml)
-
 mcp-build:
 	cargo build --manifest-path mcp/Cargo.toml --release
 
 mcp-docker-build:
 	DOCKER_BUILDKIT=$(DOCKER_BUILDKIT) docker build --network=host \
-		-t $(MCP_IMAGE):$(MCP_VERSION) \
-		-t $(MCP_IMAGE):latest \
+		-t $(MCP_NAME):$(TAG) \
+		-t $(MCP_HUB_IMAGE):$(TAG) \
+		-t $(MCP_HUB_IMAGE):$(MCP_VERSION) \
 		-f mcp/Dockerfile \
 		mcp
 
-mcp-http: mcp-docker-build
-	docker compose -f $(COMPOSE_MCP) up -d --force-recreate
+mcp-docker-build-dev:
+	DOCKER_BUILDKIT=$(DOCKER_BUILDKIT) docker build --network=host \
+		-t $(MCP_NAME):dev \
+		-t $(MCP_HUB_IMAGE):dev \
+		-t $(MCP_GHCR_PERSONAL_IMAGE):dev \
+		-t $(MCP_GHCR_ORG_IMAGE):dev \
+		-f mcp/Dockerfile \
+		mcp
+
+mcp-docker-push-dev-hub:
+	docker push $(MCP_HUB_IMAGE):dev
+
+mcp-docker-push-dev-ghcr-personal:
+	docker push $(MCP_GHCR_PERSONAL_IMAGE):dev
+
+mcp-docker-push-dev-ghcr-itc:
+	docker push $(MCP_GHCR_ORG_IMAGE):dev
+
+mcp-docker-push-dev:
+	@if [ "$(CI)" = "1" ]; then \
+		echo "Use mcp-docker-push-dev-hub / mcp-docker-push-dev-ghcr-* in CI"; \
+		exit 1; \
+	fi
+	@echo "Logging in to Docker Hub..."; \
+	docker login || { echo "Docker Hub login failed"; exit 1; }
+	$(MAKE) mcp-docker-push-dev-hub
+	@echo "Logging in to GHCR (personal)..."; \
+	docker login ghcr.io || { echo "Skipping personal GHCR"; exit 0; }
+	$(MAKE) mcp-docker-push-dev-ghcr-personal
+	@echo "Logging in to GHCR (org)..."; \
+	docker login ghcr.io || { echo "Skipping org GHCR"; exit 0; }
+	$(MAKE) mcp-docker-push-dev-ghcr-itc
+
+mcp-docker-push-release-hub:
+	docker push $(MCP_HUB_IMAGE):$(MCP_VERSION)
+	docker push $(MCP_HUB_IMAGE):latest
+
+mcp-docker-push-release-ghcr-personal:
+	docker tag $(MCP_HUB_IMAGE):$(MCP_VERSION) $(MCP_GHCR_PERSONAL_IMAGE):$(MCP_VERSION)
+	docker tag $(MCP_HUB_IMAGE):latest $(MCP_GHCR_PERSONAL_IMAGE):latest
+	docker push $(MCP_GHCR_PERSONAL_IMAGE):$(MCP_VERSION)
+	docker push $(MCP_GHCR_PERSONAL_IMAGE):latest
+
+mcp-docker-push-release-ghcr-itc:
+	docker tag $(MCP_HUB_IMAGE):$(MCP_VERSION) $(MCP_GHCR_ORG_IMAGE):$(MCP_VERSION)
+	docker tag $(MCP_HUB_IMAGE):latest $(MCP_GHCR_ORG_IMAGE):latest
+	docker push $(MCP_GHCR_ORG_IMAGE):$(MCP_VERSION)
+	docker push $(MCP_GHCR_ORG_IMAGE):latest
+
+mcp-docker-push-release: mcp-docker-push-release-hub \
+	mcp-docker-push-release-ghcr-personal mcp-docker-push-release-ghcr-itc
+
+# Prefer Hub image (no local compile). Falls back to local build if pull fails.
+mcp-http:
+	-docker pull $(MCP_HUB_IMAGE):$(MCP_VERSION)
+	@if ! docker image inspect $(MCP_HUB_IMAGE):$(MCP_VERSION) >/dev/null 2>&1 \
+		&& ! docker image inspect $(MCP_NAME):$(MCP_VERSION) >/dev/null 2>&1; then \
+		echo "Hub image missing; building locally…"; \
+		$(MAKE) mcp-docker-build; \
+	fi
+	KMS_MCP_IMAGE=$(MCP_HUB_IMAGE):$(MCP_VERSION) \
+		docker compose -f $(COMPOSE_MCP) up -d --force-recreate
 
 mcp-http-stop:
 	-docker compose -f $(COMPOSE_MCP) down --remove-orphans

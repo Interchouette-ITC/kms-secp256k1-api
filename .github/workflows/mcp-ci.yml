@@ -22,12 +22,24 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy
+      # Host mock roundtrip (`api_start`) execs this binary — not `cargo run`.
+      - name: Build API release (casper, for mock roundtrip)
+        working-directory: ${{ github.workspace }}
+        run: cargo build --release --no-default-features --features casper
       - name: Cargo test (lib + integration)
         run: cargo test
+        env:
+          KMS_API_ROOT: ${{ github.workspace }}
       - name: Build examples
         run: cargo build --examples
+      - name: Build MCP release binary (transport smoke)
+        run: cargo build --release
       - name: Clippy
         run: cargo clippy --all-targets --examples -- -D warnings
       - name: Build MCP image
-        run: |
-          docker build -t kms-secp256k1-api-mcp:1.1.0 -t kms-secp256k1-api-mcp:latest -t kms-secp256k1-api-mcp:ci .
+        working-directory: ${{ github.workspace }}
+        run: make mcp-docker-build TAG=ci
+      - name: Transport + mock API roundtrip tests
+        run: cargo test --test transport_smoke --test api_roundtrip -- --nocapture
+        env:
+          KMS_API_ROOT: ${{ github.workspace }}

@@ -2,7 +2,7 @@
 # Use: make mcp-http / make mcp-http-stop
 services:
   kms-mcp:
-    image: kms-secp256k1-api-mcp:1.1.0
+    image: ${KMS_MCP_IMAGE:-kms-secp256k1-api-mcp:1.1.0}
     container_name: kms-secp256k1-api-mcp
     build:
       context: ../mcp

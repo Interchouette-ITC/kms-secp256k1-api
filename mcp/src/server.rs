@@ -136,7 +136,7 @@ impl KmsMcp {
     }
 
     #[tool(
-        description = "Start host cargo API in background (TESTING_MODE=true mock). Optional features, port."
+        description = "Build (if needed) and start host release API in background (TESTING_MODE=true mock). Optional features (default casper), port."
     )]
     async fn kms_api_start(
         &self,

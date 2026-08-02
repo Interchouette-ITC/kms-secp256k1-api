@@ -102,6 +102,18 @@ jobs:
       - name: Push LocalStack to org GHCR
         run: make docker-push-localstack-release-ghcr-itc APP_VERSION=${{ needs.validate.outputs.version }}
 
+      - name: Build MCP Docker image
+        run: make mcp-docker-build TAG=latest MCP_VERSION=${{ needs.validate.outputs.version }}
+
+      - name: Push MCP :version and :latest to Docker Hub
+        run: make mcp-docker-push-release-hub MCP_VERSION=${{ needs.validate.outputs.version }}
+
+      - name: Push MCP to personal GHCR
+        run: make mcp-docker-push-release-ghcr-personal MCP_VERSION=${{ needs.validate.outputs.version }}
+
+      - name: Push MCP to org GHCR
+        run: make mcp-docker-push-release-ghcr-itc MCP_VERSION=${{ needs.validate.outputs.version }}
+
   summary:
     name: Summary
     needs: [validate, build-and-push]
@@ -117,4 +129,7 @@ jobs:
           echo "LocalStack Hub: interchouette/kms-localstack:${V} and :latest"
           echo "LocalStack personal GHCR: ghcr.io/groussac/kms-localstack:${V} and :latest"
           echo "LocalStack org GHCR: ghcr.io/interchouette-itc/kms-localstack:${V} and :latest"
+          echo "MCP Hub: interchouette/kms-secp256k1-api-mcp:${V} and :latest"
+          echo "MCP personal GHCR: ghcr.io/groussac/kms-secp256k1-api-mcp:${V} and :latest"
+          echo "MCP org GHCR: ghcr.io/interchouette-itc/kms-secp256k1-api-mcp:${V} and :latest"
           echo "Attached release binary: kms-secp256k1-api"

@@ -281,7 +281,39 @@ pub fn stack_stop() -> String {
     format_cmd("compose test-localstack down", code, &out, &err)
 }
 
-/// Start host API (`cargo run`) in background with mock KMS (`TESTING_MODE=true`).
+fn api_release_bin() -> std::path::PathBuf {
+    repo_root().join("target/release/kms-secp256k1-api")
+}
+
+/// Ensure `target/release/kms-secp256k1-api` exists for the requested features.
+/// Prefer the release binary over `cargo run` so the MCP pid is the server (not cargo)
+/// and cold CI does not race a 90s compile against readiness probes.
+fn ensure_api_release_bin(features: &str) -> Result<std::path::PathBuf, String> {
+    let bin = api_release_bin();
+    let (code, out, err) = run(
+        "cargo",
+        &[
+            "build",
+            "--release",
+            "--no-default-features",
+            "--features",
+            features,
+            "--quiet",
+        ],
+    );
+    if code != 0 {
+        return Err(format!(
+            "cargo build --release --features {features} failed ({code}):\n{err}{out}"
+        ));
+    }
+    if !bin.is_file() {
+        return Err(format!("missing binary after build: {}", bin.display()));
+    }
+    Ok(bin)
+}
+
+/// Start host API in background with mock KMS (`TESTING_MODE=true`).
+/// Builds (if needed) then execs `target/release/kms-secp256k1-api` — never long-lived `cargo run`.
 pub fn api_start(features: Option<&str>, port: Option<u16>) -> String {
     if let Some(existing) = read_api_pid() {
         if process_alive(existing) {
@@ -292,7 +324,11 @@ pub fn api_start(features: Option<&str>, port: Option<u16>) -> String {
         return format!("cannot create run dir: {e}");
     }
     let port = port.unwrap_or(4000);
-    let features = features.unwrap_or("all");
+    let features = features.unwrap_or("casper");
+    let bin = match ensure_api_release_bin(features) {
+        Ok(p) => p,
+        Err(e) => return e,
+    };
     let log = api_log_path();
     let log_file = match fs::File::create(&log) {
         Ok(f) => f,
@@ -303,31 +339,24 @@ pub fn api_start(features: Option<&str>, port: Option<u16>) -> String {
         Err(e) => return format!("cannot clone log handle: {e}"),
     };
 
-    let mut cmd = Command::new("cargo");
-    cmd.args([
-        "run",
-        "--no-default-features",
-        "--features",
-        features,
-        "--quiet",
-    ])
-    .current_dir(repo_root())
-    .env("TESTING_MODE", "true")
-    .env("AWS_MODE", "true")
-    .env("DELETE_MODE", "true")
-    .env("LIST_MODE", "true")
-    .env("BLOCKCHAIN_MODE", "casper")
-    .env("APP_PORT", port.to_string())
-    .env("KMS_CREATE_ID", "test")
-    .env("KMS_CREATE_KEY", "test")
-    .env("KMS_SIGN_ID", "test")
-    .env("KMS_SIGN_KEY", "test")
-    .env("KMS_DELETE_ID", "test")
-    .env("KMS_DELETE_KEY", "test")
-    .env("KMS_LIST_ID", "test")
-    .env("KMS_LIST_KEY", "test")
-    .stdout(Stdio::from(log_file))
-    .stderr(Stdio::from(err_file));
+    let mut cmd = Command::new(&bin);
+    cmd.current_dir(repo_root())
+        .env("TESTING_MODE", "true")
+        .env("AWS_MODE", "true")
+        .env("DELETE_MODE", "true")
+        .env("LIST_MODE", "true")
+        .env("BLOCKCHAIN_MODE", "casper")
+        .env("APP_PORT", port.to_string())
+        .env("KMS_CREATE_ID", "test")
+        .env("KMS_CREATE_KEY", "test")
+        .env("KMS_SIGN_ID", "test")
+        .env("KMS_SIGN_KEY", "test")
+        .env("KMS_DELETE_ID", "test")
+        .env("KMS_DELETE_KEY", "test")
+        .env("KMS_LIST_ID", "test")
+        .env("KMS_LIST_KEY", "test")
+        .stdout(Stdio::from(log_file))
+        .stderr(Stdio::from(err_file));
 
     match cmd.spawn() {
         Ok(child) => {
@@ -336,17 +365,19 @@ pub fn api_start(features: Option<&str>, port: Option<u16>) -> String {
                 return format!("spawned pid {pid} but failed to write pid file: {e}");
             }
             // Wait briefly for listen
-            thread::sleep(Duration::from_secs(3));
+            thread::sleep(Duration::from_secs(2));
             let hello = curl_get(&format!("http://127.0.0.1:{port}/"));
             format!(
                 "host API started pid={pid} port={port} features={features}\n\
+                 bin={}\n\
                  log={}\n\
                  hello probe:\n{hello}\n\
                  Set KMS_API_URL=http://127.0.0.1:{port}",
+                bin.display(),
                 log.display()
             )
         }
-        Err(e) => format!("failed to spawn cargo run: {e}"),
+        Err(e) => format!("failed to spawn {}: {e}", bin.display()),
     }
 }
 
