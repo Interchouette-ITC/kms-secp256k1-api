@@ -42,6 +42,7 @@ CARGO_FEATURES := --no-default-features --features $(FEATURES)
 	docker-push-localstack-release-ghcr-itc docker-push-localstack-release \
 	docker-run docker-run-test docker-run-localstack docker-stop-localstack \
 	docker-stop docker-inspect \
+	mcp-build mcp-docker-build mcp-http mcp-http-stop run-mcp run-mcp-http \
 	version-show version-bump-patch version-bump-minor version-bump-major version-set
 
 CLIPPY_FLAGS := -D warnings -D clippy::all -D clippy::pedantic -D clippy::nursery
@@ -59,6 +60,7 @@ help:
 	@echo "  make docker-hub-description  Sync Hub short + full description"
 	@echo "  make docker-push-release   Tag/push release images (CI uses split targets)"
 	@echo "  make docker-run / docker-run-test / docker-run-localstack / docker-stop"
+	@echo "  make mcp-build / mcp-docker-build / mcp-http / run-mcp / run-mcp-http"
 	@echo "  make version-show          Print Cargo.toml version + suggested tag"
 	@echo "  make version-bump-patch|minor|major"
 	@echo "  make version-set VERSION=x.y.z"
@@ -305,6 +307,39 @@ docker-push-localstack-release-ghcr-itc:
 
 docker-push-localstack-release: docker-push-localstack-release-hub \
 	docker-push-localstack-release-ghcr-personal docker-push-localstack-release-ghcr-itc
+
+# ---------------------------------------------------------------------------
+# MCP sidecar (mcp/ — separate Cargo package; no dep on API lib)
+# ---------------------------------------------------------------------------
+
+COMPOSE_MCP ?= docker/docker-compose.mcp.yml
+MCP_IMAGE ?= kms-secp256k1-api-mcp
+MCP_VERSION ?= $(shell awk '/^version = /{gsub(/"/, "", $$3); print $$3; exit}' mcp/Cargo.toml)
+
+mcp-build:
+	cargo build --manifest-path mcp/Cargo.toml --release
+
+mcp-docker-build:
+	DOCKER_BUILDKIT=$(DOCKER_BUILDKIT) docker build --network=host \
+		-t $(MCP_IMAGE):$(MCP_VERSION) \
+		-t $(MCP_IMAGE):latest \
+		-f mcp/Dockerfile \
+		mcp
+
+mcp-http: mcp-docker-build
+	docker compose -f $(COMPOSE_MCP) up -d --force-recreate
+
+mcp-http-stop:
+	-docker compose -f $(COMPOSE_MCP) down --remove-orphans
+	-docker stop kms-secp256k1-api-mcp 2>/dev/null
+	-docker rm kms-secp256k1-api-mcp 2>/dev/null
+
+run-mcp:
+	KMS_API_ROOT="$(CURDIR)" cargo run --manifest-path mcp/Cargo.toml --quiet --
+
+run-mcp-http:
+	KMS_API_ROOT="$(CURDIR)" cargo run --manifest-path mcp/Cargo.toml --quiet -- \
+		--http --listen 127.0.0.1:8789
 
 # ---------------------------------------------------------------------------
 # Version (Cargo.toml); release images via GitHub Release

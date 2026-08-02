@@ -10,6 +10,7 @@ Canonical repo: [Interchouette-ITC/kms-secp256k1-api](https://github.com/Interch
 | --- | --- |
 | [`docs/README.md`](docs/README.md) | Product overview, API, Docker, env |
 | [`docs/Tutorial.md`](docs/Tutorial.md) | Tutorial |
+| [`docs/mcp.md`](docs/mcp.md) | MCP sidecar (Make/LocalStack + HTTP tools) |
 | [`CHANGELOG.md`](CHANGELOG.md) | Semver notes |
 | [`docker/README.md`](docker/README.md) | Image tags and release playbook |
 | `make doc` → rustdoc | [GitHub Pages](https://interchouette-itc.github.io/kms-secp256k1-api/kms_secp256k1_api) |
@@ -23,7 +24,17 @@ make docker-build
 make docker-run-test
 ```
 
-Swagger UI (when running): `http://localhost:<APP_PORT>/api`
+MCP (agents / Cursor):
+
+```bash
+make run-mcp          # stdio
+make run-mcp-http     # http://127.0.0.1:8789/mcp (host)
+make mcp-http         # same URL via Docker sidecar image
+```
+
+See [`docs/mcp.md`](docs/mcp.md) and [`mcp/README.md`](mcp/README.md).
+
+Swagger UI (when running): `http://localhost:<APP_PORT>/docs/`
 
 ## Docker images
 

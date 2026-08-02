@@ -1,0 +1,40 @@
+# MCP server for kms-secp256k1-api
+
+Rust **mcpkit** server (`kms-secp256k1-api-mcp` **v1.1.0**) to drive Make/Docker lifecycle and call the HTTP API from Cursor.
+
+This is a **separate Cargo package** under `mcp/` — it does **not** link the API library. Lifecycle shells out to `make`/`docker`; API tools use `reqwest`.
+
+## Transports
+
+| Mode | Command | Use |
+| --- | --- | --- |
+| **stdio** | `make run-mcp` / `kms-secp256k1-api-mcp` | Local Cursor spawn |
+| **HTTP (host)** | `make run-mcp-http` | Streamable HTTP on **8789** |
+| **HTTP (Docker)** | `make mcp-http` | Sidecar image + compose on **8789** → `http://127.0.0.1:8789/mcp` |
+
+```bash
+make mcp-docker-build   # kms-secp256k1-api-mcp:1.1.0
+make mcp-http           # up -d
+make mcp-http-stop
+```
+
+See [docs/mcp.md](../docs/mcp.md) and [mcp.json.example](mcp.json.example).
+
+## Env
+
+| Var | Default | Role |
+| --- | --- | --- |
+| `KMS_API_ROOT` | parent of `mcp/` / cwd with Makefile | Repo root for Make/Docker |
+| `KMS_API_URL` | `http://127.0.0.1:4000` | HTTP tools base URL (use `:4001` for test compose) |
+| `KMS_MCP_HTTP` | unset | Force HTTP transport |
+| `KMS_MCP_ADDR` | `127.0.0.1:8789` | HTTP listen address |
+
+## Tests & examples
+
+```bash
+cd mcp
+cargo test --all-targets
+cargo build --examples
+```
+
+Examples call the same helpers as the MCP tools (`ops` / `client`). See [examples/README.md](examples/README.md). Cursor agents must still use `CallMcpTool` (see `.cursor/rules/kms-use-mcp.mdc`).

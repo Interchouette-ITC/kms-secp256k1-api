@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- MCP sidecar package [`mcp/`](mcp/) (`kms-secp256k1-api-mcp`): Make/Docker lifecycle + HTTP API tools (stdio / Streamable HTTP on `:8789`); Docker image + `make mcp-http`; see [`docs/mcp.md`](docs/mcp.md)
+
 ## [1.1.0] - 2026-08-01
 
 First public release.

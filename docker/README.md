@@ -7,7 +7,19 @@ Size-optimized multi-stage build → `gcr.io/distroless/cc-debian13:nonroot` (De
 | Binary | `kms-secp256k1-api` |
 | Builder | `rust:slim-trixie` |
 | Port | `APP_PORT` (4000 prod / 4001 test typical) |
-| Compose | `docker-compose.prod.yml` / `docker-compose.test.yml` |
+| Compose | `docker-compose.prod.yml` / `docker-compose.test.yml` / `docker-compose.mcp.yml` |
+
+## MCP sidecar image
+
+Slim Rust image (`mcp/Dockerfile`) with `docker` CLI + compose plugin so Make lifecycle tools work against the mounted repo.
+
+```bash
+make mcp-docker-build   # kms-secp256k1-api-mcp:1.1.0 (+ :latest)
+make mcp-http           # Streamable HTTP on :8789
+make mcp-http-stop
+```
+
+Docs: [`docs/mcp.md`](../docs/mcp.md).
 
 ## Where to pull images
 
