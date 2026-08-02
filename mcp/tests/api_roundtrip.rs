@@ -32,15 +32,27 @@ async fn mock_api_create_list_delete_roundtrip() {
             .unwrap(),
     );
 
-    let start = ops::api_start(Some("all"), Some(port));
+    // casper-only: enough for mock create/list/delete; avoids cold-compiling ethereum/cosmos in CI.
+    let start = ops::api_start(Some("casper"), Some(port));
     assert!(
         start.contains("started") || start.contains("already running"),
         "api_start failed: {start}"
     );
-    assert!(
-        wait_hello(90).await,
-        "API did not become ready on {base}; last start:\n{start}"
-    );
+    if !wait_hello(60).await {
+        let log_tail = std::fs::read_to_string(
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join(".run/api.log"),
+        )
+        .unwrap_or_else(|e| format!("(could not read api.log: {e})"));
+        let tail: String = log_tail
+            .chars()
+            .rev()
+            .take(4000)
+            .collect::<String>()
+            .chars()
+            .rev()
+            .collect();
+        panic!("API did not become ready on {base}; last start:\n{start}\n--- api.log (tail) ---\n{tail}");
+    }
 
     let created = client::create_key().await;
     assert!(
