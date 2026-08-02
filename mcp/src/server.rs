@@ -12,7 +12,7 @@ use crate::{client, ops};
 pub struct KmsMcp;
 
 // Keep in sync with Cargo.toml `version`.
-#[mcp_server(name = "kms-secp256k1-api", version = "1.1.0")]
+#[mcp_server(name = "kms-secp256k1-api", version = "1.2.0")]
 impl KmsMcp {
     #[tool(description = "make help + MCP Make↔tool parity map")]
     async fn kms_help(&self) -> ToolOutput {
@@ -270,7 +270,7 @@ mod tests {
     fn mcp_server_version_matches_crate() {
         assert_eq!(
             env!("CARGO_PKG_VERSION"),
-            "1.1.0",
+            "1.2.0",
             "bump #[mcp_server(version = …)] when changing Cargo.toml version"
         );
     }
