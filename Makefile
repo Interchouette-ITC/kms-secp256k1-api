@@ -417,35 +417,40 @@ run-mcp-http:
 
 version-show:
 	@echo "Current version: $(APP_VERSION)"; \
+	echo "MCP package:     $$(awk '/^version = /{gsub(/"/, "", $$3); print $$3; exit}' mcp/Cargo.toml)"; \
 	echo ""; \
 	echo "Suggested GitHub Release tag:"; \
 	echo "  v$(APP_VERSION)"; \
 	echo ""; \
 	echo "When creating a GitHub Release, use the Tag field (not only the title)."
 
-version-bump-patch:
+# Bump root + mcp Cargo.toml, mcp_server attr, then refresh lockfiles (required for --locked CI).
+define version-apply
 	@current="$(APP_VERSION)"; \
-	new=$$(echo "$$current" | awk -F. '{print $$1"."$$2"."($$3+1)}'); \
+	new="$(1)"; \
+	if [ -z "$$new" ]; then echo "empty version"; exit 1; fi; \
 	sed -i "s/^version = \"$$current\"/version = \"$$new\"/" Cargo.toml; \
-	echo "Version bumped from $$current to $$new"
+	sed -i "s/^version = \"$$current\"/version = \"$$new\"/" mcp/Cargo.toml; \
+	sed -i 's/\(#\[mcp_server(name = "kms-secp256k1-api", version = "\)[^"]*\("\]\)/\1'$$new'\2/' mcp/src/server.rs; \
+	cargo metadata --format-version 1 --no-deps >/dev/null; \
+	cargo metadata --manifest-path mcp/Cargo.toml --format-version 1 --no-deps >/dev/null; \
+	cargo check --all --locked --no-default-features --features all -q; \
+	cargo check --manifest-path mcp/Cargo.toml --locked -q; \
+	echo "Version $$current → $$new (tomls + mcp_server + both Cargo.lock)"
+endef
+
+version-bump-patch:
+	$(call version-apply,$(shell echo "$(APP_VERSION)" | awk -F. '{print $$1"."$$2"."($$3+1)}'))
 
 version-bump-minor:
-	@current="$(APP_VERSION)"; \
-	new=$$(echo "$$current" | awk -F. '{print $$1"."($$2+1)".0"}'); \
-	sed -i "s/^version = \"$$current\"/version = \"$$new\"/" Cargo.toml; \
-	echo "Version bumped from $$current to $$new"
+	$(call version-apply,$(shell echo "$(APP_VERSION)" | awk -F. '{print $$1"."($$2+1)".0"}'))
 
 version-bump-major:
-	@current="$(APP_VERSION)"; \
-	new=$$(echo "$$current" | awk -F. '{print ($$1+1)".0.0"}'); \
-	sed -i "s/^version = \"$$current\"/version = \"$$new\"/" Cargo.toml; \
-	echo "Version bumped from $$current to $$new"
+	$(call version-apply,$(shell echo "$(APP_VERSION)" | awk -F. '{print ($$1+1)".0.0"}'))
 
 version-set:
 	@if [ -z "$(VERSION)" ]; then \
 		echo "Usage: make version-set VERSION=x.y.z"; \
 		exit 1; \
-	fi; \
-	current="$(APP_VERSION)"; \
-	sed -i "s/^version = \"$$current\"/version = \"$(VERSION)\"/" Cargo.toml; \
-	echo "Version set from $$current to $(VERSION)"
+	fi
+	$(call version-apply,$(VERSION))

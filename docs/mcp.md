@@ -1,10 +1,10 @@
 # MCP for agents
 
-Rust binary `kms-secp256k1-api-mcp` **v1.1.0** (mcpkit), dual transport like casper-nctl-2-docker / tvscreener.
+Rust binary `kms-secp256k1-api-mcp` **v1.2.0** (mcpkit), dual transport like casper-nctl-2-docker / tvscreener.
 
 **Separate package:** lives in [`mcp/`](../mcp/) — **no dependency** on the `kms-secp256k1-api` library crate. Lifecycle uses Make/Docker; product tools call the HTTP API.
 
-Published image: [`interchouette/kms-secp256k1-api-mcp`](https://hub.docker.com/r/interchouette/kms-secp256k1-api-mcp) (`:1.1.0`, `:latest`, `:dev`).
+Published image: [`interchouette/kms-secp256k1-api-mcp`](https://hub.docker.com/r/interchouette/kms-secp256k1-api-mcp) (`:1.2.0`, `:latest`, `:dev`).
 
 Cursor agents must use Cursor `CallMcpTool`. The always-apply rule lives in **itc-cursor** (product branch `kms-secp256k1-api`) as `.cursor/rules/kms-use-mcp.mdc`. Do not use Shell/`make`/curl as a substitute when MCP is ready.
 
@@ -12,13 +12,13 @@ Cursor agents must use Cursor `CallMcpTool`. The always-apply rule lives in **it
 
 ```bash
 # MCP HTTP sidecar (needs Docker socket + this repo mounted as workspace)
-docker pull interchouette/kms-secp256k1-api-mcp:1.1.0
+docker pull interchouette/kms-secp256k1-api-mcp:1.2.0
 docker run --rm -d --name kms-secp256k1-api-mcp \
   -p 8789:8789 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$PWD":/workspace \
   -e KMS_API_ROOT=/workspace \
-  interchouette/kms-secp256k1-api-mcp:1.1.0
+  interchouette/kms-secp256k1-api-mcp:1.2.0
 ```
 
 Cursor HTTP: `"url": "http://127.0.0.1:8789/mcp"`.  
@@ -30,7 +30,7 @@ From a clone, `make mcp-http` pulls the Hub image (builds locally only if pull f
 | --- | --- | --- |
 | **HTTP** (Docker / Hub) | `make mcp-http` | `"url": "http://127.0.0.1:8789/mcp"` |
 | **HTTP** (host) | `make run-mcp-http` | same URL |
-| **stdio** (Hub image) | `docker run -i … interchouette/kms-secp256k1-api-mcp:1.1.0` | see example |
+| **stdio** (Hub image) | `docker run -i … interchouette/kms-secp256k1-api-mcp:1.2.0` | see example |
 | **stdio** (host) | `make run-mcp` / `kms-secp256k1-api-mcp` | command spawn |
 
 ```bash
@@ -44,7 +44,7 @@ kms-secp256k1-api-mcp --http --listen 0.0.0.0:8789
 | Command | Effect |
 | --- | --- |
 | `make mcp-build` | Host release-build MCP binary |
-| `make mcp-docker-build` | Build `kms-secp256k1-api-mcp:1.1.0` (+ `:latest`) |
+| `make mcp-docker-build` | Build `kms-secp256k1-api-mcp:1.2.0` (+ `:latest`) |
 | `make mcp-docker-build-dev` | Build `:dev` (Hub + GHCR tags) |
 | `make mcp-http` | Pull Hub image (or build) + start sidecar on **8789** |
 | `make mcp-http-stop` | Stop MCP sidecar |

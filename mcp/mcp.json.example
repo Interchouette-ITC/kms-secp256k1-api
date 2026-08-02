@@ -15,7 +15,7 @@
         "${workspaceFolder}:/workspace",
         "-e",
         "KMS_API_ROOT=/workspace",
-        "interchouette/kms-secp256k1-api-mcp:1.1.0",
+        "interchouette/kms-secp256k1-api-mcp:1.2.0",
         "kms-secp256k1-api-mcp"
       ]
     },

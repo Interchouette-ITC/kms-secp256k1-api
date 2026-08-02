@@ -85,7 +85,10 @@ async fn http_initialize_and_tools_list() {
                 "kms-secp256k1-api",
                 "{body}"
             );
-            assert_eq!(body["result"]["serverInfo"]["version"], "1.1.0");
+            assert_eq!(
+                body["result"]["serverInfo"]["version"],
+                env!("CARGO_PKG_VERSION")
+            );
 
             let _ = client
                 .post(&url)
@@ -163,6 +166,7 @@ fn stdio_initialize() {
         let _ = stdin.flush();
     }
 
+    let ver = env!("CARGO_PKG_VERSION");
     let stdout = child.stdout.take().expect("stdout");
     let mut reader = BufReader::new(stdout);
     let mut line = String::new();
@@ -175,7 +179,7 @@ fn stdio_initialize() {
             Ok(0) => break,
             Ok(_) => {
                 buf.push_str(&line);
-                if buf.contains("kms-secp256k1-api") && buf.contains("1.1.0") {
+                if buf.contains("kms-secp256k1-api") && buf.contains(ver) {
                     break;
                 }
             }
@@ -188,5 +192,8 @@ fn stdio_initialize() {
         buf.contains("kms-secp256k1-api"),
         "stdio initialize missing server name: {buf}"
     );
-    assert!(buf.contains("1.1.0"), "stdio initialize missing version: {buf}");
+    assert!(
+        buf.contains(ver),
+        "stdio initialize missing version {ver}: {buf}"
+    );
 }
