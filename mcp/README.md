@@ -1,6 +1,6 @@
 # MCP server for kms-secp256k1-api
 
-Rust **mcpkit** server (`kms-secp256k1-api-mcp` **v1.1.0**) to drive Make/Docker lifecycle and call the HTTP API from Cursor.
+Rust **mcpkit** server (`kms-secp256k1-api-mcp` **v1.2.0**) to drive Make/Docker lifecycle and call the HTTP API from Cursor.
 
 This is a **separate Cargo package** under `mcp/` — it does **not** link the API library. Lifecycle shells out to `make`/`docker`; API tools use `reqwest`.
 
@@ -8,13 +8,13 @@ This is a **separate Cargo package** under `mcp/` — it does **not** link the A
 
 | Mode | Command | Use |
 | --- | --- | --- |
-| **stdio (Hub)** | `docker run -i … interchouette/kms-secp256k1-api-mcp:1.1.0` | No local Rust; see [mcp.json.example](mcp.json.example) |
+| **stdio (Hub)** | `docker run -i … interchouette/kms-secp256k1-api-mcp:1.2.0` | No local Rust; see [mcp.json.example](mcp.json.example) |
 | **stdio (host)** | `make run-mcp` / `kms-secp256k1-api-mcp` | Local Cursor spawn |
 | **HTTP (host)** | `make run-mcp-http` | Streamable HTTP on **8789** |
 | **HTTP (Docker)** | `make mcp-http` | Pull Hub (or build) + compose on **8789** → `http://127.0.0.1:8789/mcp` |
 
 ```bash
-docker pull interchouette/kms-secp256k1-api-mcp:1.1.0
+docker pull interchouette/kms-secp256k1-api-mcp:1.2.0
 make mcp-http           # pull-first sidecar
 make mcp-http-stop
 make mcp-docker-build   # local image if needed
