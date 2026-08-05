@@ -8,8 +8,7 @@ This is a **separate Cargo package** under `mcp/` — it does **not** link the A
 
 | Mode | Command | Use |
 | --- | --- | --- |
-| **stdio (Hub)** | `docker run -i … interchouette/kms-secp256k1-api-mcp:1.2.0` | No local Rust; see [mcp.json.example](mcp.json.example) |
-| **stdio (host)** | `make run-mcp` / `kms-secp256k1-api-mcp` | Local Cursor spawn |
+| **stdio (host)** | `make run-mcp` / Cursor `.cursor/mcp.json` | Local Cursor spawn |
 | **HTTP (host)** | `make run-mcp-http` | Streamable HTTP on **7790** |
 | **HTTP (Docker)** | `make mcp-http` | Pull Hub (or build) + compose on **7790** → `http://127.0.0.1:7790/mcp` |
 
@@ -20,7 +19,7 @@ make mcp-http-stop
 make mcp-docker-build   # local image if needed
 ```
 
-See [docs/mcp.md](../docs/mcp.md) and [mcp.json.example](mcp.json.example).
+See [docs/mcp.md](../docs/mcp.md). Cursor MCP: itc-cursor `.cursor/mcp.json`.
 
 ## Env
 

@@ -21,8 +21,7 @@ docker run --rm -d --name kms-secp256k1-api-mcp \
   interchouette/kms-secp256k1-api-mcp:1.2.0
 ```
 
-Cursor HTTP: `"url": "http://127.0.0.1:7790/mcp"`.  
-Cursor stdio via Hub: see [`mcp/mcp.json.example`](../mcp/mcp.json.example) (`docker run -i …`).
+Cursor config lives in product **itc-cursor** `.cursor/mcp.json` (evaluator-style launchers — no bare `url`, no host-absolute paths).
 
 From a clone, `make mcp-http` pulls the Hub image (builds locally only if pull fails).
 
@@ -30,8 +29,7 @@ From a clone, `make mcp-http` pulls the Hub image (builds locally only if pull f
 | --- | --- | --- |
 | **HTTP** (Docker / Hub) | `make mcp-http` | `"url": "http://127.0.0.1:7790/mcp"` |
 | **HTTP** (host) | `make run-mcp-http` | same URL |
-| **stdio** (Hub image) | `docker run -i … interchouette/kms-secp256k1-api-mcp:1.2.0` | see example |
-| **stdio** (host) | `make run-mcp` / `kms-secp256k1-api-mcp` | command spawn |
+| **stdio** (host) | `make run-mcp` / cargo via `.cursor/mcp.json` | `${workspaceFolder}` spawn |
 
 ```bash
 kms-secp256k1-api-mcp                         # stdio
@@ -66,9 +64,7 @@ Tags: `:dev` (CI on `mcp/**` / workflow_dispatch), `:X.Y.Z` + `:latest` on `mcp/
 
 ### Cursor `mcp.json`
 
-Copy one entry from [`mcp/mcp.json.example`](../mcp/mcp.json.example) into product `.cursor/mcp.json` (prefer Hub stdio or HTTP; host binary after `make mcp-build`).
-
-Reload Cursor MCP after creating the file. Agents must use `CallMcpTool` (rule `kms-use-mcp.mdc`).
+Shipped on itc-cursor product branch `kms-secp256k1-api` as `.cursor/mcp.json` (evaluator-style launchers under `.cursor/scripts/`). Reload Cursor MCP after pull. Agents must use `CallMcpTool` (rule `kms-use-mcp.mdc`).
 
 ### Tests
 
