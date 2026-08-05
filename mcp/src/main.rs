@@ -11,8 +11,12 @@ use kms_secp256k1_api_mcp::server::{run, run_http, DEFAULT_HTTP_LISTEN};
     version
 )]
 struct Cli {
-    /// Serve Streamable HTTP instead of stdio (also: `KMS_MCP_HTTP=1`).
-    #[arg(long, env = "KMS_MCP_HTTP")]
+    /// Serve Streamable HTTP instead of stdio.
+    #[arg(
+        long,
+        env = "MCP_HTTP",
+        value_parser = clap::builder::BoolishValueParser::new()
+    )]
     http: bool,
 
     /// HTTP bind address when `--http` is set (also: `KMS_MCP_ADDR`).

@@ -27,7 +27,7 @@ See [docs/mcp.md](../docs/mcp.md).
 | --- | --- | --- |
 | `KMS_API_ROOT` | parent of `mcp/` / cwd with Makefile | Repo root for Make/Docker |
 | `KMS_API_URL` | `http://127.0.0.1:4000` | HTTP tools base URL (use `:4001` for test compose) |
-| `KMS_MCP_HTTP` | unset | Force HTTP transport |
+| `MCP_HTTP` | unset | Force HTTP transport |
 | `KMS_MCP_ADDR` | `127.0.0.1:7790` | HTTP listen address |
 
 ## Tests & examples
