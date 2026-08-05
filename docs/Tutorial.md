@@ -326,7 +326,6 @@ You can use the provided `Makefile` for common tasks:
 | `make docker-run-test`       | Run Docker Compose test environment (maps port 4001)       |
 | `make docker-run`            | Run Docker Compose production environment (maps port 4000) |
 | `make docker-stop`           | Stop the production container                              |
-| `make version-show`          | Print Cargo.toml version + suggested GitHub Release tag    |
 
 ### Example
 

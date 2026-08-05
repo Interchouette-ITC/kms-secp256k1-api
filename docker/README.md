@@ -23,12 +23,9 @@ Slim Rust image (`mcp/Dockerfile`) with `docker` CLI + compose plugin so Make li
 
 ```bash
 make mcp-docker-build        # :latest + :$(MCP_VERSION)
-make mcp-docker-build-dev    # :dev (Hub + GHCR tags)
+make mcp-docker-build-dev    # :dev
 make mcp-http                # pull Hub image (or build) → Streamable HTTP :7790
 make mcp-http-stop
-make mcp-docker-push-dev     # local interactive logins (:dev)
-make mcp-docker-push-release # local interactive logins (:version + :latest)
-# CI: “CI/CD MCP Image dev” → :dev; “CI/CD MCP Image release tags” + GitHub Release → :version/:latest
 ```
 
 Docs: [`docs/mcp.md`](../docs/mcp.md).
@@ -47,29 +44,13 @@ docker pull ghcr.io/interchouette-itc/kms-secp256k1-api:dev
 
 ## Tags
 
-| Tag | Who pushes | When |
-| --- | --- | --- |
-| `:dev` | Local `make` or Actions `workflow_dispatch` (“CI/CD Image dev”) | On demand |
-| `:X.Y.Z` | GitHub Actions on **Release** | Tag `vX.Y.Z` must match `Cargo.toml` |
-| `:latest` | Same release workflow | Moves with each release |
-
-## Release images and binary
-
-| Piece | Status |
+| Tag | Meaning |
 | --- | --- |
-| CI (check, lint, test, rustdoc pages) | Live on `dev` |
-| `:dev` image push (Hub + GHCR) | Live via “CI/CD Image dev” |
-| Versioned release images `:X.Y.Z` + `:latest` | Cut with GitHub Release tag `vX.Y.Z` (= `Cargo.toml`) |
-| Release binary (`kms-secp256k1-api`) | Attached on that Release (embeds WASM; optional `WASM_PATH` / on-disk `./wasm/wasm.wasm`) |
+| `:dev` | Rolling development image |
+| `:X.Y.Z` | Versioned release (matches `Cargo.toml` / GitHub Release `vX.Y.Z`) |
+| `:latest` | Latest release |
 
-Current version **1.2.1** (see [`CHANGELOG.md`](../docs/CHANGELOG.md)); publish `:X.Y.Z` + `:latest` by creating GitHub Release tag `v1.2.1`.
-
-To cut a release:
-
-1. `make version-show` (or bump with `make version-bump-patch` etc.)
-2. Merge version / changelog to `dev` if needed
-3. Create a GitHub Release with tag **`v$(APP_VERSION)`** (must equal `Cargo.toml`)
-4. Workflow pushes Hub + GHCR tags and attaches the Linux binary
+Release assets also include the Linux binary on the GitHub Release. See [`CHANGELOG.md`](../docs/CHANGELOG.md) for the current version.
 
 ## Local build / push `:dev`
 
@@ -87,5 +68,4 @@ make docker-run-test
 make docker-stop
 make docker-build-no-cache
 make docker-inspect
-make version-show
 ```

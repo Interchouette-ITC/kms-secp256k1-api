@@ -79,7 +79,7 @@ If someone later adds host binds to product compose using container `/workspace`
 | Personal GHCR | `ghcr.io/groussac/kms-secp256k1-api-mcp` |
 | Org GHCR | `ghcr.io/interchouette-itc/kms-secp256k1-api-mcp` |
 
-Tags: `:dev` (CI on `mcp/**` / workflow_dispatch), `:X.Y.Z` + `:latest` on `mcp/**` push to `dev` and on GitHub Release (same cadence as API/LocalStack).
+Tags: `:dev`, `:X.Y.Z`, `:latest` (same cadence as API/LocalStack images).
 
 ### Tests
 
