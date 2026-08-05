@@ -28,7 +28,7 @@ MCP (agents / Cursor):
 
 ```bash
 make run-mcp          # stdio
-make run-mcp-http     # http://127.0.0.1:8789/mcp (host)
+make run-mcp-http     # http://127.0.0.1:9789/mcp (host)
 make mcp-http         # same URL via Docker sidecar image
 ```
 

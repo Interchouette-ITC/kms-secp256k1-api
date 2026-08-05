@@ -11,7 +11,7 @@ use kms_secp256k1_api_mcp::paths::{
 fn defaults_are_stable() {
     assert_eq!(DEFAULT_API_URL, "http://127.0.0.1:4000");
     assert_eq!(DEFAULT_TEST_API_URL, "http://127.0.0.1:4001");
-    assert!(DEFAULT_MCP_URL.contains("8789"));
+    assert!(DEFAULT_MCP_URL.contains("9789"));
 }
 
 #[test]

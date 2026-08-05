@@ -1,4 +1,4 @@
-# kms-secp256k1-api-mcp — Streamable HTTP on :8789
+# kms-secp256k1-api-mcp — Streamable HTTP on :9789
 # Build context: mcp/
 
 ARG RUST_IMAGE=rust:slim-bookworm
@@ -39,12 +39,12 @@ RUN apt-get update \
 COPY --from=builder /kms-secp256k1-api-mcp /usr/local/bin/kms-secp256k1-api-mcp
 
 ENV KMS_MCP_HTTP=1 \
-    KMS_MCP_ADDR=0.0.0.0:8789 \
+    KMS_MCP_ADDR=0.0.0.0:9789 \
     KMS_API_ROOT=/workspace \
     DOCKER_HOST=unix:///var/run/docker.sock \
     SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
 
-EXPOSE 8789
+EXPOSE 9789
 
 WORKDIR /workspace
-CMD ["kms-secp256k1-api-mcp", "--http", "--listen", "0.0.0.0:8789"]
+CMD ["kms-secp256k1-api-mcp", "--http", "--listen", "0.0.0.0:9789"]
