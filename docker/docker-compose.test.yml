@@ -1,3 +1,6 @@
+# Test API — no host data binds. If you add volumes, source must be
+# ${KMS_HOST_ROOT}/… (never /workspace); MCP start tools require KMS_HOST_ROOT
+# when KMS_API_ROOT=/workspace.
 services:
   kms-secp256k1-api:
     container_name: kms-secp256k1-api-test

@@ -57,6 +57,7 @@ docker-stop:\n\t@echo stopped\n",
         .unwrap();
 
         env::set_var("KMS_API_ROOT", &root);
+        env::set_var("KMS_HOST_ROOT", &root);
         Self {
             root,
             _guard: guard,
@@ -67,6 +68,7 @@ docker-stop:\n\t@echo stopped\n",
 impl Drop for FakeRepo {
     fn drop(&mut self) {
         env::remove_var("KMS_API_ROOT");
+        env::remove_var("KMS_HOST_ROOT");
         let _ = fs::remove_dir_all(&self.root);
     }
 }

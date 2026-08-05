@@ -389,19 +389,19 @@ mcp-http:
 		echo "Hub image missing; building locally…"; \
 		$(MAKE) mcp-docker-build; \
 	fi
-	KMS_MCP_IMAGE=$(MCP_HUB_IMAGE):$(MCP_VERSION) \
+	KMS_MCP_IMAGE=$(MCP_HUB_IMAGE):$(MCP_VERSION) KMS_HOST_ROOT="$(CURDIR)" \
 		docker compose -f $(COMPOSE_MCP) up -d --force-recreate
 
 mcp-http-stop:
-	-docker compose -f $(COMPOSE_MCP) down --remove-orphans
+	-KMS_HOST_ROOT="$(CURDIR)" docker compose -f $(COMPOSE_MCP) down --remove-orphans
 	-docker stop kms-secp256k1-api-mcp 2>/dev/null
 	-docker rm kms-secp256k1-api-mcp 2>/dev/null
 
 run-mcp:
-	KMS_API_ROOT="$(CURDIR)" cargo run --manifest-path mcp/Cargo.toml --quiet --
+	KMS_API_ROOT="$(CURDIR)" KMS_HOST_ROOT="$(CURDIR)" cargo run --manifest-path mcp/Cargo.toml --quiet --
 
 run-mcp-http:
-	KMS_API_ROOT="$(CURDIR)" cargo run --manifest-path mcp/Cargo.toml --quiet -- \
+	KMS_API_ROOT="$(CURDIR)" KMS_HOST_ROOT="$(CURDIR)" cargo run --manifest-path mcp/Cargo.toml --quiet -- \
 		--http --listen 127.0.0.1:7790
 
 # ---------------------------------------------------------------------------

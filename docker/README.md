@@ -13,6 +13,8 @@ Size-optimized multi-stage build → `gcr.io/distroless/cc-debian13:nonroot` (De
 
 Slim Rust image (`mcp/Dockerfile`) with `docker` CLI + compose plugin so Make lifecycle tools work against the mounted repo.
 
+**Host binds:** product compose (prod/test/localstack) has **no** host data volumes today. The MCP sidecar still mounts the clone at `/workspace` and uses host `docker.sock`. Always pass `KMS_HOST_ROOT` to the absolute host clone (`make mcp-http` does). Lifecycle start tools refuse when `KMS_API_ROOT=/workspace` without a safe `KMS_HOST_ROOT`. See [`docs/mcp.md`](../docs/mcp.md).
+
 | Registry | Image |
 | --- | --- |
 | Docker Hub | `interchouette/kms-secp256k1-api-mcp` |
@@ -60,7 +62,7 @@ docker pull ghcr.io/interchouette-itc/kms-secp256k1-api:dev
 | Versioned release images `:X.Y.Z` + `:latest` | Cut with GitHub Release tag `vX.Y.Z` (= `Cargo.toml`) |
 | Release binary (`kms-secp256k1-api`) | Attached on that Release (embeds WASM; optional `WASM_PATH` / on-disk `./wasm/wasm.wasm`) |
 
-Current version **1.2.0** (see [`CHANGELOG.md`](../docs/CHANGELOG.md)); publish `:X.Y.Z` + `:latest` by creating GitHub Release tag `v1.2.0`.
+Current version **1.2.1** (see [`CHANGELOG.md`](../docs/CHANGELOG.md)); publish `:X.Y.Z` + `:latest` by creating GitHub Release tag `v1.2.1`.
 
 To cut a release:
 

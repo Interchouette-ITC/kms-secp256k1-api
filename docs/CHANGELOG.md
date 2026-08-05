@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-08-05
+
+### Security
+
+- MCP: require `KMS_HOST_ROOT` (absolute host clone) when `KMS_API_ROOT=/workspace`; lifecycle start tools refuse unsafe bind roots that could create host `/workspace` on `/`. Product compose has no host data binds today — this closes the latent sock+/workspace path. See [`docs/mcp.md`](docs/mcp.md).
+
+### Added
+
+- Compose regression tests (product compose stay bind-free; MCP ops never call `docker-compose.mcp.yml`)
+- `mcp/mcp.json.example` with `KMS_HOST_ROOT`
+
 ## [1.2.0] - 2026-08-02
 
 ### Added
@@ -38,6 +49,7 @@ First public release.
 - Optional Cargo features select chain support (`casper` default; `all` for full image builds)
 - `k256` remains on 0.13.4 (cosmrs / ethers / casper-types require `^0.13`)
 
-[Unreleased]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.2.1
 [1.2.0]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.2.0
 [1.1.0]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.1.0

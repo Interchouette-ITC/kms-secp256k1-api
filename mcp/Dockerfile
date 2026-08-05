@@ -43,6 +43,8 @@ ENV MCP_HTTP=true \
     KMS_API_ROOT=/workspace \
     DOCKER_HOST=unix:///var/run/docker.sock \
     SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+# KMS_HOST_ROOT must be passed at run time (host clone path). Lifecycle start
+# tools refuse when KMS_API_ROOT=/workspace and KMS_HOST_ROOT is missing/unsafe.
 
 EXPOSE 7790
 

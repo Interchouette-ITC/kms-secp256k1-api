@@ -61,3 +61,34 @@ fn api_base_url_default() {
     std::env::remove_var("KMS_API_URL");
     assert_eq!(api_base_url(), DEFAULT_API_URL);
 }
+
+#[test]
+fn docker_run_refuses_workspace_host_binds() {
+    use std::env;
+
+    let _fx = FakeRepo::new();
+    env::set_var("KMS_API_ROOT", "/workspace");
+    env::remove_var("KMS_HOST_ROOT");
+    for (name, out) in [
+        ("kms_docker_run", ops::docker_run()),
+        ("kms_docker_run_test", ops::docker_run_test()),
+        ("kms_docker_run_localstack", ops::docker_run_localstack()),
+        ("kms_stack_start", ops::stack_start()),
+    ] {
+        assert!(out.contains("REFUSING"), "{name}: {out}");
+        assert!(out.contains("KMS_HOST_ROOT"), "{name}: {out}");
+    }
+}
+
+#[test]
+fn safe_host_root_does_not_refuse() {
+    use std::env;
+
+    use kms_secp256k1_api_mcp::paths::host_bind_root_is_unsafe;
+
+    let fx = FakeRepo::new();
+    env::set_var("KMS_API_ROOT", "/workspace");
+    env::set_var("KMS_HOST_ROOT", fx.root.to_string_lossy().as_ref());
+    assert!(!host_bind_root_is_unsafe());
+}
+
