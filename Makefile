@@ -40,7 +40,6 @@ CARGO_FEATURES := --no-default-features --features $(FEATURES)
 	docker-push-dev-hub docker-push-dev-ghcr-personal docker-push-dev-ghcr-itc \
 	docker-push-release docker-push-release-hub \
 	docker-push-release-ghcr-personal docker-push-release-ghcr-itc \
-	docker-hub-description \
 	docker-build-localstack docker-build-localstack-dev \
 	docker-push-localstack-dev-hub docker-push-localstack-dev-ghcr-personal \
 	docker-push-localstack-dev-ghcr-itc docker-push-localstack-dev \
@@ -68,7 +67,6 @@ help:
 	@echo "  make docker-build-dev      Build and tag :dev (Hub + GHCR names)"
 	@echo "  make docker-build-localstack  Build $(LOCALSTACK_HUB_IMAGE):$(TAG)"
 	@echo "  make docker-push-dev       Push :dev (local interactive logins)"
-	@echo "  make docker-hub-description  Sync Hub short + full description"
 	@echo "  make docker-push-release   Tag/push release images (CI uses split targets)"
 	@echo "  make docker-run / docker-run-test / docker-run-localstack / docker-stop"
 	@echo "  make mcp-build / mcp-docker-build / mcp-docker-build-dev / mcp-http"
@@ -187,12 +185,8 @@ docker-build-dev:
 		-f $(DOCKERFILE) \
 		.
 
-docker-hub-description:
-	python3 docker/sync-hub-description.py
-
 docker-push-dev-hub:
 	docker push $(HUB_IMAGE):dev
-	$(MAKE) docker-hub-description
 
 docker-push-dev-ghcr-personal:
 	docker push $(GHCR_PERSONAL_IMAGE):dev
@@ -218,7 +212,6 @@ docker-push-dev:
 docker-push-release-hub:
 	docker push $(HUB_IMAGE):$(APP_VERSION)
 	docker push $(HUB_IMAGE):latest
-	$(MAKE) docker-hub-description
 
 docker-push-release-ghcr-personal:
 	docker tag $(HUB_IMAGE):$(APP_VERSION) $(GHCR_PERSONAL_IMAGE):$(APP_VERSION)

@@ -86,7 +86,4 @@ make docker-stop
 make docker-build-no-cache
 make docker-inspect
 make version-show
-make docker-hub-description
 ```
-
-Hub **Overview** text is maintained in [`DOCKERHUB.md`](DOCKERHUB.md) and synced with `make docker-hub-description` (also after Hub image pushes).

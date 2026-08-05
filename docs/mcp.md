@@ -71,7 +71,7 @@ KMS_MCP_LIVE=1 cargo test --test api_roundtrip -- --ignored --nocapture  # Local
 
 ### Lifecycle (Make parity)
 
-MCP drives **Docker/Make** from `KMS_API_ROOT`. Not exposed: `docker-push-*`, `docker-hub-description`, `version-bump-*`, `version-set`.
+MCP drives **Docker/Make** from `KMS_API_ROOT`. Not exposed: `docker-push-*`, `version-bump-*`, `version-set`.
 
 | Tool | Make / behavior |
 | --- | --- |
