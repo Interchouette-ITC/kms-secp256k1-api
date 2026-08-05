@@ -1,12 +1,10 @@
 # MCP for agents
 
-Rust binary `kms-secp256k1-api-mcp` **v1.2.0** (mcpkit), dual transport like casper-nctl-2-docker / tvscreener.
+Rust binary `kms-secp256k1-api-mcp` **v1.2.0** (mcpkit), dual transport (stdio / Streamable HTTP).
 
 **Separate package:** lives in [`mcp/`](../mcp/) — **no dependency** on the `kms-secp256k1-api` library crate. Lifecycle uses Make/Docker; product tools call the HTTP API.
 
 Published image: [`interchouette/kms-secp256k1-api-mcp`](https://hub.docker.com/r/interchouette/kms-secp256k1-api-mcp) (`:1.2.0`, `:latest`, `:dev`).
-
-Cursor agents must use Cursor `CallMcpTool`. The always-apply rule lives in **itc-cursor** (product branch `kms-secp256k1-api`) as `.cursor/rules/kms-use-mcp.mdc`. Do not use Shell/`make`/curl as a substitute when MCP is ready.
 
 ## Run without compiling
 
@@ -21,17 +19,13 @@ docker run --rm -d --name kms-secp256k1-api-mcp \
   interchouette/kms-secp256k1-api-mcp:1.2.0
 ```
 
-Cursor HTTP: `"url": "http://127.0.0.1:7790/mcp"`.  
-Cursor stdio via Hub: see [`mcp/mcp.json.example`](../mcp/mcp.json.example) (`docker run -i …`).
-
 From a clone, `make mcp-http` pulls the Hub image (builds locally only if pull fails).
 
-| Mode | How | Cursor |
+| Mode | How | Endpoint |
 | --- | --- | --- |
-| **HTTP** (Docker / Hub) | `make mcp-http` | `"url": "http://127.0.0.1:7790/mcp"` |
+| **HTTP** (Docker / Hub) | `make mcp-http` | `http://127.0.0.1:7790/mcp` |
 | **HTTP** (host) | `make run-mcp-http` | same URL |
-| **stdio** (Hub image) | `docker run -i … interchouette/kms-secp256k1-api-mcp:1.2.0` | see example |
-| **stdio** (host) | `make run-mcp` / `kms-secp256k1-api-mcp` | command spawn |
+| **stdio** (host) | `make run-mcp` | process on stdin/stdout |
 
 ```bash
 kms-secp256k1-api-mcp                         # stdio
@@ -63,12 +57,6 @@ Compose: [`docker/docker-compose.mcp.yml`](../docker/docker-compose.mcp.yml). Im
 | Org GHCR | `ghcr.io/interchouette-itc/kms-secp256k1-api-mcp` |
 
 Tags: `:dev` (CI on `mcp/**` / workflow_dispatch), `:X.Y.Z` + `:latest` on `mcp/**` push to `dev` and on GitHub Release (same cadence as API/LocalStack).
-
-### Cursor `mcp.json`
-
-Copy one entry from [`mcp/mcp.json.example`](../mcp/mcp.json.example) into product `.cursor/mcp.json` (prefer Hub stdio or HTTP; host binary after `make mcp-build`).
-
-Reload Cursor MCP after creating the file. Agents must use `CallMcpTool` (rule `kms-use-mcp.mdc`).
 
 ### Tests
 

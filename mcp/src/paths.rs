@@ -3,7 +3,7 @@
 use std::env;
 use std::path::PathBuf;
 
-/// Default Streamable HTTP bind (host). Avoids nctl `:8788` / tvscreener `:8787`.
+/// Default Streamable HTTP bind (host).
 pub const DEFAULT_HTTP_LISTEN: &str = "127.0.0.1:7790";
 /// Default MCP HTTP URL for docs / status.
 pub const DEFAULT_MCP_URL: &str = "http://127.0.0.1:7790/mcp";
