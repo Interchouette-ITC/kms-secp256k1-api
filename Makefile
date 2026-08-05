@@ -409,7 +409,7 @@ run-mcp:
 
 run-mcp-http:
 	KMS_API_ROOT="$(CURDIR)" cargo run --manifest-path mcp/Cargo.toml --quiet -- \
-		--http --listen 127.0.0.1:8789
+		--http --listen 127.0.0.1:10889
 
 # ---------------------------------------------------------------------------
 # Version (Cargo.toml); release images via GitHub Release
