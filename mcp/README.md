@@ -38,4 +38,4 @@ cargo test --all-targets
 cargo build --examples
 ```
 
-Examples call the same helpers as the MCP tools (`ops` / `client`). See [examples/README.md](examples/README.md). Cursor agents must still use `CallMcpTool` (see `.cursor/rules/kms-use-mcp.mdc`).
+Examples call the same helpers as the MCP tools (`ops` / `client`). See [examples/README.md](examples/README.md).

@@ -6,8 +6,6 @@ Rust binary `kms-secp256k1-api-mcp` **v1.2.0** (mcpkit), dual transport (stdio /
 
 Published image: [`interchouette/kms-secp256k1-api-mcp`](https://hub.docker.com/r/interchouette/kms-secp256k1-api-mcp) (`:1.2.0`, `:latest`, `:dev`).
 
-Cursor agents must use Cursor `CallMcpTool`. The always-apply rule lives in **itc-cursor** (product branch `kms-secp256k1-api`) as `.cursor/rules/kms-use-mcp.mdc`. Do not use Shell/`make`/curl as a substitute when MCP is ready.
-
 ## Run without compiling
 
 ```bash
@@ -20,8 +18,6 @@ docker run --rm -d --name kms-secp256k1-api-mcp \
   -e KMS_API_ROOT=/workspace \
   interchouette/kms-secp256k1-api-mcp:1.2.0
 ```
-
-Cursor config lives in the private **itc-cursor** tree for this product (nested `.cursor/mcp.json` after clone). Prefer `make mcp-http` or `make run-mcp` from a checkout; do not invent Shell curl against the API when MCP is available.
 
 From a clone, `make mcp-http` pulls the Hub image (builds locally only if pull fails).
 
@@ -61,10 +57,6 @@ Compose: [`docker/docker-compose.mcp.yml`](../docker/docker-compose.mcp.yml). Im
 | Org GHCR | `ghcr.io/interchouette-itc/kms-secp256k1-api-mcp` |
 
 Tags: `:dev` (CI on `mcp/**` / workflow_dispatch), `:X.Y.Z` + `:latest` on `mcp/**` push to `dev` and on GitHub Release (same cadence as API/LocalStack).
-
-### Cursor
-
-Private product Cursor config (itc-cursor branch `kms-secp256k1-api`) provides `.cursor/mcp.json` for IDE agents. Humans use the Make targets above. Agents must use `CallMcpTool` when that MCP server is ready (rule `kms-use-mcp.mdc`).
 
 ### Tests
 

@@ -1,8 +1,6 @@
 # MCP examples (developers / CI)
 
-These binaries call the **same Rust helpers** the MCP server uses (`ops`, `client`). They are for **local smoke and CI**, not a substitute for Cursor MCP.
-
-**Cursor agents** must use `CallMcpTool` on the `kms-secp256k1-api` MCP server — see `.cursor/rules/kms-use-mcp.mdc`.
+These binaries call the **same Rust helpers** the MCP server uses (`ops`, `client`). They are for **local smoke and CI**.
 
 ```bash
 export KMS_API_ROOT=/path/to/kms-secp256k1-api
