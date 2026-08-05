@@ -22,7 +22,7 @@ Slim Rust image (`mcp/Dockerfile`) with `docker` CLI + compose plugin so Make li
 ```bash
 make mcp-docker-build        # :latest + :$(MCP_VERSION)
 make mcp-docker-build-dev    # :dev (Hub + GHCR tags)
-make mcp-http                # pull Hub image (or build) → Streamable HTTP :8789
+make mcp-http                # pull Hub image (or build) → Streamable HTTP :7790
 make mcp-http-stop
 make mcp-docker-push-dev     # local interactive logins (:dev)
 make mcp-docker-push-release # local interactive logins (:version + :latest)
