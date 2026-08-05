@@ -11,7 +11,7 @@ Canonical repo: [Interchouette-ITC/kms-secp256k1-api](https://github.com/Interch
 | [`OVERVIEW.md`](OVERVIEW.md) | Product overview, API, Docker, env |
 | [`Tutorial.md`](Tutorial.md) | Tutorial |
 | [`mcp.md`](mcp.md) | MCP sidecar (Make/LocalStack + HTTP tools) |
-| [`CHANGELOG.md`](../CHANGELOG.md) | Semver notes |
+| [`CHANGELOG.md`](CHANGELOG.md) | Semver notes |
 | [`docker/README.md`](../docker/README.md) | Image tags and release playbook |
 | `make doc` → rustdoc | [GitHub Pages](https://interchouette-itc.github.io/kms-secp256k1-api/kms_secp256k1_api) |
 
@@ -57,7 +57,7 @@ Details: [`docker/README.md`](../docker/README.md).
 ## Release playbook
 
 1. `make version-show` (or `make version-bump-patch` / `version-set VERSION=x.y.z`)
-2. Update [`CHANGELOG.md`](../CHANGELOG.md); merge to `dev`
+2. Update [`CHANGELOG.md`](CHANGELOG.md); merge to `dev`
 3. Create a GitHub Release on the org repo with tag **`v$(APP_VERSION)`** (must equal `Cargo.toml`)
 4. Creating the GitHub Release publishes Docker images (`:version` / `:latest`) and attaches the Linux binary (standalone; optional `WASM_PATH` / on-disk `./wasm/wasm.wasm` override)
 
