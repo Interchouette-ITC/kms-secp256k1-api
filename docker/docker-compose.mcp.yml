@@ -14,7 +14,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       KMS_API_ROOT: /workspace
-      KMS_MCP_HTTP: "1"
+      MCP_HTTP: "true"
       KMS_MCP_ADDR: "0.0.0.0:7790"
       DOCKER_HOST: unix:///var/run/docker.sock
     working_dir: /workspace

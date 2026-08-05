@@ -38,7 +38,7 @@ RUN apt-get update \
 
 COPY --from=builder /kms-secp256k1-api-mcp /usr/local/bin/kms-secp256k1-api-mcp
 
-ENV KMS_MCP_HTTP=1 \
+ENV MCP_HTTP=true \
     KMS_MCP_ADDR=0.0.0.0:7790 \
     KMS_API_ROOT=/workspace \
     DOCKER_HOST=unix:///var/run/docker.sock \
