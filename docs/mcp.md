@@ -21,15 +21,15 @@ docker run --rm -d --name kms-secp256k1-api-mcp \
   interchouette/kms-secp256k1-api-mcp:1.2.0
 ```
 
-Cursor config lives in product **itc-cursor** `.cursor/mcp.json` (command spawn via `.cursor/scripts/` — no bare `url`, no host-absolute paths).
+Cursor config lives in the private **itc-cursor** tree for this product (nested `.cursor/mcp.json` after clone). Prefer `make mcp-http` or `make run-mcp` from a checkout; do not invent Shell curl against the API when MCP is available.
 
 From a clone, `make mcp-http` pulls the Hub image (builds locally only if pull fails).
 
-| Mode | How | Cursor |
+| Mode | How | Endpoint |
 | --- | --- | --- |
-| **HTTP** (Docker / Hub) | `make mcp-http` | `"url": "http://127.0.0.1:7790/mcp"` |
+| **HTTP** (Docker / Hub) | `make mcp-http` | `http://127.0.0.1:7790/mcp` |
 | **HTTP** (host) | `make run-mcp-http` | same URL |
-| **stdio** (host) | `make run-mcp` / cargo via `.cursor/mcp.json` | `${workspaceFolder}` spawn |
+| **stdio** (host) | `make run-mcp` | process on stdin/stdout |
 
 ```bash
 kms-secp256k1-api-mcp                         # stdio
@@ -62,9 +62,9 @@ Compose: [`docker/docker-compose.mcp.yml`](../docker/docker-compose.mcp.yml). Im
 
 Tags: `:dev` (CI on `mcp/**` / workflow_dispatch), `:X.Y.Z` + `:latest` on `mcp/**` push to `dev` and on GitHub Release (same cadence as API/LocalStack).
 
-### Cursor `mcp.json`
+### Cursor
 
-Shipped on itc-cursor product branch `kms-secp256k1-api` as `.cursor/mcp.json` (launchers under `.cursor/scripts/`). Reload Cursor MCP after pull. Agents must use `CallMcpTool` (rule `kms-use-mcp.mdc`).
+Private product Cursor config (itc-cursor branch `kms-secp256k1-api`) provides `.cursor/mcp.json` for IDE agents. Humans use the Make targets above. Agents must use `CallMcpTool` when that MCP server is ready (rule `kms-use-mcp.mdc`).
 
 ### Tests
 
