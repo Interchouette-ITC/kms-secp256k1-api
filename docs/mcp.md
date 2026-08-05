@@ -1,6 +1,6 @@
 # MCP for agents
 
-Rust binary `kms-secp256k1-api-mcp` **v1.2.0** (mcpkit), dual transport like casper-nctl-2-docker / tvscreener.
+Rust binary `kms-secp256k1-api-mcp` **v1.2.0** (mcpkit), dual transport (stdio / Streamable HTTP).
 
 **Separate package:** lives in [`mcp/`](../mcp/) — **no dependency** on the `kms-secp256k1-api` library crate. Lifecycle uses Make/Docker; product tools call the HTTP API.
 
@@ -21,7 +21,7 @@ docker run --rm -d --name kms-secp256k1-api-mcp \
   interchouette/kms-secp256k1-api-mcp:1.2.0
 ```
 
-Cursor config lives in product **itc-cursor** `.cursor/mcp.json` (evaluator-style launchers — no bare `url`, no host-absolute paths).
+Cursor config lives in product **itc-cursor** `.cursor/mcp.json` (command spawn via `.cursor/scripts/` — no bare `url`, no host-absolute paths).
 
 From a clone, `make mcp-http` pulls the Hub image (builds locally only if pull fails).
 
@@ -64,7 +64,7 @@ Tags: `:dev` (CI on `mcp/**` / workflow_dispatch), `:X.Y.Z` + `:latest` on `mcp/
 
 ### Cursor `mcp.json`
 
-Shipped on itc-cursor product branch `kms-secp256k1-api` as `.cursor/mcp.json` (evaluator-style launchers under `.cursor/scripts/`). Reload Cursor MCP after pull. Agents must use `CallMcpTool` (rule `kms-use-mcp.mdc`).
+Shipped on itc-cursor product branch `kms-secp256k1-api` as `.cursor/mcp.json` (launchers under `.cursor/scripts/`). Reload Cursor MCP after pull. Agents must use `CallMcpTool` (rule `kms-use-mcp.mdc`).
 
 ### Tests
 
