@@ -14,29 +14,29 @@ Cursor agents must use Cursor `CallMcpTool`. The always-apply rule lives in **it
 # MCP HTTP sidecar (needs Docker socket + this repo mounted as workspace)
 docker pull interchouette/kms-secp256k1-api-mcp:1.2.0
 docker run --rm -d --name kms-secp256k1-api-mcp \
-  -p 8789:8789 \
+  -p 7790:7790 \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -v "$PWD":/workspace \
   -e KMS_API_ROOT=/workspace \
   interchouette/kms-secp256k1-api-mcp:1.2.0
 ```
 
-Cursor HTTP: `"url": "http://127.0.0.1:8789/mcp"`.  
+Cursor HTTP: `"url": "http://127.0.0.1:7790/mcp"`.  
 Cursor stdio via Hub: see [`mcp/mcp.json.example`](../mcp/mcp.json.example) (`docker run -i …`).
 
 From a clone, `make mcp-http` pulls the Hub image (builds locally only if pull fails).
 
 | Mode | How | Cursor |
 | --- | --- | --- |
-| **HTTP** (Docker / Hub) | `make mcp-http` | `"url": "http://127.0.0.1:8789/mcp"` |
+| **HTTP** (Docker / Hub) | `make mcp-http` | `"url": "http://127.0.0.1:7790/mcp"` |
 | **HTTP** (host) | `make run-mcp-http` | same URL |
 | **stdio** (Hub image) | `docker run -i … interchouette/kms-secp256k1-api-mcp:1.2.0` | see example |
 | **stdio** (host) | `make run-mcp` / `kms-secp256k1-api-mcp` | command spawn |
 
 ```bash
 kms-secp256k1-api-mcp                         # stdio
-kms-secp256k1-api-mcp --http                  # 127.0.0.1:8789
-kms-secp256k1-api-mcp --http --listen 0.0.0.0:8789
+kms-secp256k1-api-mcp --http                  # 127.0.0.1:7790
+kms-secp256k1-api-mcp --http --listen 0.0.0.0:7790
 ```
 
 ## Make matrix (MCP itself)
@@ -46,11 +46,11 @@ kms-secp256k1-api-mcp --http --listen 0.0.0.0:8789
 | `make mcp-build` | Host release-build MCP binary |
 | `make mcp-docker-build` | Build `kms-secp256k1-api-mcp:1.2.0` (+ `:latest`) |
 | `make mcp-docker-build-dev` | Build `:dev` (Hub + GHCR tags) |
-| `make mcp-http` | Pull Hub image (or build) + start sidecar on **8789** |
+| `make mcp-http` | Pull Hub image (or build) + start sidecar on **7790** |
 | `make mcp-http-stop` | Stop MCP sidecar |
 | `make mcp-docker-push-dev` / `mcp-docker-push-release` | Push Hub + GHCR |
 | `make run-mcp` | Host **stdio** MCP |
-| `make run-mcp-http` | Host HTTP on `127.0.0.1:8789` |
+| `make run-mcp-http` | Host HTTP on `127.0.0.1:7790` |
 
 Compose: [`docker/docker-compose.mcp.yml`](../docker/docker-compose.mcp.yml). Image Dockerfile: [`mcp/Dockerfile`](../mcp/Dockerfile) (includes `docker`/`make`/`curl` so lifecycle tools work via the mounted repo + docker.sock).
 

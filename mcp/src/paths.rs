@@ -4,9 +4,9 @@ use std::env;
 use std::path::PathBuf;
 
 /// Default Streamable HTTP bind (host). Avoids nctl `:8788` / tvscreener `:8787`.
-pub const DEFAULT_HTTP_LISTEN: &str = "127.0.0.1:8789";
+pub const DEFAULT_HTTP_LISTEN: &str = "127.0.0.1:7790";
 /// Default MCP HTTP URL for docs / status.
-pub const DEFAULT_MCP_URL: &str = "http://127.0.0.1:8789/mcp";
+pub const DEFAULT_MCP_URL: &str = "http://127.0.0.1:7790/mcp";
 /// Default KMS HTTP API base URL (prod compose / host `APP_PORT=4000`).
 pub const DEFAULT_API_URL: &str = "http://127.0.0.1:4000";
 /// Test compose API port (`docker-compose.test*.yml`).
