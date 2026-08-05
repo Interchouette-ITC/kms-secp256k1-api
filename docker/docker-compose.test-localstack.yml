@@ -1,3 +1,6 @@
+# LocalStack + API test stack — no host data binds. If you add volumes, source
+# must be ${KMS_HOST_ROOT}/… (never /workspace); MCP start tools require
+# KMS_HOST_ROOT when KMS_API_ROOT=/workspace.
 services:
   kms-localstack:
     container_name: kms-localstack-test

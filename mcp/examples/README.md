@@ -4,6 +4,7 @@ These binaries call the **same Rust helpers** the MCP server uses (`ops`, `clien
 
 ```bash
 export KMS_API_ROOT=/path/to/kms-secp256k1-api
+export KMS_HOST_ROOT=/path/to/kms-secp256k1-api
 
 cargo run --manifest-path mcp/Cargo.toml --example help
 cargo run --manifest-path mcp/Cargo.toml --example status

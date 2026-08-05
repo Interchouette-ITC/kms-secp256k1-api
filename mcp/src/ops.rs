@@ -6,15 +6,23 @@ use std::thread;
 use std::time::Duration;
 
 use crate::paths::{
-    api_log_path, api_pid_path, repo_root, run_dir, API_PROD_CONTAINER, API_TEST_CONTAINER,
+    api_log_path, api_pid_path, host_bind_root_is_unsafe, host_repo_root, repo_root, run_dir,
+    unsafe_host_bind_message, API_PROD_CONTAINER, API_TEST_CONTAINER,
     API_TEST_LOCALSTACK_CONTAINER, COMPOSE_TEST, COMPOSE_TEST_LOCALSTACK, DEFAULT_API_URL,
     DEFAULT_MCP_URL, DEFAULT_TEST_API_URL, LOCALSTACK_CONTAINER, LOCALSTACK_TEST_CONTAINER,
 };
 
 fn run(cmd: &str, args: &[&str]) -> (i32, String, String) {
+    let host = host_repo_root();
+    let host_s = host.to_string_lossy();
+    // cwd stays KMS_API_ROOT (/workspace in MCP) so Makefile/compose files resolve;
+    // KMS_HOST_ROOT + PWD must be the *host* path so Docker bind sources are correct
+    // if product compose gains host volumes later.
     match Command::new(cmd)
         .args(args)
         .current_dir(repo_root())
+        .env("KMS_HOST_ROOT", host_s.as_ref())
+        .env("PWD", host_s.as_ref())
         .output()
     {
         Ok(out) => (
@@ -23,6 +31,14 @@ fn run(cmd: &str, args: &[&str]) -> (i32, String, String) {
             String::from_utf8_lossy(&out.stderr).into_owned(),
         ),
         Err(e) => (127, String::new(), e.to_string()),
+    }
+}
+
+fn refuse_unsafe_host_binds(tool: &str) -> Option<String> {
+    if host_bind_root_is_unsafe() {
+        Some(unsafe_host_bind_message(tool))
+    } else {
+        None
     }
 }
 
@@ -175,11 +191,17 @@ pub fn docker_build_localstack_dev() -> String {
 
 /// `make docker-run` (prod compose, detached).
 pub fn docker_run() -> String {
+    if let Some(msg) = refuse_unsafe_host_binds("kms_docker_run") {
+        return msg;
+    }
     make_target("docker-run", None)
 }
 
 /// Detached test compose (Make `docker-run-test` is foreground — MCP adds `-d`).
 pub fn docker_run_test() -> String {
+    if let Some(msg) = refuse_unsafe_host_binds("kms_docker_run_test") {
+        return msg;
+    }
     let (code, out, err) = compose(
         COMPOSE_TEST,
         &["up", "-d", "--no-build", "--force-recreate"],
@@ -209,6 +231,9 @@ pub fn docker_stop_all_api() -> String {
 }
 
 pub fn docker_run_localstack() -> String {
+    if let Some(msg) = refuse_unsafe_host_binds("kms_docker_run_localstack") {
+        return msg;
+    }
     make_target("docker-run-localstack", None)
 }
 
@@ -226,6 +251,9 @@ pub fn version_show() -> String {
 
 /// LocalStack + API via `docker-compose.test-localstack.yml` (API on :4001).
 pub fn stack_start() -> String {
+    if let Some(msg) = refuse_unsafe_host_binds("kms_stack_start") {
+        return msg;
+    }
     let mut parts = Vec::new();
     parts.push(docker_build_localstack());
     parts.push(docker_build());
