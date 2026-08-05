@@ -7,7 +7,7 @@ Supports multiple blockchains including **Ethereum**, **Cosmos**, and **Casper**
 
 This service is designed to run securely inside Docker and connects to **AWS KMS** (currently the only supported KMS backend).
 
-Docker Hub / GHCR image tags and publish flow: [`docker/DOCKERHUB.md`](../docker/DOCKERHUB.md).
+Docker Hub / GHCR image tags and publish flow: [`docker/README.md`](../docker/README.md).
 
 <details>
   <summary><strong><code>Overview</code></strong></summary>
