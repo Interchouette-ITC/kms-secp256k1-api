@@ -485,14 +485,14 @@ impl KeysService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(feature = "casper")]
+    use crate::constants::{
+        CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, SIGNATURE_RS_LEN, TRANSACTION_HASH,
+    };
+    #[cfg(feature = "ethereum")]
+    use crate::constants::{ETH_PUBLIC_KEY, ETH_SIGNATURE, ETH_TRANSACTION_HASH};
     use crate::{
-        config::ConfigBuilder,
-        constants::{
-            CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, ETH_PUBLIC_KEY, ETH_SIGNATURE,
-            ETH_TRANSACTION_HASH, SIGNATURE_RS_LEN, TRANSACTION_HASH,
-        },
-        services::crypto_service::CryptoService,
-        wasm_loader::WasmLoader,
+        config::ConfigBuilder, services::crypto_service::CryptoService, wasm_loader::WasmLoader,
     };
     use base64::Engine;
     use base64::engine::general_purpose::STANDARD;
