@@ -1,0 +1,31 @@
+# Build context = repo root (docker build -f docker/Dockerfile .)
+.git
+.github
+.github_credentials
+.cursor
+.gitignore
+.idea
+.vscode
+.DS_Store
+**/*~
+**/*.swp
+**/*.swo
+
+# Build artifacts
+/target
+**/target
+/wasm-src
+/dist
+/node_modules
+
+.env
+.env.*
+!.env.example
+
+# Local tooling / docs not needed in image
+*.md
+Makefile
+.dockerignore
+docker/*.md
+docs/
+*.code-workspace
