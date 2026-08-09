@@ -485,14 +485,14 @@
 <a href=#485 id=485 data-nosnippet>485</a><span class="attr">#[cfg(test)]
 <a href=#486 id=486 data-nosnippet>486</a></span><span class="kw">mod </span>tests {
 <a href=#487 id=487 data-nosnippet>487</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#488 id=488 data-nosnippet>488</a>    <span class="kw">use crate</span>::{
-<a href=#489 id=489 data-nosnippet>489</a>        config::ConfigBuilder,
-<a href=#490 id=490 data-nosnippet>490</a>        constants::{
-<a href=#491 id=491 data-nosnippet>491</a>            CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, ETH_PUBLIC_KEY, ETH_SIGNATURE,
-<a href=#492 id=492 data-nosnippet>492</a>            ETH_TRANSACTION_HASH, SIGNATURE_RS_LEN, TRANSACTION_HASH,
-<a href=#493 id=493 data-nosnippet>493</a>        },
-<a href=#494 id=494 data-nosnippet>494</a>        services::crypto_service::CryptoService,
-<a href=#495 id=495 data-nosnippet>495</a>        wasm_loader::WasmLoader,
+<a href=#488 id=488 data-nosnippet>488</a>    <span class="attr">#[cfg(feature = <span class="string">"casper"</span>)]
+<a href=#489 id=489 data-nosnippet>489</a>    </span><span class="kw">use </span><span class="kw">crate</span>::constants::{
+<a href=#490 id=490 data-nosnippet>490</a>        CASPER_PUBLIC_KEY_PREFIXED, CASPER_SECP_PREFIX, SIGNATURE_RS_LEN, TRANSACTION_HASH,
+<a href=#491 id=491 data-nosnippet>491</a>    };
+<a href=#492 id=492 data-nosnippet>492</a>    <span class="attr">#[cfg(feature = <span class="string">"ethereum"</span>)]
+<a href=#493 id=493 data-nosnippet>493</a>    </span><span class="kw">use </span><span class="kw">crate</span>::constants::{ETH_PUBLIC_KEY, ETH_SIGNATURE, ETH_TRANSACTION_HASH};
+<a href=#494 id=494 data-nosnippet>494</a>    <span class="kw">use crate</span>::{
+<a href=#495 id=495 data-nosnippet>495</a>        config::ConfigBuilder, services::crypto_service::CryptoService, wasm_loader::WasmLoader,
 <a href=#496 id=496 data-nosnippet>496</a>    };
 <a href=#497 id=497 data-nosnippet>497</a>    <span class="kw">use </span>base64::Engine;
 <a href=#498 id=498 data-nosnippet>498</a>    <span class="kw">use </span>base64::engine::general_purpose::STANDARD;
