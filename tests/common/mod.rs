@@ -52,6 +52,7 @@ pub fn localstack_aws_config(hash_type: HashType) -> AwsConfig {
         delete: Some(creds.clone()),
         list: Some(creds),
         hash_type,
+        use_default_credentials: false,
     }
 }
 

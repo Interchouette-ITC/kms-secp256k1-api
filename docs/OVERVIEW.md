@@ -451,6 +451,7 @@ The API can be configured using environment variables. You can find an example c
 | ---------------- | ------------------------------------------ |
 | `AWS_MODE`       | Enable AWS KMS integration (defaults true) |
 | `AWS_REGION`     | AWS region for KMS operations              |
+| `DOTENV_DISABLE` | If set, do not load a `.env` file          |
 | `KMS_SIGN_ID`    | AWS access key for signing operations      |
 | `KMS_SIGN_KEY`   | AWS secret key for signing operations      |
 | `KMS_CREATE_ID`  | AWS access key for key creation            |
@@ -459,6 +460,12 @@ The API can be configured using environment variables. You can find an example c
 | `KMS_DELETE_KEY` | AWS secret key for key deletion (optional) |
 | `KMS_LIST_ID`    | AWS access key for key listing (optional)  |
 | `KMS_LIST_KEY`   | AWS secret key for key listing (optional)  |
+
+### Credentials: static keys vs task role
+
+- **Static keys (LocalStack / lab):** set `KMS_CREATE_*` and `KMS_SIGN_*` (and `KMS_DELETE_*` / `KMS_LIST_*` when those modes are enabled). Each pair can be a different IAM user.
+- **Task role / instance profile (AWS):** leave all required `KMS_*` keys **unset**. The SDK default credential chain is used; create, sign, and (when enabled) list/delete share that **one** role. Set `DOTENV_DISABLE` in the container so a leftover `.env` cannot inject keys. Do **not** set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` (they would shadow the role; the process exits if they are present on this path).
+- Mixed half-set `KMS_*` pairs (id without secret or the reverse, or create set while sign unset) cause startup to fail.
 
 ### AWS Endpoint Configuration
 

@@ -252,6 +252,7 @@ Core configuration:
 - BLOCKCHAIN_MODE - one of: casper, ethereum, cosmos
 - AWS_MODE - true to enable AWS KMS; false to disable (currently only AWS is supported)
 - AWS_REGION - e.g., eu-west-3 (required if AWS_MODE=true)
+- DOTENV_DISABLE - if set, skip loading `.env` (use in containers with a task role)
 - DELETE_MODE - true enables DELETE /deleteKey endpoint
 - LIST_MODE - true enables GET /listKeys endpoint
 - ETH_CHAIN_ID - Ethereum chain ID (used for signing transactions), defaults to wasmd `1`
@@ -259,12 +260,10 @@ Core configuration:
 - COSMOS_REST_URL - URL for the Cosmos REST node, defaults to wasmd `http://localhost:1317/cosmos/auth/v1beta1/accounts/`
 - COSMOS_CHAIN_ID - Cosmos chain ID, defaults to wasmd `testing`
 
-KMS key routing (used by your backend/KMS integration):
+KMS credentials:
 
-- KMS_CREATE_ID, KMS_CREATE_KEY - routing for key creation
-- KMS_SIGN_ID, KMS_SIGN_KEY - routing for signing
-- KMS_DELETE_ID, KMS_DELETE_KEY - routing for deletion
-- KMS_LIST_ID, KMS_LIST_KEY - routing for listing
+- Set `KMS_CREATE_ID`/`KMS_CREATE_KEY` and `KMS_SIGN_ID`/`KMS_SIGN_KEY` for static IAM user keys (LocalStack / lab). Optional `KMS_DELETE_*` / `KMS_LIST_*` when those modes are on.
+- Leave those unset on AWS to use the task role / instance profile (all enabled ops share that role). Set `DOTENV_DISABLE` and do not set `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`.
 
 **Example of `.env` (production) file:**
 
