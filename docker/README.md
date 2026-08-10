@@ -42,6 +42,8 @@ docker pull interchouette/kms-secp256k1-api:dev
 docker pull ghcr.io/interchouette-itc/kms-secp256k1-api:dev
 ```
 
+Any Hub `gregoshop/…` name for this product is a **deprecated mirror** and is **no longer published** (do not pull for new installs).
+
 ## Tags
 
 | Tag | Meaning |

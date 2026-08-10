@@ -3,14 +3,17 @@
 APP_NAME ?= kms-secp256k1-api
 HUB_IMAGE ?= interchouette/kms-secp256k1-api
 GHCR_PERSONAL_IMAGE ?= ghcr.io/groussac/kms-secp256k1-api
+GHCR_WORKER_IMAGE ?= ghcr.io/interchouette/kms-secp256k1-api
 GHCR_ORG_IMAGE ?= ghcr.io/interchouette-itc/kms-secp256k1-api
 LOCALSTACK_NAME ?= kms-localstack
 LOCALSTACK_HUB_IMAGE ?= interchouette/kms-localstack
 LOCALSTACK_GHCR_PERSONAL_IMAGE ?= ghcr.io/groussac/kms-localstack
+LOCALSTACK_GHCR_WORKER_IMAGE ?= ghcr.io/interchouette/kms-localstack
 LOCALSTACK_GHCR_ORG_IMAGE ?= ghcr.io/interchouette-itc/kms-localstack
 MCP_NAME ?= kms-secp256k1-api-mcp
 MCP_HUB_IMAGE ?= interchouette/kms-secp256k1-api-mcp
 MCP_GHCR_PERSONAL_IMAGE ?= ghcr.io/groussac/kms-secp256k1-api-mcp
+MCP_GHCR_WORKER_IMAGE ?= ghcr.io/interchouette/kms-secp256k1-api-mcp
 MCP_GHCR_ORG_IMAGE ?= ghcr.io/interchouette-itc/kms-secp256k1-api-mcp
 TAG ?= latest
 APP_VERSION ?= $(shell awk '/^version = /{gsub(/"/, "", $$3); print $$3; exit}' Cargo.toml)
@@ -181,6 +184,7 @@ docker-build-dev:
 		-t $(APP_NAME):dev \
 		-t $(HUB_IMAGE):dev \
 		-t $(GHCR_PERSONAL_IMAGE):dev \
+		-t $(GHCR_WORKER_IMAGE):dev \
 		-t $(GHCR_ORG_IMAGE):dev \
 		-f $(DOCKERFILE) \
 		.
@@ -192,6 +196,7 @@ docker-push-dev-ghcr-personal:
 	docker push $(GHCR_PERSONAL_IMAGE):dev
 
 docker-push-dev-ghcr-itc:
+	docker push $(GHCR_WORKER_IMAGE):dev
 	docker push $(GHCR_ORG_IMAGE):dev
 
 docker-push-dev:
@@ -220,8 +225,12 @@ docker-push-release-ghcr-personal:
 	docker push $(GHCR_PERSONAL_IMAGE):latest
 
 docker-push-release-ghcr-itc:
+	docker tag $(HUB_IMAGE):$(APP_VERSION) $(GHCR_WORKER_IMAGE):$(APP_VERSION)
+	docker tag $(HUB_IMAGE):latest $(GHCR_WORKER_IMAGE):latest
 	docker tag $(HUB_IMAGE):$(APP_VERSION) $(GHCR_ORG_IMAGE):$(APP_VERSION)
 	docker tag $(HUB_IMAGE):latest $(GHCR_ORG_IMAGE):latest
+	docker push $(GHCR_WORKER_IMAGE):$(APP_VERSION)
+	docker push $(GHCR_WORKER_IMAGE):latest
 	docker push $(GHCR_ORG_IMAGE):$(APP_VERSION)
 	docker push $(GHCR_ORG_IMAGE):latest
 
@@ -267,6 +276,7 @@ docker-build-localstack-dev:
 		-t $(LOCALSTACK_NAME):dev \
 		-t $(LOCALSTACK_HUB_IMAGE):dev \
 		-t $(LOCALSTACK_GHCR_PERSONAL_IMAGE):dev \
+		-t $(LOCALSTACK_GHCR_WORKER_IMAGE):dev \
 		-t $(LOCALSTACK_GHCR_ORG_IMAGE):dev \
 		-f $(DOCKERFILE_LOCALSTACK) \
 		docker
@@ -278,6 +288,7 @@ docker-push-localstack-dev-ghcr-personal:
 	docker push $(LOCALSTACK_GHCR_PERSONAL_IMAGE):dev
 
 docker-push-localstack-dev-ghcr-itc:
+	docker push $(LOCALSTACK_GHCR_WORKER_IMAGE):dev
 	docker push $(LOCALSTACK_GHCR_ORG_IMAGE):dev
 
 docker-push-localstack-dev:
@@ -306,8 +317,12 @@ docker-push-localstack-release-ghcr-personal:
 	docker push $(LOCALSTACK_GHCR_PERSONAL_IMAGE):latest
 
 docker-push-localstack-release-ghcr-itc:
+	docker tag $(LOCALSTACK_HUB_IMAGE):$(APP_VERSION) $(LOCALSTACK_GHCR_WORKER_IMAGE):$(APP_VERSION)
+	docker tag $(LOCALSTACK_HUB_IMAGE):latest $(LOCALSTACK_GHCR_WORKER_IMAGE):latest
 	docker tag $(LOCALSTACK_HUB_IMAGE):$(APP_VERSION) $(LOCALSTACK_GHCR_ORG_IMAGE):$(APP_VERSION)
 	docker tag $(LOCALSTACK_HUB_IMAGE):latest $(LOCALSTACK_GHCR_ORG_IMAGE):latest
+	docker push $(LOCALSTACK_GHCR_WORKER_IMAGE):$(APP_VERSION)
+	docker push $(LOCALSTACK_GHCR_WORKER_IMAGE):latest
 	docker push $(LOCALSTACK_GHCR_ORG_IMAGE):$(APP_VERSION)
 	docker push $(LOCALSTACK_GHCR_ORG_IMAGE):latest
 
@@ -334,6 +349,7 @@ mcp-docker-build-dev:
 		-t $(MCP_NAME):dev \
 		-t $(MCP_HUB_IMAGE):dev \
 		-t $(MCP_GHCR_PERSONAL_IMAGE):dev \
+		-t $(MCP_GHCR_WORKER_IMAGE):dev \
 		-t $(MCP_GHCR_ORG_IMAGE):dev \
 		-f mcp/Dockerfile \
 		mcp
@@ -345,6 +361,7 @@ mcp-docker-push-dev-ghcr-personal:
 	docker push $(MCP_GHCR_PERSONAL_IMAGE):dev
 
 mcp-docker-push-dev-ghcr-itc:
+	docker push $(MCP_GHCR_WORKER_IMAGE):dev
 	docker push $(MCP_GHCR_ORG_IMAGE):dev
 
 mcp-docker-push-dev:
@@ -373,8 +390,12 @@ mcp-docker-push-release-ghcr-personal:
 	docker push $(MCP_GHCR_PERSONAL_IMAGE):latest
 
 mcp-docker-push-release-ghcr-itc:
+	docker tag $(MCP_HUB_IMAGE):$(MCP_VERSION) $(MCP_GHCR_WORKER_IMAGE):$(MCP_VERSION)
+	docker tag $(MCP_HUB_IMAGE):latest $(MCP_GHCR_WORKER_IMAGE):latest
 	docker tag $(MCP_HUB_IMAGE):$(MCP_VERSION) $(MCP_GHCR_ORG_IMAGE):$(MCP_VERSION)
 	docker tag $(MCP_HUB_IMAGE):latest $(MCP_GHCR_ORG_IMAGE):latest
+	docker push $(MCP_GHCR_WORKER_IMAGE):$(MCP_VERSION)
+	docker push $(MCP_GHCR_WORKER_IMAGE):latest
 	docker push $(MCP_GHCR_ORG_IMAGE):$(MCP_VERSION)
 	docker push $(MCP_GHCR_ORG_IMAGE):latest
 

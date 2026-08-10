@@ -41,7 +41,7 @@ jobs:
       - name: Push :dev to Docker Hub
         run: make mcp-docker-push-dev-hub
 
-      - name: Log in to GHCR
+      - name: Log in to GHCR (personal)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -51,5 +51,12 @@ jobs:
       - name: Push :dev to personal GHCR
         run: make mcp-docker-push-dev-ghcr-personal
 
-      - name: Push :dev to org GHCR
+      - name: Log in to GHCR (Interchouette / ITC)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME_ITC }}
+          password: ${{ secrets.GHCR_PAT_ITC }}
+
+      - name: Push :dev to ghcr.io/interchouette and interchouette-itc
         run: make mcp-docker-push-dev-ghcr-itc
