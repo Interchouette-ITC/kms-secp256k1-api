@@ -42,7 +42,7 @@ jobs:
       - name: Push :version and :latest to Docker Hub
         run: make mcp-docker-push-release-hub MCP_VERSION=${{ steps.ver.outputs.version }}
 
-      - name: Log in to GHCR
+      - name: Log in to GHCR (personal)
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -52,5 +52,12 @@ jobs:
       - name: Push to personal GHCR
         run: make mcp-docker-push-release-ghcr-personal MCP_VERSION=${{ steps.ver.outputs.version }}
 
-      - name: Push to org GHCR
+      - name: Log in to GHCR (Interchouette / ITC)
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.GHCR_USERNAME_ITC }}
+          password: ${{ secrets.GHCR_PAT_ITC }}
+
+      - name: Push to ghcr.io/interchouette and interchouette-itc
         run: make mcp-docker-push-release-ghcr-itc MCP_VERSION=${{ steps.ver.outputs.version }}
