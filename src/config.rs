@@ -20,6 +20,9 @@ pub struct AwsConfig {
     pub delete: Option<AwsCreds>,
     pub list: Option<AwsCreds>,
     pub hash_type: HashType,
+    /// When true, AWS SDK clients use the default credential chain (task role / instance profile).
+    /// When false, clients use the static `KMS_*` access keys in this struct.
+    pub use_default_credentials: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -77,18 +80,32 @@ impl Default for Config {
 impl Config {
     #[must_use]
     pub fn from_env() -> Self {
-        dotenvy::dotenv().ok();
+        match Self::try_from_env() {
+            Ok(config) => config,
+            Err(err) => {
+                error!("{err}");
+                std::process::exit(1);
+            }
+        }
+    }
+
+    /// Loads config from the process environment.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when `KMS_*` pairs are mixed (one side empty), when
+    /// `DELETE_MODE`/`LIST_MODE` require static keys that are missing, or when
+    /// the default credential chain is selected but `AWS_ACCESS_KEY_ID` /
+    /// `AWS_SECRET_ACCESS_KEY` would shadow the role.
+    pub fn try_from_env() -> Result<Self, String> {
+        maybe_load_dotenv();
 
         let testing_mode = env::var("TESTING_MODE").map_or(true, |v| v == "true");
-
         let delete_mode = env::var("DELETE_MODE").is_ok_and(|v| v == "true");
         let list_mode = env::var("LIST_MODE").is_ok_and(|v| v == "true");
-
-        let sign = get_creds("KMS_SIGN_ID", "KMS_SIGN_KEY");
-        let create = get_creds("KMS_CREATE_ID", "KMS_CREATE_KEY");
-        let delete = delete_mode.then(|| get_creds("KMS_DELETE_ID", "KMS_DELETE_KEY"));
-        let list = list_mode.then(|| get_creds("KMS_LIST_ID", "KMS_LIST_KEY"));
         let aws_mode = env::var("AWS_MODE").map_or(true, |v| v == "true");
+
+        let resolved = resolve_aws_credentials(delete_mode, list_mode)?;
 
         let blockchain_mode = match env::var("BLOCKCHAIN_MODE")
             .unwrap_or_else(|_| format!("{:?}", BlockchainMode::default()))
@@ -111,17 +128,16 @@ impl Config {
             list_mode,
             aws_mode,
             testing_mode,
+            use_default_credentials: resolved.use_default_credentials,
             blockchain_mode: blockchain_mode.clone(),
             hash_type,
         });
 
         let region = env::var("AWS_REGION").unwrap_or_else(|_| DEFAULT_AWS_REGION.into());
-        let endpoint = env::var("AWS_ENDPOINT").unwrap_or_else(|_| {
-            // If AWS_ENDPOINT is not set, construct it from the region using the standard pattern
-            AWS_KMS_ENDPOINT_PATTERN.replace("{}", &region)
-        });
+        let endpoint = env::var("AWS_ENDPOINT")
+            .unwrap_or_else(|_| AWS_KMS_ENDPOINT_PATTERN.replace("{}", &region));
 
-        Self {
+        Ok(Self {
             blockchain_mode,
             port: env::var("APP_PORT")
                 .ok()
@@ -133,11 +149,12 @@ impl Config {
             aws: AwsConfig {
                 region,
                 endpoint,
-                sign,
-                create,
-                delete,
-                list,
+                sign: resolved.sign,
+                create: resolved.create,
+                delete: resolved.delete,
+                list: resolved.list,
                 hash_type,
+                use_default_credentials: resolved.use_default_credentials,
             },
             aws_mode,
             testing_mode,
@@ -159,7 +176,7 @@ impl Config {
                 .ok()
                 .and_then(|v| v.parse().ok())
                 .unwrap_or_else(|| DEFAULT_COSMOS_CHAIN_ID.to_string()),
-        }
+        })
     }
 
     #[must_use]
@@ -263,20 +280,131 @@ impl Config {
     }
 }
 
-fn get_creds(id_key: &str, secret_key: &str) -> AwsCreds {
+/// Loads `.env` unless `DOTENV_DISABLE` is set in the process environment.
+pub fn maybe_load_dotenv() {
+    if env::var("DOTENV_DISABLE").is_ok() {
+        info!("DOTENV_DISABLE set; skipping .env load");
+        return;
+    }
+    dotenvy::dotenv().ok();
+}
+
+/// Returns whether `DOTENV_DISABLE` is set (presence only; value ignored).
+#[must_use]
+pub fn dotenv_disabled() -> bool {
+    env::var("DOTENV_DISABLE").is_ok()
+}
+
+/// Reads an access-key / secret-key pair from the environment.
+///
+/// # Errors
+///
+/// Returns an error when exactly one of the two variables is non-empty.
+pub fn read_cred_pair(id_key: &str, secret_key: &str) -> Result<Option<AwsCreds>, String> {
     let id = env::var(id_key).unwrap_or_default();
     let secret = env::var(secret_key).unwrap_or_default();
-
-    if id.is_empty() {
-        error!("{id_key} env var is empty");
+    match (id.is_empty(), secret.is_empty()) {
+        (true, true) => Ok(None),
+        (false, false) => Ok(Some(AwsCreds {
+            access_key_id: id,
+            secret_access_key: secret,
+        })),
+        (true, false) => Err(format!(
+            "{id_key} is empty but {secret_key} is set; both must be set or both unset"
+        )),
+        (false, true) => Err(format!(
+            "{secret_key} is empty but {id_key} is set; both must be set or both unset"
+        )),
     }
-    if secret.is_empty() {
-        error!("{secret_key} env var is empty");
-    }
+}
 
-    AwsCreds {
-        access_key_id: id,
-        secret_access_key: secret,
+/// Fails when standard AWS access-key env vars would shadow the default credential chain.
+///
+/// # Errors
+///
+/// Returns an error if `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY` is present.
+pub fn refuse_shadowing_aws_env_creds() -> Result<(), String> {
+    let access = env::var("AWS_ACCESS_KEY_ID").ok().filter(|s| !s.is_empty());
+    let secret = env::var("AWS_SECRET_ACCESS_KEY")
+        .ok()
+        .filter(|s| !s.is_empty());
+    if access.is_some() || secret.is_some() {
+        return Err(
+            "default credential chain selected (KMS_* keys unset), but AWS_ACCESS_KEY_ID and/or AWS_SECRET_ACCESS_KEY are set; unset them so the task role / instance profile is used"
+                .into(),
+        );
+    }
+    Ok(())
+}
+
+#[derive(Debug, Clone)]
+struct ResolvedAwsCredentials {
+    create: AwsCreds,
+    sign: AwsCreds,
+    delete: Option<AwsCreds>,
+    list: Option<AwsCreds>,
+    use_default_credentials: bool,
+}
+
+fn resolve_aws_credentials(
+    delete_mode: bool,
+    list_mode: bool,
+) -> Result<ResolvedAwsCredentials, String> {
+    let create = read_cred_pair("KMS_CREATE_ID", "KMS_CREATE_KEY")?;
+    let sign = read_cred_pair("KMS_SIGN_ID", "KMS_SIGN_KEY")?;
+    let delete_pair = read_cred_pair("KMS_DELETE_ID", "KMS_DELETE_KEY")?;
+    let list_pair = read_cred_pair("KMS_LIST_ID", "KMS_LIST_KEY")?;
+
+    match (create, sign) {
+        (None, None) => {
+            refuse_shadowing_aws_env_creds()?;
+            if delete_pair.is_some() {
+                return Err(
+                    "KMS_DELETE_* is set but KMS_CREATE_*/KMS_SIGN_* are unset; use the default credential chain without static delete keys, or set all required static keys"
+                        .into(),
+                );
+            }
+            if list_pair.is_some() {
+                return Err(
+                    "KMS_LIST_* is set but KMS_CREATE_*/KMS_SIGN_* are unset; use the default credential chain without static list keys, or set all required static keys"
+                        .into(),
+                );
+            }
+            Ok(ResolvedAwsCredentials {
+                create: AwsCreds::default(),
+                sign: AwsCreds::default(),
+                delete: delete_mode.then(AwsCreds::default),
+                list: list_mode.then(AwsCreds::default),
+                use_default_credentials: true,
+            })
+        }
+        (Some(create), Some(sign)) => {
+            let delete = if delete_mode {
+                Some(delete_pair.ok_or_else(|| {
+                    "DELETE_MODE=true requires KMS_DELETE_ID and KMS_DELETE_KEY".to_string()
+                })?)
+            } else {
+                None
+            };
+            let list = if list_mode {
+                Some(list_pair.ok_or_else(|| {
+                    "LIST_MODE=true requires KMS_LIST_ID and KMS_LIST_KEY".to_string()
+                })?)
+            } else {
+                None
+            };
+            Ok(ResolvedAwsCredentials {
+                create,
+                sign,
+                delete,
+                list,
+                use_default_credentials: false,
+            })
+        }
+        (None, Some(_)) | (Some(_), None) => Err(
+            "KMS_CREATE_* and KMS_SIGN_* must both be set (static keys) or both unset (default credential chain)"
+                .into(),
+        ),
     }
 }
 
@@ -286,6 +414,7 @@ struct Modes {
     list_mode: bool,
     aws_mode: bool,
     testing_mode: bool,
+    use_default_credentials: bool,
     blockchain_mode: BlockchainMode,
     hash_type: HashType,
 }
@@ -295,6 +424,7 @@ fn log_modes(modes: &Modes) {
     info!("aws_mode: {}", modes.aws_mode);
     info!("delete_mode: {}", modes.delete_mode);
     info!("list_mode: {}", modes.list_mode);
+    info!("use_default_credentials: {}", modes.use_default_credentials);
     info!("blockchain_mode: {:?}", modes.blockchain_mode);
     info!("hash_type: {:?}", modes.hash_type);
 }
@@ -386,5 +516,147 @@ impl ConfigBuilder {
     #[must_use]
     pub fn build(self) -> Config {
         self.config
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+
+    static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    fn clear_kms_and_aws_key_env() {
+        for key in [
+            "KMS_CREATE_ID",
+            "KMS_CREATE_KEY",
+            "KMS_SIGN_ID",
+            "KMS_SIGN_KEY",
+            "KMS_DELETE_ID",
+            "KMS_DELETE_KEY",
+            "KMS_LIST_ID",
+            "KMS_LIST_KEY",
+            "AWS_ACCESS_KEY_ID",
+            "AWS_SECRET_ACCESS_KEY",
+            "DOTENV_DISABLE",
+        ] {
+            // SAFETY: tests hold ENV_LOCK; only this process mutates these keys.
+            unsafe { env::remove_var(key) };
+        }
+    }
+
+    #[test]
+    fn dotenv_disabled_detects_presence() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        clear_kms_and_aws_key_env();
+        assert!(!dotenv_disabled());
+        // SAFETY: see clear_kms_and_aws_key_env
+        unsafe { env::set_var("DOTENV_DISABLE", "1") };
+        assert!(dotenv_disabled());
+        unsafe { env::remove_var("DOTENV_DISABLE") };
+    }
+
+    #[test]
+    fn read_cred_pair_empty_full_and_mixed() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        clear_kms_and_aws_key_env();
+
+        assert!(
+            read_cred_pair("KMS_CREATE_ID", "KMS_CREATE_KEY")
+                .unwrap()
+                .is_none()
+        );
+
+        unsafe {
+            env::set_var("KMS_CREATE_ID", "akid");
+            env::set_var("KMS_CREATE_KEY", "secret");
+        }
+        let pair = read_cred_pair("KMS_CREATE_ID", "KMS_CREATE_KEY")
+            .unwrap()
+            .expect("pair");
+        assert_eq!(pair.access_key_id, "akid");
+        assert_eq!(pair.secret_access_key, "secret");
+
+        unsafe { env::remove_var("KMS_CREATE_KEY") };
+        let err = read_cred_pair("KMS_CREATE_ID", "KMS_CREATE_KEY").unwrap_err();
+        assert!(err.contains("both must be set"));
+        clear_kms_and_aws_key_env();
+    }
+
+    #[test]
+    fn resolve_empty_keys_uses_default_chain() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        clear_kms_and_aws_key_env();
+        let resolved = resolve_aws_credentials(true, true).unwrap();
+        assert!(resolved.use_default_credentials);
+        assert!(resolved.delete.is_some());
+        assert!(resolved.list.is_some());
+        assert!(resolved.create.access_key_id.is_empty());
+    }
+
+    #[test]
+    fn resolve_static_keys_path() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        clear_kms_and_aws_key_env();
+        unsafe {
+            env::set_var("KMS_CREATE_ID", "c");
+            env::set_var("KMS_CREATE_KEY", "ck");
+            env::set_var("KMS_SIGN_ID", "s");
+            env::set_var("KMS_SIGN_KEY", "sk");
+            env::set_var("KMS_DELETE_ID", "d");
+            env::set_var("KMS_DELETE_KEY", "dk");
+        }
+        let resolved = resolve_aws_credentials(true, false).unwrap();
+        assert!(!resolved.use_default_credentials);
+        assert_eq!(resolved.create.access_key_id, "c");
+        assert_eq!(resolved.sign.access_key_id, "s");
+        assert_eq!(resolved.delete.as_ref().unwrap().access_key_id, "d");
+        assert!(resolved.list.is_none());
+        clear_kms_and_aws_key_env();
+    }
+
+    #[test]
+    fn resolve_refuses_aws_access_key_on_default_chain() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        clear_kms_and_aws_key_env();
+        unsafe { env::set_var("AWS_ACCESS_KEY_ID", "AKIA...") };
+        let err = resolve_aws_credentials(false, false).unwrap_err();
+        assert!(err.contains("AWS_ACCESS_KEY_ID"));
+        clear_kms_and_aws_key_env();
+    }
+
+    #[test]
+    fn resolve_refuses_create_sign_mismatch() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        clear_kms_and_aws_key_env();
+        unsafe {
+            env::set_var("KMS_CREATE_ID", "c");
+            env::set_var("KMS_CREATE_KEY", "ck");
+        }
+        let err = resolve_aws_credentials(false, false).unwrap_err();
+        assert!(err.contains("both be set") || err.contains("both unset"));
+        clear_kms_and_aws_key_env();
+    }
+
+    #[test]
+    fn resolve_delete_mode_requires_static_delete_keys() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        clear_kms_and_aws_key_env();
+        unsafe {
+            env::set_var("KMS_CREATE_ID", "c");
+            env::set_var("KMS_CREATE_KEY", "ck");
+            env::set_var("KMS_SIGN_ID", "s");
+            env::set_var("KMS_SIGN_KEY", "sk");
+        }
+        let err = resolve_aws_credentials(true, false).unwrap_err();
+        assert!(err.contains("KMS_DELETE"));
+        clear_kms_and_aws_key_env();
+    }
+
+    #[test]
+    fn refuse_shadowing_ok_when_unset() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        clear_kms_and_aws_key_env();
+        refuse_shadowing_aws_env_creds().unwrap();
     }
 }

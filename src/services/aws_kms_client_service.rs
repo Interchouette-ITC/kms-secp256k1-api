@@ -27,6 +27,10 @@ pub struct AWSKmsClientService {
 impl AWSKmsClientService {
     /// Creates a new `AWSKmsClientService` with the provided AWS credentials.
     ///
+    /// When `aws_config.use_default_credentials` is true, all enabled clients share the
+    /// SDK default credential chain (one task role / instance profile). Otherwise each
+    /// operation uses its static `KMS_*` access key pair.
+    ///
     /// # Errors
     ///
     /// Returns an error string if the SDK configuration fails.
@@ -34,11 +38,41 @@ impl AWSKmsClientService {
         let region = Region::new(aws_config.region.clone());
         let endpoint = aws_config.endpoint.clone();
 
-        // Log AWS configuration for debugging
         info!(
-            "Initializing AWS KMS Client - Region: {}, Endpoint: {}",
-            aws_config.region, endpoint
+            "Initializing AWS KMS Client - Region: {}, Endpoint: {}, use_default_credentials: {}",
+            aws_config.region, endpoint, aws_config.use_default_credentials
         );
+
+        if aws_config.use_default_credentials {
+            return Self::from_default_credentials(aws_config, region, endpoint).await;
+        }
+
+        Self::from_static_credentials(aws_config, region, endpoint).await
+    }
+
+    async fn from_default_credentials(
+        aws_config: AwsConfig,
+        region: Region,
+        endpoint: String,
+    ) -> crate::Result<Self> {
+        info!("Using AWS default credential chain for KMS clients");
+        let sdk_config = aws_sdk_config_default_chain(region, endpoint).await;
+        let client = KmsClient::new(&sdk_config);
+        Ok(Self {
+            create: client.clone(),
+            sign: client.clone(),
+            delete: aws_config.delete.is_some().then(|| client.clone()),
+            list: aws_config.list.is_some().then_some(client),
+            hash_type: aws_config.hash_type,
+        })
+    }
+
+    async fn from_static_credentials(
+        aws_config: AwsConfig,
+        region: Region,
+        endpoint: String,
+    ) -> crate::Result<Self> {
+        info!("Using static KMS_* credentials for KMS clients");
 
         let create_creds = Credentials::new(
             aws_config.create.access_key_id,
@@ -57,14 +91,13 @@ impl AWSKmsClientService {
         );
 
         let create_sdk_config =
-            aws_config_to_sdk_config(region.clone(), endpoint.clone(), create_creds).await;
+            aws_sdk_config_with_creds(region.clone(), endpoint.clone(), create_creds).await;
         let sign_sdk_config =
-            aws_config_to_sdk_config(region.clone(), endpoint.clone(), sign_creds).await;
+            aws_sdk_config_with_creds(region.clone(), endpoint.clone(), sign_creds).await;
 
         let create = KmsClient::new(&create_sdk_config);
         let sign = KmsClient::new(&sign_sdk_config);
 
-        // Conditionally build delete if credentials exist
         let delete = if let Some(delete_creds) = &aws_config.delete {
             let delete_creds = Credentials::new(
                 delete_creds.access_key_id.clone(),
@@ -74,23 +107,23 @@ impl AWSKmsClientService {
                 "delete_kms_credentials",
             );
             let delete_sdk_config =
-                aws_config_to_sdk_config(region.clone(), endpoint.clone(), delete_creds).await;
+                aws_sdk_config_with_creds(region.clone(), endpoint.clone(), delete_creds).await;
             Some(KmsClient::new(&delete_sdk_config))
         } else {
             None
         };
 
         let list = if let Some(list_creds) = &aws_config.list {
-            let delete_creds = Credentials::new(
+            let list_creds = Credentials::new(
                 list_creds.access_key_id.clone(),
                 list_creds.secret_access_key.clone(),
                 None,
                 None,
                 "list_kms_credentials",
             );
-            let delete_sdk_config =
-                aws_config_to_sdk_config(region.clone(), endpoint, delete_creds).await;
-            Some(KmsClient::new(&delete_sdk_config))
+            let list_sdk_config =
+                aws_sdk_config_with_creds(region.clone(), endpoint, list_creds).await;
+            Some(KmsClient::new(&list_sdk_config))
         } else {
             None
         };
@@ -463,7 +496,7 @@ impl AWSKmsClientService {
     }
 }
 
-async fn aws_config_to_sdk_config(
+async fn aws_sdk_config_with_creds(
     region: Region,
     endpoint: String,
     creds: Credentials,
@@ -473,6 +506,15 @@ async fn aws_config_to_sdk_config(
         .region(region)
         .endpoint_url(endpoint)
         .credentials_provider(creds)
+        .load()
+        .await
+}
+
+async fn aws_sdk_config_default_chain(region: Region, endpoint: String) -> SdkConfig {
+    let config_loader = aws_config::defaults(aws_config::BehaviorVersion::latest());
+    config_loader
+        .region(region)
+        .endpoint_url(endpoint)
         .load()
         .await
 }
@@ -532,6 +574,7 @@ mod tests {
             delete: Some(dummy_creds.clone()),
             list: Some(dummy_creds.clone()),
             hash_type: HashType::Keccak256,
+            use_default_credentials: false,
         };
 
         let result = AWSKmsClientService::new(aws_config).await;
@@ -547,5 +590,23 @@ mod tests {
         assert!(service.delete.is_some());
         assert!(service.list.is_some());
         assert_eq!(service.hash_type, HashType::Keccak256);
+    }
+
+    #[tokio::test]
+    async fn test_aws_kms_client_service_default_credentials_enables_delete_list() {
+        let aws_config = AwsConfig {
+            region: DEFAULT_AWS_REGION.into(),
+            endpoint: AWS_KMS_ENDPOINT_PATTERN.replace("{}", DEFAULT_AWS_REGION),
+            delete: Some(AwsCreds::default()),
+            list: Some(AwsCreds::default()),
+            use_default_credentials: true,
+            ..Default::default()
+        };
+
+        let service = AWSKmsClientService::new(aws_config)
+            .await
+            .expect("default-chain client");
+        assert!(service.delete.is_some());
+        assert!(service.list.is_some());
     }
 }
