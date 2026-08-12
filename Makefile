@@ -135,7 +135,7 @@ check-lint: format-check
 verify: format-check clippy test
 	@echo "verify OK"
 
-# Prefer CARGO_TARGET_DIR when set (CI/sandbox); else repo-local target/doc.
+# Prefer CARGO_TARGET_DIR when set (CI); else repo-local target/doc.
 DOC_OUT ?= $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR)/doc,target/doc)
 
 doc:
