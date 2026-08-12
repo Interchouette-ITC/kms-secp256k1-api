@@ -591,7 +591,7 @@ mod tests {
         assert!(resolved.use_default_credentials);
         assert!(resolved.delete.is_some());
         assert!(resolved.list.is_some());
-        assert!(resolved.create.access_key_id.is_empty());
+        assert_eq!(resolved.create.access_key_id, "");
     }
 
     #[test]

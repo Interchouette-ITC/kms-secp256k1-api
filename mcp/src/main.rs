@@ -1,8 +1,8 @@
-//! `kms-secp256k1-api-mcp` — MCP server (stdio by default, optional Streamable HTTP).
+//! `kms-secp256k1-api-mcp` - MCP server (stdio by default, optional Streamable HTTP).
 
 use anyhow::Result;
 use clap::Parser;
-use kms_secp256k1_api_mcp::server::{run, run_http, DEFAULT_HTTP_LISTEN};
+use kms_secp256k1_api_mcp::server::{DEFAULT_HTTP_LISTEN, run, run_http};
 
 #[derive(Debug, Parser)]
 #[command(

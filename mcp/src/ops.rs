@@ -98,7 +98,19 @@ fn docker_ps_filter(name: &str) -> String {
 }
 
 fn curl_get(url: &str) -> String {
-    let (code, out, err) = run("curl", &["-sS", "-m", "3", "-o", "-", "-w", "\nHTTP %{http_code}", url]);
+    let (code, out, err) = run(
+        "curl",
+        &[
+            "-sS",
+            "-m",
+            "3",
+            "-o",
+            "-",
+            "-w",
+            "\nHTTP %{http_code}",
+            url,
+        ],
+    );
     if code != 0 {
         return format!("curl {url} failed: {err}");
     }
@@ -106,10 +118,7 @@ fn curl_get(url: &str) -> String {
 }
 
 fn docker_logs_tail(container: &str, lines: u32) -> String {
-    let (code, out, err) = run(
-        "docker",
-        &["logs", "--tail", &lines.to_string(), container],
-    );
+    let (code, out, err) = run("docker", &["logs", "--tail", &lines.to_string(), container]);
     let text = if out.is_empty() {
         err
     } else {
@@ -257,10 +266,7 @@ pub fn stack_start() -> String {
     let mut parts = Vec::new();
     parts.push(docker_build_localstack());
     parts.push(docker_build());
-    let (code, out, err) = compose(
-        COMPOSE_TEST_LOCALSTACK,
-        &["up", "-d", "--force-recreate"],
-    );
+    let (code, out, err) = compose(COMPOSE_TEST_LOCALSTACK, &["up", "-d", "--force-recreate"]);
     parts.push(format_cmd(
         "compose test-localstack up -d",
         code,
@@ -302,10 +308,7 @@ pub fn stack_start() -> String {
 }
 
 pub fn stack_stop() -> String {
-    let (code, out, err) = compose(
-        COMPOSE_TEST_LOCALSTACK,
-        &["down", "-v", "--remove-orphans"],
-    );
+    let (code, out, err) = compose(COMPOSE_TEST_LOCALSTACK, &["down", "-v", "--remove-orphans"]);
     format_cmd("compose test-localstack down", code, &out, &err)
 }
 
@@ -422,7 +425,9 @@ pub fn api_stop() -> String {
             return format!("kill {pid} failed: {err}{e2}");
         }
     }
-    format!("stopped host API pid={pid}\n{out}{err}").trim().to_string()
+    format!("stopped host API pid={pid}\n{out}{err}")
+        .trim()
+        .to_string()
 }
 
 fn read_api_pid() -> Option<u32> {
@@ -457,10 +462,7 @@ pub fn status() -> String {
     ];
     if let Some(pid) = read_api_pid() {
         lines.push(String::new());
-        lines.push(format!(
-            "host API pid={pid} alive={}",
-            process_alive(pid)
-        ));
+        lines.push(format!("host API pid={pid} alive={}", process_alive(pid)));
     }
     lines.join("\n")
 }

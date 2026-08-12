@@ -172,10 +172,7 @@ mod tests {
         let _g = ENV_LOCK.lock().unwrap();
         env::set_var("KMS_API_ROOT", "/workspace");
         env::set_var("KMS_HOST_ROOT", "/opt2/kms-secp256k1-api");
-        assert_eq!(
-            host_repo_root(),
-            PathBuf::from("/opt2/kms-secp256k1-api")
-        );
+        assert_eq!(host_repo_root(), PathBuf::from("/opt2/kms-secp256k1-api"));
         assert!(!host_bind_root_is_unsafe());
         env::remove_var("KMS_HOST_ROOT");
         assert!(host_bind_root_is_unsafe());

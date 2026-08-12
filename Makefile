@@ -330,7 +330,7 @@ docker-push-localstack-release: docker-push-localstack-release-hub \
 	docker-push-localstack-release-ghcr-personal docker-push-localstack-release-ghcr-itc
 
 # ---------------------------------------------------------------------------
-# MCP sidecar (mcp/ — separate Cargo package; no dep on API lib)
+# MCP sidecar (mcp/ - separate Cargo package; no dep on API lib)
 # ---------------------------------------------------------------------------
 
 mcp-build:
@@ -438,19 +438,19 @@ version-show:
 	echo ""; \
 	echo "When creating a GitHub Release, use the Tag field (not only the title)."
 
-# Bump root + mcp Cargo.toml, mcp_server attr, then refresh lockfiles (required for --locked CI).
+# Bump root + mcp Cargo.toml, then refresh lockfiles (required for --locked CI).
+# MCP serverInfo.version comes from env!("CARGO_PKG_VERSION"); no source attr to edit.
 define version-apply
 	@current="$(APP_VERSION)"; \
 	new="$(1)"; \
 	if [ -z "$$new" ]; then echo "empty version"; exit 1; fi; \
 	sed -i "s/^version = \"$$current\"/version = \"$$new\"/" Cargo.toml; \
 	sed -i "s/^version = \"$$current\"/version = \"$$new\"/" mcp/Cargo.toml; \
-	sed -i 's/\(#\[mcp_server(name = "kms-secp256k1-api", version = "\)[^"]*\("\]\)/\1'$$new'\2/' mcp/src/server.rs; \
 	cargo metadata --format-version 1 --no-deps >/dev/null; \
 	cargo metadata --manifest-path mcp/Cargo.toml --format-version 1 --no-deps >/dev/null; \
 	cargo check --all --locked --no-default-features --features all -q; \
 	cargo check --manifest-path mcp/Cargo.toml --locked -q; \
-	echo "Version $$current → $$new (tomls + mcp_server + both Cargo.lock)"
+	echo "Version $$current → $$new (tomls + both Cargo.lock)"
 endef
 
 version-bump-patch:

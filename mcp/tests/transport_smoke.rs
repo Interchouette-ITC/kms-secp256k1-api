@@ -37,6 +37,28 @@ fn repo_root() -> String {
         .into_owned()
 }
 
+/// Parse JSON-RPC from plain JSON or Streamable HTTP SSE (`data: {...}`).
+fn jsonrpc_from_body(raw: &str) -> Value {
+    let trimmed = raw.trim();
+    if trimmed.starts_with('{') {
+        return serde_json::from_str(trimmed).expect("plain jsonrpc");
+    }
+    for line in trimmed.lines() {
+        let line = line.trim();
+        let Some(payload) = line.strip_prefix("data:") else {
+            continue;
+        };
+        let payload = payload.trim();
+        if payload.is_empty() || payload == "[DONE]" {
+            continue;
+        }
+        if let Ok(v) = serde_json::from_str::<Value>(payload) {
+            return v;
+        }
+    }
+    panic!("no JSON-RPC in body: {raw}");
+}
+
 #[tokio::test]
 async fn http_initialize_and_tools_list() {
     let bin = mcp_bin();
@@ -83,10 +105,10 @@ async fn http_initialize_and_tools_list() {
                 .and_then(|v| v.to_str().ok())
                 .unwrap_or("")
                 .to_string();
-            let body: Value = resp.json().await.expect("init json");
+            let raw = resp.text().await.expect("init body");
+            let body = jsonrpc_from_body(&raw);
             assert_eq!(
-                body["result"]["serverInfo"]["name"],
-                "kms-secp256k1-api",
+                body["result"]["serverInfo"]["name"], "kms-secp256k1-api",
                 "{body}"
             );
             assert_eq!(
@@ -120,14 +142,12 @@ async fn http_initialize_and_tools_list() {
                 .send()
                 .await
                 .expect("tools/list");
-            let tools_body: Value = tools_resp.json().await.expect("tools json");
+            let tools_raw = tools_resp.text().await.expect("tools body");
+            let tools_body = jsonrpc_from_body(&tools_raw);
             let tools = tools_body["result"]["tools"]
                 .as_array()
                 .expect("tools array");
-            let names: Vec<&str> = tools
-                .iter()
-                .filter_map(|t| t["name"].as_str())
-                .collect();
+            let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
             assert!(names.contains(&"kms_create_key"), "{names:?}");
             assert!(names.contains(&"kms_docker_run_localstack"), "{names:?}");
             assert!(names.contains(&"kms_stack_start"), "{names:?}");

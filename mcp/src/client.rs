@@ -110,10 +110,7 @@ pub async fn list_keys() -> String {
 }
 
 pub async fn openapi() -> String {
-    let url = format!(
-        "{}/docs/openapi.json",
-        api_base_url().trim_end_matches('/')
-    );
+    let url = format!("{}/docs/openapi.json", api_base_url().trim_end_matches('/'));
     match client().get(&url).send().await {
         Ok(resp) => {
             let status = resp.status();
@@ -136,9 +133,7 @@ pub async fn openapi() -> String {
                     .pointer("/info/version")
                     .and_then(|t| t.as_str())
                     .unwrap_or("?");
-                return format!(
-                    "HTTP {status}\n{title} v{version}\npaths:\n  {paths}"
-                );
+                return format!("HTTP {status}\n{title} v{version}\npaths:\n  {paths}");
             }
             format_response(status, &body)
         }

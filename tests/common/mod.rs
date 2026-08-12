@@ -105,7 +105,6 @@ pub fn apply_backend(builder: ConfigBuilder) -> ConfigBuilder {
 /// # Panics
 ///
 /// Panics if the listener cannot bind, the server task fails, or readiness never succeeds.
-#[must_use]
 pub fn start_test_server(
     config: Config,
 ) -> Pin<Box<dyn Future<Output = (JoinHandle<()>, String)> + Send>> {

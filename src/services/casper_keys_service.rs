@@ -295,7 +295,7 @@ mod tests {
         assert!(result.is_ok(), "create_key failed: {result:?}");
         let key = result.unwrap();
         assert!(key.address.to_string().starts_with(CASPER_SECP_PREFIX));
-        assert!(!key.address.to_string().is_empty());
+        assert_ne!(key.address.to_string(), "");
     }
 
     #[tokio::test]
