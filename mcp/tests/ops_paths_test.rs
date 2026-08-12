@@ -91,4 +91,3 @@ fn safe_host_root_does_not_refuse() {
     env::set_var("KMS_HOST_ROOT", fx.root.to_string_lossy().as_ref());
     assert!(!host_bind_root_is_unsafe());
 }
-

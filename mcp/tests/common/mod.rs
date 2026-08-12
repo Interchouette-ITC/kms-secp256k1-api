@@ -43,8 +43,16 @@ docker-stop:\n\t@echo stopped\n",
             "[package]\nname=\"kms-secp256k1-api\"\nversion=\"0.0.0\"\nedition=\"2021\"\n",
         )
         .unwrap();
-        fs::write(root.join("docker/docker-compose.prod.yml"), "services: {}\n").unwrap();
-        fs::write(root.join("docker/docker-compose.test.yml"), "services: {}\n").unwrap();
+        fs::write(
+            root.join("docker/docker-compose.prod.yml"),
+            "services: {}\n",
+        )
+        .unwrap();
+        fs::write(
+            root.join("docker/docker-compose.test.yml"),
+            "services: {}\n",
+        )
+        .unwrap();
         fs::write(
             root.join("docker/docker-compose.localstack.yml"),
             "services: {}\n",

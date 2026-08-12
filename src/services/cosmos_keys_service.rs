@@ -711,7 +711,7 @@ mod tests {
         // Assert the key is returned
         assert!(result.is_ok(), "create_key failed: {result:?}");
         let key = result.unwrap();
-        assert!(!key.public_key.as_deref().unwrap().to_string().is_empty());
+        assert_ne!(key.public_key.as_deref().unwrap().to_string(), "");
     }
 
     #[tokio::test]

@@ -35,7 +35,8 @@ fn product_compose_has_no_host_bind_volumes() {
     for rel in PRODUCT_COMPOSE_FILES {
         let name = rel.strip_prefix("docker/").unwrap_or(rel);
         let path = docker.join(name);
-        let text = fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
+        let text =
+            fs::read_to_string(&path).unwrap_or_else(|e| panic!("read {}: {e}", path.display()));
         for (i, line) in text.lines().enumerate() {
             assert!(
                 !is_host_bind_volume_line(line),

@@ -55,15 +55,15 @@ tracing-subscriber = { version = "0.3.23", features = [
   "fmt",
   "env-filter",
 ], default-features = false }
-thiserror = "2.0.19"
-base64 = { version = "0.23.0", features = ["alloc"], default-features = false }
+thiserror = "2.0.20"
+base64 = { version = "0.23.1", features = ["alloc"], default-features = false }
 hex = { version = "0.4.3", default-features = false }
 wasmtime = { version = "47.0.3", default-features = false, features = [
   "async",
   "std",
   "winch",
 ] }
-async-trait = { version = "0.1.91", default-features = false }
+async-trait = { version = "0.1.92", default-features = false }
 casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", branch = "dev", default-features = false, optional = true }
 ethers = { version = "2.0.14", default-features = false, optional = true }
 rand = { version = "0.10.2", default-features = false }
@@ -80,5 +80,5 @@ casper-binary-port-access = { git = "https://github.com/gRoussac/casper-binary-p
 
 [dev-dependencies]
 tower = "0.5.3"
-http-body-util = "0.1.4"
+http-body-util = "0.1.5"
 serial_test = "4.0.1"
