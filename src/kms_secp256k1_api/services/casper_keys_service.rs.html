@@ -295,7 +295,7 @@
 <a href=#295 id=295 data-nosnippet>295</a>        </span><span class="macro">assert!</span>(result.is_ok(), <span class="string">"create_key failed: {result:?}"</span>);
 <a href=#296 id=296 data-nosnippet>296</a>        <span class="kw">let </span>key = result.unwrap();
 <a href=#297 id=297 data-nosnippet>297</a>        <span class="macro">assert!</span>(key.address.to_string().starts_with(CASPER_SECP_PREFIX));
-<a href=#298 id=298 data-nosnippet>298</a>        <span class="macro">assert!</span>(!key.address.to_string().is_empty());
+<a href=#298 id=298 data-nosnippet>298</a>        <span class="macro">assert_ne!</span>(key.address.to_string(), <span class="string">""</span>);
 <a href=#299 id=299 data-nosnippet>299</a>    }
 <a href=#300 id=300 data-nosnippet>300</a>
 <a href=#301 id=301 data-nosnippet>301</a>    <span class="attr">#[tokio::test]

@@ -711,7 +711,7 @@
 <a href=#711 id=711 data-nosnippet>711</a>        <span class="comment">// Assert the key is returned
 <a href=#712 id=712 data-nosnippet>712</a>        </span><span class="macro">assert!</span>(result.is_ok(), <span class="string">"create_key failed: {result:?}"</span>);
 <a href=#713 id=713 data-nosnippet>713</a>        <span class="kw">let </span>key = result.unwrap();
-<a href=#714 id=714 data-nosnippet>714</a>        <span class="macro">assert!</span>(!key.public_key.as_deref().unwrap().to_string().is_empty());
+<a href=#714 id=714 data-nosnippet>714</a>        <span class="macro">assert_ne!</span>(key.public_key.as_deref().unwrap().to_string(), <span class="string">""</span>);
 <a href=#715 id=715 data-nosnippet>715</a>    }
 <a href=#716 id=716 data-nosnippet>716</a>
 <a href=#717 id=717 data-nosnippet>717</a>    <span class="attr">#[tokio::test]

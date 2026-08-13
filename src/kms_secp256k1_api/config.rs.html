@@ -591,7 +591,7 @@
 <a href=#591 id=591 data-nosnippet>591</a>        <span class="macro">assert!</span>(resolved.use_default_credentials);
 <a href=#592 id=592 data-nosnippet>592</a>        <span class="macro">assert!</span>(resolved.delete.is_some());
 <a href=#593 id=593 data-nosnippet>593</a>        <span class="macro">assert!</span>(resolved.list.is_some());
-<a href=#594 id=594 data-nosnippet>594</a>        <span class="macro">assert!</span>(resolved.create.access_key_id.is_empty());
+<a href=#594 id=594 data-nosnippet>594</a>        <span class="macro">assert_eq!</span>(resolved.create.access_key_id, <span class="string">""</span>);
 <a href=#595 id=595 data-nosnippet>595</a>    }
 <a href=#596 id=596 data-nosnippet>596</a>
 <a href=#597 id=597 data-nosnippet>597</a>    <span class="attr">#[test]
