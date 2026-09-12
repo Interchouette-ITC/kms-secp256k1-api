@@ -9,10 +9,8 @@ use crate::{
 };
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
-use ethers::{
-    signers::{LocalWallet, Signer},
-    types::{H256, TransactionRequest, TxHash},
-};
+use ethers_core::types::{H256, TransactionRequest, TxHash};
+use ethers_signers::{LocalWallet, Signer};
 use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
 use serde_json::json;
 use std::str::FromStr;
