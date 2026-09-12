@@ -6,6 +6,10 @@ all-features = false
 
 [advisories]
 yanked = "warn"
+# h2 0.3 via older hyper stacks; patched releases are on h2 >= 0.4.16 only for some lines.
+ignore = [
+    { id = "RUSTSEC-2026-0258", reason = "transitive h2 via hyper/reqwest stacks; 0.3 line has no 0.4.16 backport" },
+]
 
 [licenses]
 unused-allowed-license = "allow"
