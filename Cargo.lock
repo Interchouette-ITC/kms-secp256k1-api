@@ -139,9 +139,9 @@ checksum = "f2032f911046de80f0a198e0901378627c33f59ea0ac00e363d481118bd70a53"
 
 [[package]]
 name = "aws-config"
-version = "1.10.1"
+version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1b180a3c8b55960db3426d8964b8745e652466a1a49fe1a2eda828046d30b5e4"
+checksum = "a767267da9e2c2e189b2f9df8b5657e850ecf5352644734ba130d4a57095cf1b"
 dependencies = [
  "aws-credential-types",
  "aws-runtime",
@@ -251,9 +251,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-sts"
-version = "1.110.0"
+version = "1.113.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd8b14781dfbff48984017d57167b6ea0b6471c6920ec52b44a2677c7feb3c13"
+checksum = "68182ecb449f7537db0f4d5d25917789cf41e32074a9fe47b6a0b847fe1d2032"
 dependencies = [
  "arc-swap",
  "aws-credential-types",
@@ -332,16 +332,16 @@ dependencies = [
 
 [[package]]
 name = "aws-smithy-http-client"
-version = "1.2.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "635d23afda0a6ab48d666c4d447c4873e8d1e83518a2be2093122397e50b838e"
+checksum = "ebfd138fac0337cee7516c352757ea73b9f2266e57d0bcb5bc70e9547e45aef1"
 dependencies = [
  "aws-smithy-async",
  "aws-smithy-runtime-api",
  "aws-smithy-types",
  "h2 0.4.16",
  "http 1.5.0",
- "hyper 1.11.0",
+ "hyper 1.11.1",
  "hyper-rustls",
  "hyper-util",
  "pin-project-lite",
@@ -389,9 +389,9 @@ dependencies = [
 
 [[package]]
 name = "aws-smithy-runtime"
-version = "1.12.1"
+version = "1.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07505b34e8f4b3591a4fa69e9792b52289b95488dbbc68c3c0075b7bedb245e1"
+checksum = "b82e438d30e02a825d363bd639a9efaed68a8089d86101054b0081e7e0d3e606"
 dependencies = [
  "aws-smithy-async",
  "aws-smithy-http",
@@ -415,9 +415,9 @@ dependencies = [
 
 [[package]]
 name = "aws-smithy-runtime-api"
-version = "1.14.0"
+version = "1.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b98f2e1fd67ec06618f9c291e5e495a468e60519e44c9c1979cd0521f3affdb"
+checksum = "9c054752dd9e4dc73d0b75748c99ac2d0feafbf2f25c7b0516f03a3534161223"
 dependencies = [
  "aws-smithy-async",
  "aws-smithy-runtime-api-macros",
@@ -455,9 +455,9 @@ dependencies = [
 
 [[package]]
 name = "aws-smithy-types"
-version = "1.6.1"
+version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d6dc683efb34b9e755675b37fedbe0103141e5b6df7bdc9eb6967756a8c167d8"
+checksum = "8f94d16e797ec62cd999fc9d5942b48fa7050c3093ddadff48e4d7528d16fcb9"
 dependencies = [
  "base64-simd",
  "bytes",
@@ -493,9 +493,9 @@ dependencies = [
 
 [[package]]
 name = "aws-types"
-version = "1.5.0"
+version = "1.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eec1cd5469f328c782dc3e33d4153cf118a54e33cbb3356d60d16f89883e1f94"
+checksum = "209f3a6d82a6e9e5f94abbed94c7a26e1c052341002bf57a5fb5481f625896fc"
 dependencies = [
  "aws-credential-types",
  "aws-smithy-async",
@@ -518,7 +518,7 @@ dependencies = [
  "http 1.5.0",
  "http-body 1.1.0",
  "http-body-util",
- "hyper 1.11.0",
+ "hyper 1.11.1",
  "hyper-util",
  "itoa",
  "matchit",
@@ -2585,9 +2585,9 @@ dependencies = [
 
 [[package]]
 name = "hyper"
-version = "1.11.0"
+version = "1.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d22053281f852e11534f5198498373cbb59295120a20771d90f7ed1897490a72"
+checksum = "27b501faa50e7a26c3d3560ca625132f4078a17771f4810baf70475ae48cbe43"
 dependencies = [
  "atomic-waker",
  "bytes",
@@ -2612,7 +2612,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "33ca68d021ef39cf6463ab54c1d0f5daf03377b70561305bb89a8f83aab66e0f"
 dependencies = [
  "http 1.5.0",
- "hyper 1.11.0",
+ "hyper 1.11.1",
  "hyper-util",
  "rustls",
  "rustls-native-certs",
@@ -2629,7 +2629,7 @@ checksum = "70206fc6890eaca9fde8a0bf71caa2ddfc9fe045ac9e5c70df101a7dbde866e0"
 dependencies = [
  "bytes",
  "http-body-util",
- "hyper 1.11.0",
+ "hyper 1.11.1",
  "hyper-util",
  "native-tls",
  "tokio",
@@ -2649,7 +2649,7 @@ dependencies = [
  "futures-util",
  "http 1.5.0",
  "http-body 1.1.0",
- "hyper 1.11.0",
+ "hyper 1.11.1",
  "ipnet",
  "libc",
  "percent-encoding",
@@ -3005,7 +3005,7 @@ dependencies = [
  "ethers",
  "hex",
  "http-body-util",
- "hyper 1.11.0",
+ "hyper 1.11.1",
  "k256",
  "once_cell",
  "rand 0.10.2",
@@ -3910,7 +3910,7 @@ dependencies = [
  "http 1.5.0",
  "http-body 1.1.0",
  "http-body-util",
- "hyper 1.11.0",
+ "hyper 1.11.1",
  "hyper-rustls",
  "hyper-tls",
  "hyper-util",
@@ -3950,7 +3950,7 @@ dependencies = [
  "http 1.5.0",
  "http-body 1.1.0",
  "http-body-util",
- "hyper 1.11.0",
+ "hyper 1.11.1",
  "hyper-util",
  "js-sys",
  "log",
