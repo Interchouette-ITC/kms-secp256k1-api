@@ -1,5 +1,5 @@
 (function() {
-    const implementors = Object.fromEntries([["kms_secp256k1_api",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.97.1/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"kms_secp256k1_api/error/enum.KmsError.html\" title=\"enum kms_secp256k1_api::error::KmsError\">KmsError</a>",0]]]]);
+    const implementors = Object.fromEntries([["kms_secp256k1_api",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.98.1/core/error/trait.Error.html\" title=\"trait core::error::Error\">Error</a> for <a class=\"enum\" href=\"kms_secp256k1_api/error/enum.KmsError.html\" title=\"enum kms_secp256k1_api::error::KmsError\">KmsError</a>",0]]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {
