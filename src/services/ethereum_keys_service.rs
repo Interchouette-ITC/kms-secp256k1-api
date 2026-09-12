@@ -2,7 +2,7 @@ use crate::config::Config;
 use crate::constants::{ETH_SECP_LEN, SIGNATURE_RS_LEN};
 use crate::services::crypto_service::CryptoService;
 use crate::services::keys_service::{KeyEntry, KeysService, KeysServiceTrait, SigEntry};
-use ethers::types::{H256, Signature, TransactionRequest};
+use ethers_core::types::{H256, Signature, TransactionRequest};
 use k256::PublicKey;
 use serde_json::json;
 use std::str::FromStr;

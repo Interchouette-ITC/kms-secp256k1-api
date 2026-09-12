@@ -177,7 +177,7 @@ pub async fn sign_transaction_hash(
                     r: hex::encode(r),
                     s: hex::encode(s),
                     hash: transaction_hash.clone(),
-                    signature: key_entry.signature.to_string().clone(),
+                    signature: key_entry.signature.to_string(),
                 });
             }
             Err(err) => {
