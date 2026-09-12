@@ -38,6 +38,7 @@ CARGO_FEATURES := --no-default-features --features $(FEATURES)
 
 .PHONY: help build build-release check test test-localstack verify \
 	lint format format-check clippy check-lint doc \
+	coverage coverage-summary coverage-html audit deny machete outdated \
 	docker-build docker-build-no-cache \
 	docker-build-dev docker-push-dev \
 	docker-push-dev-hub docker-push-dev-ghcr-personal docker-push-dev-ghcr-itc \
@@ -64,6 +65,8 @@ help:
 	@echo "kms-secp256k1-api targets"
 	@echo ""
 	@echo "  make build / build-release / check / test / lint / verify"
+	@echo "  make coverage / coverage-summary / coverage-html"
+	@echo "  make audit / deny / machete / outdated"
 	@echo "  make test-localstack       Integration tests against LocalStack KMS"
 	@echo "  make doc                   rustdoc → docs/api-rust/ (commit with source)"
 	@echo "  make docker-build          Build $(HUB_IMAGE):$(TAG) (+ :$(APP_VERSION))"
@@ -134,6 +137,41 @@ check-lint: format-check
 
 verify: format-check clippy test
 	@echo "verify OK"
+
+COVERAGE_IGNORE := examples/|benches/|mcp/
+
+## Requires cargo-llvm-cov + llvm-tools-preview. Writes coverage/lcov.info.
+coverage:
+	mkdir -p coverage
+	RUSTUP_TOOLCHAIN=stable cargo llvm-cov --locked $(CARGO_FEATURES) --lcov \
+		--ignore-filename-regex '$(COVERAGE_IGNORE)' \
+		--output-path coverage/lcov.info
+
+coverage-summary:
+	RUSTUP_TOOLCHAIN=stable cargo llvm-cov --locked $(CARGO_FEATURES) --summary-only \
+		--ignore-filename-regex '$(COVERAGE_IGNORE)'
+
+coverage-html:
+	mkdir -p coverage
+	RUSTUP_TOOLCHAIN=stable cargo llvm-cov --locked $(CARGO_FEATURES) --html \
+		--ignore-filename-regex '$(COVERAGE_IGNORE)' \
+		--output-dir coverage/html
+
+## Requires `cargo install cargo-audit`.
+audit:
+	cargo audit \
+		--ignore RUSTSEC-2025-0009 \
+		--ignore RUSTSEC-2026-0258
+
+## Requires `cargo install cargo-deny`.
+deny:
+	cargo deny check
+
+machete:
+	cargo machete
+
+outdated:
+	cargo outdated --workspace
 
 # Prefer CARGO_TARGET_DIR when set (CI); else repo-local target/doc.
 DOC_OUT ?= $(if $(CARGO_TARGET_DIR),$(CARGO_TARGET_DIR)/doc,target/doc)

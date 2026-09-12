@@ -37,17 +37,19 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          components: rustfmt, clippy, llvm-tools-preview
           targets: wasm32-unknown-unknown
 
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --version 0.22.0 --locked
-
-      - name: Run cargo audit
+      - name: Install cargo-audit and cargo-deny
         run: |
-          cargo audit \
-            --ignore RUSTSEC-2025-0009 \
-            --ignore RUSTSEC-2026-0258
+          cargo install cargo-audit --version 0.22.0 --locked
+          cargo install cargo-deny --version 0.20.2 --locked
+
+      - name: Audit
+        run: make audit
+
+      - name: Deny
+        run: make deny
 
       - name: Check
         run: make check
@@ -69,6 +71,22 @@ jobs:
 
       - name: Doc
         run: make doc
+
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov
+
+      - name: Coverage
+        run: make coverage
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v6
+        with:
+          files: coverage/lcov.info
+          flags: rust
+          fail_ci_if_error: false
+          token: ${{ secrets.CODECOV_TOKEN }}
 
       - name: Github pages
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
