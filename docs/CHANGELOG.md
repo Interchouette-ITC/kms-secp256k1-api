@@ -7,10 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.2.2] - 2026-09-16
+
 ### Changed
 
+- Refresh embedded `wasm/wasm.wasm` from `kms-secp256k1-api-wasm` v1.1.1
 - MCP sidecar migrates from mcpkit to rmcp 3.1.2 (stdio + Streamable HTTP)
-- Dependency floors: `thiserror` 2.0.20, `base64` 0.23.1, `async-trait` 0.1.92, `http-body-util` 0.1.5; MCP `reqwest` 0.13
+- Dependency floors and Dependabot / supply-chain hygiene since 1.2.1
 - `k256` remains on 0.13.4 (cosmrs / ethers / casper-types require `^0.13`)
 
 ## [1.2.1] - 2026-08-05
