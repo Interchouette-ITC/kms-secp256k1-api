@@ -204,9 +204,9 @@ dependencies = [
 
 [[package]]
 name = "aws-sdk-kms"
-version = "1.114.0"
+version = "1.118.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c0b7d906608ee41e7ddea9983577ba82200435644d567d63dc34e822e088b453"
+checksum = "c243864bc3754be9f0001414e0162fdf1370fa62c70b0cfbe1da6a6221d553c7"
 dependencies = [
  "arc-swap",
  "aws-credential-types",
@@ -4360,7 +4360,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32497e9a4c7b38532efcdebeef879707aa9f794296a4f0244f6f69e9bc8574bd"
 dependencies = [
  "fastrand",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "once_cell",
  "rustix",
  "windows-sys 0.61.2",
