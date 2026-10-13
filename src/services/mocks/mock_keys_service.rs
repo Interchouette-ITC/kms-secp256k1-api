@@ -157,8 +157,7 @@ impl MockKeysService {
                     .ok()
                     .and_then(|bytes| PublicKey::from_sec1_bytes(&bytes).ok())
                     .and_then(|pk| pk.to_public_key_der().ok())
-                    .map(|der| STANDARD.encode(der))
-                    .unwrap_or_default();
+                    .map_or_default(|der| STANDARD.encode(der));
 
                 KeyEntry {
                     address: keypair.address.clone().into(),
