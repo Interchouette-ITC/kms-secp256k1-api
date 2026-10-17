@@ -7,6 +7,12 @@ all-features = false
 [advisories]
 yanked = "warn"
 unmaintained = "workspace"
+# zip is a build-dep of utoipa-swagger-ui; v9 pins ^3, v10 pins ^8.6. Patched line is zip >=9.
+ignore = [
+    { id = "RUSTSEC-2026-0367", reason = "utoipa-swagger-ui build-dep zip; no release accepts zip >=9 yet" },
+    { id = "RUSTSEC-2026-0368", reason = "utoipa-swagger-ui build-dep zip; no release accepts zip >=9 yet" },
+    { id = "RUSTSEC-2026-0369", reason = "utoipa-swagger-ui build-dep zip; no release accepts zip >=9 yet" },
+]
 
 [licenses]
 unused-allowed-license = "allow"
