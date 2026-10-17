@@ -16,10 +16,11 @@ axum = { version = "0.8.9", default-features = false, features = [
   "http2",
   "tokio",
 ] }
-k256 = { version = "0.13.4", features = [
+k256 = { version = "0.14.0", features = [
   "ecdsa",
   "pkcs8",
   "alloc",
+  "getrandom",
 ], default-features = false }
 axum-extra = { version = "0.12.6", features = [
   "query",
@@ -27,10 +28,10 @@ axum-extra = { version = "0.12.6", features = [
 tokio = { version = "1.53.1", features = ["full"], default-features = false }
 serde = { version = "1.0.229", features = ["derive"], default-features = false }
 serde_json = { version = "1.0.151", default-features = false }
-utoipa = { version = "5.5.0", features = [
+utoipa = { version = "6.0.0", features = [
   "axum_extras",
 ], default-features = false }
-utoipa-swagger-ui = { version = "9.0.2", features = [
+utoipa-swagger-ui = { version = "10.0.1", features = [
   "axum",
 ], default-features = false }
 once_cell = { version = "1.21.4", default-features = false }
@@ -58,7 +59,7 @@ tracing-subscriber = { version = "0.3.23", features = [
 thiserror = "2.0.20"
 base64 = { version = "0.23.1", features = ["alloc"], default-features = false }
 hex = { version = "0.4.3", default-features = false }
-wasmtime = { version = "48.0.6", default-features = false, features = [
+wasmtime = { version = "49.0.3", default-features = false, features = [
   "async",
   "std",
   "winch",
@@ -68,7 +69,6 @@ casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", br
 # Types + local wallet only (full `ethers` pulls ethers-providers → jsonwebtoken 8 / ring 0.16).
 ethers-core = { version = "2.0.14", default-features = false, optional = true }
 ethers-signers = { version = "2.0.14", default-features = false, optional = true }
-rand = { version = "0.10.2", default-features = false }
 reqwest = { version = "0.13.5", default-features = false, features = ["json"] }
 cosmrs = { version = "0.22.0", default-features = false, features = [
   "bip32",

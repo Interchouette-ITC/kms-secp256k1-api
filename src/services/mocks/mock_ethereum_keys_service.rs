@@ -11,7 +11,7 @@ use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use ethers_core::types::{H256, TransactionRequest, TxHash};
 use ethers_signers::{LocalWallet, Signer};
-use k256::{ecdsa::SigningKey, elliptic_curve::rand_core::OsRng};
+use k256::{ecdsa::SigningKey, elliptic_curve::Generate};
 use serde_json::json;
 use std::str::FromStr;
 use tracing::error;
@@ -27,9 +27,9 @@ impl KeysServiceTrait for MockEthereumKeysService {
     /// Returns the public key encoded as a hexadecimal string on success.
     /// Returns an error string describing the issue on failure.
     async fn create_key(&mut self, _config: &Config) -> crate::Result<KeyEntry> {
-        let signing_key = SigningKey::random(&mut OsRng);
+        let signing_key = SigningKey::generate();
         let verifying_key = signing_key.verifying_key();
-        let encoded_point = verifying_key.to_encoded_point(true);
+        let encoded_point = verifying_key.to_sec1_point(true);
 
         let private_key_bytes = signing_key.to_bytes();
         let private_key = hex::encode(private_key_bytes);

@@ -14,14 +14,13 @@ use crate::{
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use cosmrs::{
-    bip32::{PrivateKey, PublicKey},
     proto::cosmos::tx::v1beta1::TxRaw,
     tendermint::chain::Id,
     tx::{AuthInfo, Body, Fee, MessageExt, SignDoc},
 };
 use k256::{
     ecdsa::{Signature, SigningKey, signature::Signer},
-    elliptic_curve::rand_core::OsRng,
+    elliptic_curve::Generate,
     sha2::{Digest, Sha256},
 };
 use serde_json::json;
@@ -36,9 +35,9 @@ pub struct MockCosmosKeysService {
 #[async_trait::async_trait]
 impl KeysServiceTrait for MockCosmosKeysService {
     async fn create_key(&mut self, _config: &Config) -> crate::Result<KeyEntry> {
-        let signing_key = SigningKey::random(&mut OsRng);
+        let signing_key = SigningKey::generate();
         let verifying_key = signing_key.verifying_key();
-        let encoded_point = verifying_key.to_encoded_point(true);
+        let encoded_point = verifying_key.to_sec1_point(true);
 
         let private_key_bytes = signing_key.to_bytes();
         let private_key = hex::encode(private_key_bytes);
@@ -331,9 +330,8 @@ impl MockCosmosKeysService {
         let signing_key = SigningKey::from_slice(&private_key_bytes)
             .map_err(|e| crate::KmsError::Msg(format!("Failed to create signing key: {e}")))?;
 
-        let public_key = signing_key.public_key();
-        let public_key_bytes = public_key.to_bytes();
-        let pubkey_base64 = STANDARD.encode(public_key_bytes);
+        let public_key_bytes = signing_key.verifying_key().to_sec1_bytes();
+        let pubkey_base64 = STANDARD.encode(&public_key_bytes);
 
         Ok((key, signing_key, public_key_bytes.to_vec(), pubkey_base64))
     }
@@ -386,7 +384,7 @@ impl MockCosmosKeysService {
         let transaction_hash = hex::encode(transaction_hash);
 
         let signature_hex = signature.to_string();
-        let public_key = hex::encode(signing_key.public_key().to_bytes());
+        let public_key = hex::encode(signing_key.verifying_key().to_sec1_bytes());
 
         let is_valid = self
             .verify(&transaction_hash, &signature_hex, &public_key)

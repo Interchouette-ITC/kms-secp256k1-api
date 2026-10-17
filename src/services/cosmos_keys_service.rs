@@ -11,7 +11,6 @@ use cosmrs::{
     tendermint::{block, chain::Id},
     tx::{AuthInfo, Body, Fee, MessageExt, SignDoc, SignerInfo},
 };
-use k256::ecdsa::VerifyingKey;
 use k256::{
     PublicKey,
     ecdsa::Signature,
@@ -648,10 +647,9 @@ pub fn build_auth_info(
     sequence: u64,
     fee: &Fee,
 ) -> crate::Result<AuthInfo> {
-    let verifying_key = VerifyingKey::from_sec1_bytes(public_key_bytes)
-        .map_err(|e| crate::KmsError::Msg(format!("Invalid secp256k1 public key: {e}")))?;
-
-    let cosmos_pubkey = CosmosSecp256k1PublicKey::from(&verifying_key);
+    let tendermint_pk = cosmrs::tendermint::PublicKey::from_raw_secp256k1(public_key_bytes)
+        .ok_or_else(|| crate::KmsError::Msg("Invalid secp256k1 public key".into()))?;
+    let cosmos_pubkey = CosmosSecp256k1PublicKey::from(tendermint_pk);
     let signer_info = SignerInfo::single_direct(Some(cosmos_pubkey), sequence);
 
     Ok(AuthInfo {
