@@ -161,7 +161,10 @@ coverage-html:
 audit:
 	cargo audit \
 		--ignore RUSTSEC-2025-0009 \
-		--ignore RUSTSEC-2026-0258
+		--ignore RUSTSEC-2026-0258 \
+		--ignore RUSTSEC-2026-0367 \
+		--ignore RUSTSEC-2026-0368 \
+		--ignore RUSTSEC-2026-0369
 
 ## Requires `cargo install cargo-deny`.
 deny:

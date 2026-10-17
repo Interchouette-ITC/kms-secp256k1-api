@@ -14,11 +14,7 @@ use base64::Engine;
 #[cfg(test)]
 use base64::engine::general_purpose::STANDARD;
 #[cfg(test)]
-use k256::{
-    EncodedPoint, Secp256k1,
-    ecdsa::SigningKey,
-    elliptic_curve::{PublicKey, pkcs8::EncodePublicKey, rand_core::OsRng, sec1::FromEncodedPoint},
-};
+use k256::{PublicKey, ecdsa::SigningKey, elliptic_curve::Generate, pkcs8::EncodePublicKey};
 
 #[cfg(test)]
 pub struct MockKmsClientService;
@@ -27,15 +23,8 @@ pub struct MockKmsClientService;
 #[async_trait::async_trait]
 impl KmsClientService for MockKmsClientService {
     async fn create_key(&self) -> crate::Result<(String, String)> {
-        let signing_key = SigningKey::random(&mut OsRng);
-        let verifying_key = signing_key.verifying_key();
-        let encoded_point: EncodedPoint = verifying_key.to_encoded_point(false);
-
-        let public_key: PublicKey<Secp256k1> = PublicKey::from_encoded_point(&encoded_point)
-            .into_option()
-            .ok_or_else(|| {
-                crate::KmsError::Msg("Failed to create PublicKey from encoded point".into())
-            })?;
+        let signing_key = SigningKey::generate();
+        let public_key = PublicKey::from(signing_key.verifying_key());
 
         let der = public_key
             .to_public_key_der()
