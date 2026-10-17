@@ -2754,7 +2754,7 @@ dependencies = [
 
 [[package]]
 name = "kms-secp256k1-api"
-version = "1.2.2"
+version = "1.2.3"
 dependencies = [
  "async-trait",
  "aws-config",
