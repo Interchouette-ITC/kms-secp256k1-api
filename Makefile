@@ -158,10 +158,14 @@ coverage-html:
 		--output-dir coverage/html
 
 ## Requires `cargo install cargo-audit`.
+## zip 3.x is a build-dep of utoipa-swagger-ui 9; no release yet accepts zip >=9.
 audit:
 	cargo audit \
 		--ignore RUSTSEC-2025-0009 \
-		--ignore RUSTSEC-2026-0258
+		--ignore RUSTSEC-2026-0258 \
+		--ignore RUSTSEC-2026-0367 \
+		--ignore RUSTSEC-2026-0368 \
+		--ignore RUSTSEC-2026-0369
 
 ## Requires `cargo install cargo-deny`.
 deny:
