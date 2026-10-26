@@ -59,7 +59,7 @@ tracing-subscriber = { version = "0.3.23", features = [
 thiserror = "2.0.20"
 base64 = { version = "0.23.1", features = ["alloc"], default-features = false }
 hex = { version = "0.4.3", default-features = false }
-wasmtime = { version = "49.0.3", default-features = false, features = [
+wasmtime = { version = "50.0.0", default-features = false, features = [
   "async",
   "std",
   "winch",
