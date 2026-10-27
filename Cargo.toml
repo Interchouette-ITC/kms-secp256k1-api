@@ -65,7 +65,9 @@ wasmtime = { version = "50.0.0", default-features = false, features = [
   "winch",
 ] }
 async-trait = { version = "0.1.92", default-features = false }
-casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", branch = "dev", default-features = false, optional = true }
+casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", branch = "dev", default-features = false, features = [
+  "transaction",
+], optional = true }
 # Types + local wallet only (full `ethers` pulls ethers-providers → jsonwebtoken 8 / ring 0.16).
 ethers-core = { version = "2.0.14", default-features = false, optional = true }
 ethers-signers = { version = "2.0.14", default-features = false, optional = true }
