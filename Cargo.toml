@@ -59,13 +59,15 @@ tracing-subscriber = { version = "0.3.23", features = [
 thiserror = "2.0.20"
 base64 = { version = "0.23.1", features = ["alloc"], default-features = false }
 hex = { version = "0.4.3", default-features = false }
-wasmtime = { version = "49.0.3", default-features = false, features = [
+wasmtime = { version = "50.0.0", default-features = false, features = [
   "async",
   "std",
   "winch",
 ] }
 async-trait = { version = "0.1.92", default-features = false }
-casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", branch = "dev", default-features = false, optional = true }
+casper-rust-wasm-sdk = { git = "https://github.com/casper-ecosystem/rustSDK", branch = "dev", default-features = false, features = [
+  "transaction",
+], optional = true }
 # Types + local wallet only (full `ethers` pulls ethers-providers → jsonwebtoken 8 / ring 0.16).
 ethers-core = { version = "2.0.14", default-features = false, optional = true }
 ethers-signers = { version = "2.0.14", default-features = false, optional = true }

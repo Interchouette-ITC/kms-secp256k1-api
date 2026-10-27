@@ -8,9 +8,7 @@ all-features = false
 yanked = "warn"
 unmaintained = "workspace"
 ignore = [
-    { id = "RUSTSEC-2026-0367", reason = "utoipa-swagger-ui build-dep zip <9" },
-    { id = "RUSTSEC-2026-0368", reason = "utoipa-swagger-ui build-dep zip <9" },
-    { id = "RUSTSEC-2026-0369", reason = "utoipa-swagger-ui build-dep zip <9" },
+    { id = "RUSTSEC-2026-0387", reason = "Temporarily accepted: casper-types 7.1.1 pins k256 0.13; upgrading crypto-bigint requires a compatible cryptography dependency migration." },
 ]
 
 [licenses]
