@@ -1,2 +1,2 @@
-window.ALL_CRATES = ["kms_secp256k1_api"];
-//{"start":21,"fragment_lengths":[19]}
+window.ALL_CRATES = [{"c":"kms_secp256k1_api"}];
+//{"start":21,"fragment_lengths":[25]}
