@@ -2,10 +2,12 @@
 
 use kms_secp256k1_api_mcp::client;
 use kms_secp256k1_api_mcp::ops;
-use kms_secp256k1_api_mcp::paths::DEFAULT_API_URL;
 use serde_json::Value;
 use std::env;
 use std::time::Duration;
+
+#[path = "common/isolation.rs"]
+mod isolation;
 
 async fn wait_hello(seconds: u64) -> bool {
     let deadline = std::time::Instant::now() + Duration::from_secs(seconds);
@@ -24,13 +26,19 @@ async fn mock_api_create_list_delete_roundtrip() {
     // Use a high port to avoid colliding with a developer API on :4000.
     let port: u16 = 4011;
     let base = format!("http://127.0.0.1:{port}");
-    env::set_var("KMS_API_URL", &base);
-    env::set_var(
-        "KMS_API_ROOT",
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap(),
-    );
+    if isolation::run_isolated("mock_api_create_list_delete_roundtrip", false, |cmd| {
+        cmd.env("KMS_API_URL", &base).env(
+            "KMS_API_ROOT",
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap(),
+        );
+        if let Some(host) = env::var_os("KMS_HOST_ROOT") {
+            cmd.env("KMS_HOST_ROOT", host);
+        }
+    }) {
+        return;
+    }
 
     // casper-only: enough for mock create/list/delete; avoids cold-compiling ethereum/cosmos in CI.
     let start = ops::api_start(Some("casper"), Some(port));
@@ -51,7 +59,9 @@ async fn mock_api_create_list_delete_roundtrip() {
             .chars()
             .rev()
             .collect();
-        panic!("API did not become ready on {base}; last start:\n{start}\n--- api.log (tail) ---\n{tail}");
+        panic!(
+            "API did not become ready on {base}; last start:\n{start}\n--- api.log (tail) ---\n{tail}"
+        );
     }
 
     let created = client::create_key().await;
@@ -89,8 +99,6 @@ async fn mock_api_create_list_delete_roundtrip() {
         stop.contains("stopped") || stop.contains("nothing to stop"),
         "api_stop: {stop}"
     );
-
-    env::set_var("KMS_API_URL", DEFAULT_API_URL);
 }
 
 /// LocalStack + API compose stack. Run with `KMS_MCP_LIVE=1` (needs Docker).
@@ -100,13 +108,20 @@ async fn live_localstack_stack_create_delete() {
     if env::var("KMS_MCP_LIVE").ok().as_deref() != Some("1") {
         return;
     }
-    env::set_var(
-        "KMS_API_ROOT",
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .parent()
-            .unwrap(),
-    );
-    env::set_var("KMS_API_URL", "http://127.0.0.1:4001");
+    if isolation::run_isolated("live_localstack_stack_create_delete", true, |cmd| {
+        cmd.env(
+            "KMS_API_ROOT",
+            std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                .parent()
+                .unwrap(),
+        )
+        .env("KMS_API_URL", "http://127.0.0.1:4001");
+        if let Some(host) = env::var_os("KMS_HOST_ROOT") {
+            cmd.env("KMS_HOST_ROOT", host);
+        }
+    }) {
+        return;
+    }
 
     let start = ops::stack_start();
     assert!(

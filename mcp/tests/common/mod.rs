@@ -3,22 +3,17 @@
 use std::env;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-fn env_lock() -> &'static Mutex<()> {
-    static LOCK: OnceLock<Mutex<()>> = OnceLock::new();
-    LOCK.get_or_init(|| Mutex::new(()))
-}
+mod isolation;
+pub use isolation::run_isolated;
 
 pub struct FakeRepo {
     pub root: PathBuf,
-    _guard: std::sync::MutexGuard<'static, ()>,
 }
 
 impl FakeRepo {
     pub fn new() -> Self {
-        let guard = env_lock().lock().unwrap_or_else(|e| e.into_inner());
         let mut root = env::temp_dir();
         root.push(format!(
             "kms-mcp-fixture-{}-{}",
@@ -64,19 +59,12 @@ docker-stop:\n\t@echo stopped\n",
         )
         .unwrap();
 
-        env::set_var("KMS_API_ROOT", &root);
-        env::set_var("KMS_HOST_ROOT", &root);
-        Self {
-            root,
-            _guard: guard,
-        }
+        Self { root }
     }
 }
 
 impl Drop for FakeRepo {
     fn drop(&mut self) {
-        env::remove_var("KMS_API_ROOT");
-        env::remove_var("KMS_HOST_ROOT");
         let _ = fs::remove_dir_all(&self.root);
     }
 }

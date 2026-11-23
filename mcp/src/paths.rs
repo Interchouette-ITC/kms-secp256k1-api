@@ -136,63 +136,61 @@ pub fn api_base_url() -> String {
 }
 
 #[cfg(test)]
-pub mod test_env {
-    use std::sync::Mutex;
-    /// Serialize tests that mutate `KMS_API_ROOT` / `KMS_HOST_ROOT` / `KMS_API_URL`.
-    pub static ENV_LOCK: Mutex<()> = Mutex::new(());
-}
+#[path = "../tests/common/isolation.rs"]
+pub mod test_env;
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::paths::test_env::ENV_LOCK;
-    use std::fs;
+    use crate::paths::test_env::run_isolated;
 
     #[test]
     fn repo_root_respects_env() {
-        let _g = ENV_LOCK.lock().unwrap();
-        let mut dir = env::temp_dir();
-        dir.push(format!("kms-mcp-root-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&dir);
-        fs::create_dir_all(&dir).unwrap();
-        fs::write(dir.join("Makefile"), "help:\n\t@echo ok\n").unwrap();
-        fs::write(
-            dir.join("Cargo.toml"),
-            "[package]\nname=\"x\"\nversion=\"0.0.0\"\nedition=\"2021\"\n",
-        )
-        .unwrap();
-        env::set_var("KMS_API_ROOT", &dir);
-        assert_eq!(repo_root(), dir);
-        env::remove_var("KMS_API_ROOT");
-        let _ = fs::remove_dir_all(&dir);
+        if run_isolated("paths::tests::repo_root_respects_env", false, |cmd| {
+            cmd.env("KMS_API_ROOT", "/test/mcp-root");
+        }) {
+            return;
+        }
+        assert_eq!(repo_root(), PathBuf::from("/test/mcp-root"));
     }
 
     #[test]
     fn host_repo_root_prefers_kms_host_root() {
-        let _g = ENV_LOCK.lock().unwrap();
-        env::set_var("KMS_API_ROOT", "/workspace");
-        env::set_var("KMS_HOST_ROOT", "/opt2/kms-secp256k1-api");
+        if run_isolated(
+            "paths::tests::host_repo_root_prefers_kms_host_root",
+            false,
+            |cmd| {
+                cmd.env("KMS_API_ROOT", "/workspace")
+                    .env("KMS_HOST_ROOT", "/opt2/kms-secp256k1-api");
+            },
+        ) {
+            return;
+        }
         assert_eq!(host_repo_root(), PathBuf::from("/opt2/kms-secp256k1-api"));
         assert!(!host_bind_root_is_unsafe());
-        env::remove_var("KMS_HOST_ROOT");
-        assert!(host_bind_root_is_unsafe());
-        env::remove_var("KMS_API_ROOT");
     }
 
     #[test]
     fn host_bind_refuses_root_and_relative() {
-        let _g = ENV_LOCK.lock().unwrap();
-        env::remove_var("KMS_API_ROOT");
-        env::set_var("KMS_HOST_ROOT", "/");
-        assert!(host_bind_root_is_unsafe());
-        env::set_var("KMS_HOST_ROOT", "relative/path");
-        assert!(host_bind_root_is_unsafe());
-        env::set_var("KMS_HOST_ROOT", "/workspace");
-        assert!(host_bind_root_is_unsafe());
-        env::set_var("KMS_HOST_ROOT", "/workspace/foo");
-        assert!(host_bind_root_is_unsafe());
-        env::set_var("KMS_HOST_ROOT", "/opt2/kms-secp256k1-api");
-        assert!(!host_bind_root_is_unsafe());
-        env::remove_var("KMS_HOST_ROOT");
+        let test = "paths::tests::host_bind_refuses_root_and_relative";
+        if env::var("KMS_MCP_ISOLATED_TEST").ok().as_deref() != Some(test) {
+            for host in [
+                "/",
+                "relative/path",
+                "/workspace",
+                "/workspace/foo",
+                "/opt2/kms-secp256k1-api",
+            ] {
+                run_isolated(test, false, |cmd| {
+                    cmd.env("KMS_HOST_ROOT", host);
+                });
+            }
+            return;
+        }
+        let host = env::var("KMS_HOST_ROOT").unwrap();
+        assert_eq!(
+            host_bind_root_is_unsafe(),
+            host != "/opt2/kms-secp256k1-api"
+        );
     }
 }

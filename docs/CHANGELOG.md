@@ -16,6 +16,7 @@ Updated dependencies.
 ### Fixed
 
 - Replace deprecated MCP server configuration alias to avoid build warnings.
+- Isolate MCP tests' environment configuration in subprocesses for Rust 2024 compatibility.
 
 ## [1.2.3] - 2026-10-17
 
