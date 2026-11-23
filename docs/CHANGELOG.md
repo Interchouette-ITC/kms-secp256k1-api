@@ -13,6 +13,8 @@ Changed
 
 Updated dependencies.
 
+## [1.2.3] - 2026-10-17
+
 ### Changed
 
 - Patch release to rebuild Hub and GHCR images from current `dev`
