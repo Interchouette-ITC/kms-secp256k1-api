@@ -159,8 +159,7 @@ fn urlencoding_lite(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::paths::test_env::ENV_LOCK;
-    use std::env;
+    use crate::paths::test_env::run_isolated;
 
     #[test]
     fn urlencoding_preserves_hex() {
@@ -170,9 +169,11 @@ mod tests {
 
     #[test]
     fn api_base_url_env() {
-        let _g = ENV_LOCK.lock().unwrap();
-        env::set_var("KMS_API_URL", "http://127.0.0.1:4001");
+        if run_isolated("client::tests::api_base_url_env", false, |cmd| {
+            cmd.env("KMS_API_URL", "http://127.0.0.1:4001");
+        }) {
+            return;
+        }
         assert_eq!(api_base_url(), "http://127.0.0.1:4001");
-        env::remove_var("KMS_API_URL");
     }
 }

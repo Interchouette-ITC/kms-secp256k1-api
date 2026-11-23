@@ -470,13 +470,12 @@ pub fn status() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::paths::test_env::ENV_LOCK;
+    use crate::paths::test_env::run_isolated;
     use std::env;
     use std::fs;
 
     #[test]
     fn help_mentions_parity_tools() {
-        let _g = ENV_LOCK.lock().unwrap();
         let mut dir = env::temp_dir();
         dir.push(format!("kms-mcp-help-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -491,17 +490,18 @@ mod tests {
             "[package]\nname=\"x\"\nversion=\"0.0.0\"\nedition=\"2021\"\n",
         )
         .unwrap();
-        env::set_var("KMS_API_ROOT", &dir);
-        let text = help();
-        assert!(text.contains("kms_build"), "{text}");
-        assert!(text.contains("kms_stack_start"), "{text}");
-        env::remove_var("KMS_API_ROOT");
+        if !run_isolated("ops::tests::help_mentions_parity_tools", false, |cmd| {
+            cmd.env("KMS_API_ROOT", &dir);
+        }) {
+            let text = help();
+            assert!(text.contains("kms_build"), "{text}");
+            assert!(text.contains("kms_stack_start"), "{text}");
+        }
         let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
     fn status_runs_with_fixture() {
-        let _g = ENV_LOCK.lock().unwrap();
         let mut dir = env::temp_dir();
         dir.push(format!("kms-mcp-status-{}", std::process::id()));
         let _ = fs::remove_dir_all(&dir);
@@ -512,11 +512,13 @@ mod tests {
             "[package]\nname=\"x\"\nversion=\"0.0.0\"\nedition=\"2021\"\n",
         )
         .unwrap();
-        env::set_var("KMS_API_ROOT", &dir);
-        let text = status();
-        assert!(text.contains("repo_root="), "{text}");
-        assert!(text.contains("containers"), "{text}");
-        env::remove_var("KMS_API_ROOT");
+        if !run_isolated("ops::tests::status_runs_with_fixture", false, |cmd| {
+            cmd.env("KMS_API_ROOT", &dir);
+        }) {
+            let text = status();
+            assert!(text.contains("repo_root="), "{text}");
+            assert!(text.contains("containers"), "{text}");
+        }
         let _ = fs::remove_dir_all(&dir);
     }
 

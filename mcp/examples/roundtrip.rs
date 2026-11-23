@@ -9,10 +9,17 @@ use std::time::Duration;
 
 #[tokio::main]
 async fn main() {
+    if env::var("KMS_API_URL").ok().as_deref() != Some(DEFAULT_API_URL) {
+        let status = std::process::Command::new(env::current_exe().expect("example executable"))
+            .args(env::args_os().skip(1))
+            .env("KMS_API_URL", DEFAULT_API_URL)
+            .status()
+            .expect("run example with API URL");
+        std::process::exit(status.code().unwrap_or(1));
+    }
     println!("=== kms_api_start ===");
     println!("{}", ops::api_start(Some("casper"), Some(4000)));
 
-    env::set_var("KMS_API_URL", DEFAULT_API_URL);
     for _ in 0..30 {
         let hello = client::hello(None).await;
         if hello.contains("HTTP 200") || hello.to_lowercase().contains("kms") {

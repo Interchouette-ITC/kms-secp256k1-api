@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["BlockchainMode","HashType"],"struct":["AwsConfig","AwsCreds","Config","ConfigBuilder"]};
+window.SIDEBAR_ITEMS = {"enum":["BlockchainMode","HashType"],"fn":["dotenv_disabled","maybe_load_dotenv","read_cred_pair","refuse_shadowing_aws_env_creds"],"struct":["AwsConfig","AwsCreds","Config","ConfigBuilder"]};
