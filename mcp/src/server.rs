@@ -7,7 +7,7 @@ use std::sync::Arc;
 use rmcp::{
     ErrorData as McpError, ServerHandler, ServiceExt,
     handler::server::wrapper::Parameters,
-    model::{CallToolResult, ContentBlock, ServerCapabilities, ServerInfo},
+    model::{CallToolResult, ContentBlock, ServerCapabilities, ServerConfig},
     tool, tool_handler, tool_router,
     transport::stdio,
 };
@@ -291,8 +291,8 @@ pub async fn run_http(addr: &str) -> std::io::Result<()> {
 
 #[tool_handler]
 impl ServerHandler for KmsMcp {
-    fn get_info(&self) -> ServerInfo {
-        ServerInfo::new(ServerCapabilities::builder().enable_tools().build())
+    fn get_info(&self) -> ServerConfig {
+        ServerConfig::new(ServerCapabilities::builder().enable_tools().build())
             .with_server_info(rmcp::model::Implementation::new(
                 "kms-secp256k1-api",
                 env!("CARGO_PKG_VERSION"),

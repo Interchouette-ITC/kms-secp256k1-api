@@ -13,6 +13,10 @@ Changed
 
 Updated dependencies.
 
+### Fixed
+
+- Replace deprecated MCP server configuration alias to avoid build warnings.
+
 ## [1.2.3] - 2026-10-17
 
 ### Changed
