@@ -71,7 +71,10 @@ First public release.
 - Optional Cargo features select chain support (`casper` default; `all` for full image builds)
 - `k256` remains on 0.13.4 (cosmrs / ethers / casper-types require `^0.13`)
 
-[Unreleased]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.2.1...HEAD
-[1.2.1]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.2.1
+[Unreleased]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.2.4...HEAD
+[1.2.4]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.2.3...v1.2.4
+[1.2.3]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.2.2...v1.2.3
+[1.2.2]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.2.1...v1.2.2
+[1.2.1]: https://github.com/Interchouette-ITC/kms-secp256k1-api/compare/v1.2.0...v1.2.1
 [1.2.0]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.2.0
 [1.1.0]: https://github.com/Interchouette-ITC/kms-secp256k1-api/releases/tag/v1.1.0
